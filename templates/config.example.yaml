@@ -29,7 +29,7 @@ adapters:
   claude-ai:
     enabled: true
 
-# Triggers (macOS launchd)
+# Triggers (macOS launchd / Linux systemd)
 triggers:
   startup:
     enabled: false
