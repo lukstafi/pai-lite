@@ -18,6 +18,7 @@ pai_lite_projects_list() {
       return s
     }
     /^[[:space:]]*projects:/ { in_projects=1; next }
+    in_projects && $0 ~ /^[[:space:]]*$/ { next }
     in_projects && $0 !~ /^[[:space:]]/ { in_projects=0 }
     in_projects {
       if ($0 ~ /^[[:space:]]*-[[:space:]]*name:/) {
