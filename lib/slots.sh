@@ -87,6 +87,22 @@ slots_write_file() {
   } > "$file"
 }
 
+slots_count() {
+  local count
+  count="$(pai_lite_config_slots_count)"
+  [[ -n "$count" ]] || count=6
+  echo "$count"
+}
+
+slot_validate_range() {
+  local slot="$1"
+  local count="$2"
+  [[ "$slot" =~ ^[0-9]+$ ]] || pai_lite_die "slot must be a number: $slot"
+  if (( slot < 1 || slot > count )); then
+    pai_lite_die "slot out of range: $slot (1-$count)"
+  fi
+}
+
 slots_list() {
   local file
   file="$(slots_file_path)"
@@ -104,6 +120,7 @@ slots_list() {
 slot_show() {
   local slot="$1" file
   file="$(slots_file_path)"
+  slot_validate_range "$slot" "$(slots_count)"
   slots_ensure_file
   awk -v target="$slot" '
     /^## Slot / {
@@ -120,8 +137,8 @@ slot_assign() {
   file="$(slots_file_path)"
   slots_ensure_file
   slots_load_blocks "$file"
-  count="$(pai_lite_config_slots_count)"
-  [[ -n "$count" ]] || count=6
+  count="$(slots_count)"
+  slot_validate_range "$slot" "$count"
 
   started="$(date -u +"%Y-%m-%dT%H:%MZ")"
   block=$(cat <<BLOCK
@@ -145,8 +162,8 @@ slot_clear() {
   file="$(slots_file_path)"
   slots_ensure_file
   slots_load_blocks "$file"
-  count="$(pai_lite_config_slots_count)"
-  [[ -n "$count" ]] || count=6
+  count="$(slots_count)"
+  slot_validate_range "$slot" "$count"
 
   PAI_LITE_SLOTS["$slot"]="$(slots_empty_block "$slot")"$'\n'
   slots_write_file "$count"
@@ -190,8 +207,8 @@ slot_note() {
   file="$(slots_file_path)"
   slots_ensure_file
   slots_load_blocks "$file"
-  count="$(pai_lite_config_slots_count)"
-  [[ -n "$count" ]] || count=6
+  count="$(slots_count)"
+  slot_validate_range "$slot" "$count"
 
   if [[ -z "${PAI_LITE_SLOTS[$slot]:-}" ]]; then
     pai_lite_die "slot $slot not found"
@@ -206,6 +223,7 @@ slot_adapter_action() {
   local file block mode root adapter_file fn
 
   file="$(slots_file_path)"
+  slot_validate_range "$slot" "$(slots_count)"
   slots_ensure_file
   slots_load_blocks "$file"
   block="${PAI_LITE_SLOTS[$slot]:-}"
