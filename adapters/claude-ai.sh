@@ -16,7 +16,7 @@
 # Adapter interface for pai-lite
 #------------------------------------------------------------------------------
 
-adapter_claude-ai_status() {
+adapter_claude_ai_status() {
     local slot_num="$1"
 
     # Look for Claude.ai URL in terminals or runtime
@@ -38,7 +38,7 @@ adapter_claude-ai_status() {
     fi
 }
 
-adapter_claude-ai_start() {
+adapter_claude_ai_start() {
     local slot_num="$1"
 
     # Look for existing URL
@@ -63,7 +63,7 @@ adapter_claude-ai_start() {
     fi
 }
 
-adapter_claude-ai_stop() {
+adapter_claude_ai_stop() {
     local slot_num="$1"
 
     # Nothing to stop for browser sessions
@@ -113,7 +113,7 @@ parse_claude_ai_url() {
 # Quick reference: How to use this adapter
 #------------------------------------------------------------------------------
 
-adapter_claude-ai_help() {
+adapter_claude_ai_help() {
     cat <<EOF
 ${BOLD}Claude.ai Adapter${NC}
 

@@ -243,10 +243,12 @@ slot_show() {
     # If adapter is available, show live status
     if [[ -n "$mode" ]]; then
         if source_adapter "$mode" 2>/dev/null; then
-            if declare -f "adapter_${mode}_status" &>/dev/null; then
+            # Convert hyphens to underscores for valid Bash function names
+            local mode_fn="${mode//-/_}"
+            if declare -f "adapter_${mode_fn}_status" &>/dev/null; then
                 echo ""
                 echo -e "  ${BOLD}Live Status:${NC}"
-                "adapter_${mode}_status" "$slot_num" 2>/dev/null || echo "    (adapter error)"
+                "adapter_${mode_fn}_status" "$slot_num" 2>/dev/null || echo "    (adapter error)"
             fi
         fi
     fi
@@ -414,9 +416,11 @@ slot_clear() {
     mode="$(slot_get_field "$slot_num" "mode")"
     if [[ -n "$mode" ]]; then
         if source_adapter "$mode" 2>/dev/null; then
-            if declare -f "adapter_${mode}_stop" &>/dev/null; then
+            # Convert hyphens to underscores for valid Bash function names
+            local mode_fn="${mode//-/_}"
+            if declare -f "adapter_${mode_fn}_stop" &>/dev/null; then
                 info "stopping $mode session..."
-                "adapter_${mode}_stop" "$slot_num" 2>/dev/null || warn "failed to stop session"
+                "adapter_${mode_fn}_stop" "$slot_num" 2>/dev/null || warn "failed to stop session"
             fi
         fi
     fi
@@ -451,12 +455,14 @@ slot_start() {
         die "adapter not found: $mode"
     fi
 
-    if ! declare -f "adapter_${mode}_start" &>/dev/null; then
+    # Convert hyphens to underscores for valid Bash function names
+    local mode_fn="${mode//-/_}"
+    if ! declare -f "adapter_${mode_fn}_start" &>/dev/null; then
         die "adapter $mode does not support start"
     fi
 
     info "starting $mode session for slot $slot_num..."
-    "adapter_${mode}_start" "$slot_num"
+    "adapter_${mode_fn}_start" "$slot_num"
 }
 
 slot_stop() {
@@ -475,12 +481,14 @@ slot_stop() {
         die "adapter not found: $mode"
     fi
 
-    if ! declare -f "adapter_${mode}_stop" &>/dev/null; then
+    # Convert hyphens to underscores for valid Bash function names
+    local mode_fn="${mode//-/_}"
+    if ! declare -f "adapter_${mode_fn}_stop" &>/dev/null; then
         die "adapter $mode does not support stop"
     fi
 
     info "stopping $mode session for slot $slot_num..."
-    "adapter_${mode}_stop" "$slot_num"
+    "adapter_${mode_fn}_stop" "$slot_num"
 }
 
 slot_note() {

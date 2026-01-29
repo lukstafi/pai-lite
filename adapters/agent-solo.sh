@@ -22,7 +22,7 @@ fi
 # Adapter interface for pai-lite
 #------------------------------------------------------------------------------
 
-adapter_agent-solo_status() {
+adapter_agent_solo_status() {
     local slot_num="$1"
 
     # Get project directory from slot
@@ -74,7 +74,7 @@ adapter_agent-solo_status() {
     fi
 }
 
-adapter_agent-solo_start() {
+adapter_agent_solo_start() {
     local slot_num="$1"
 
     local session
@@ -121,9 +121,9 @@ adapter_agent-solo_start() {
     fi
 }
 
-adapter_agent-solo_stop() {
+adapter_agent_solo_stop() {
     local slot_num="$1"
 
     # Same as agent-duo
-    adapter_agent-duo_stop "$slot_num"
+    adapter_agent_duo_stop "$slot_num"
 }

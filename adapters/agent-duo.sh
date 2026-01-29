@@ -30,7 +30,7 @@ read_sync_file() {
 }
 
 # Get agent-duo session state
-adapter_agent-duo_read_state() {
+adapter_agent_duo_read_state() {
     local project_dir="$1"
 
     local sync_dir
@@ -74,7 +74,7 @@ parse_ports() {
 # Adapter interface for pai-lite
 #------------------------------------------------------------------------------
 
-adapter_agent-duo_status() {
+adapter_agent_duo_status() {
     local slot_num="$1"
 
     # Get project directory from slot
@@ -127,7 +127,7 @@ adapter_agent-duo_status() {
     fi
 }
 
-adapter_agent-duo_start() {
+adapter_agent_duo_start() {
     local slot_num="$1"
 
     # Get session info from slot
@@ -179,7 +179,7 @@ adapter_agent-duo_start() {
     fi
 }
 
-adapter_agent-duo_stop() {
+adapter_agent_duo_stop() {
     local slot_num="$1"
 
     local session
@@ -207,7 +207,7 @@ adapter_agent-duo_stop() {
 #------------------------------------------------------------------------------
 
 # Sync slot state from agent-duo's .peer-sync directory
-adapter_agent-duo_sync_slot() {
+adapter_agent_duo_sync_slot() {
     local slot_num="$1"
     local project_dir="$2"
 

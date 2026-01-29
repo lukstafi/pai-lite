@@ -76,7 +76,7 @@ find_claude_code_sessions() {
 # Adapter interface for pai-lite
 #------------------------------------------------------------------------------
 
-adapter_claude-code_status() {
+adapter_claude_code_status() {
     local slot_num="$1"
 
     # Get session name from slot
@@ -122,7 +122,7 @@ adapter_claude-code_status() {
     fi
 }
 
-adapter_claude-code_start() {
+adapter_claude_code_start() {
     local slot_num="$1"
 
     if ! has_tmux; then
@@ -170,7 +170,7 @@ adapter_claude-code_start() {
     fi
 }
 
-adapter_claude-code_stop() {
+adapter_claude_code_stop() {
     local slot_num="$1"
 
     if ! has_tmux; then
@@ -205,7 +205,7 @@ adapter_claude-code_stop() {
 # Discovery: Find and report Claude Code sessions
 #------------------------------------------------------------------------------
 
-adapter_claude-code_discover() {
+adapter_claude_code_discover() {
     echo -e "${BOLD}Claude Code Sessions${NC}"
     echo ""
 
@@ -242,7 +242,7 @@ adapter_claude-code_discover() {
 #------------------------------------------------------------------------------
 
 # Attach to a Claude Code session by name or slot
-adapter_claude-code_attach() {
+adapter_claude_code_attach() {
     local target="$1"
 
     if ! has_tmux; then
