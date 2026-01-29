@@ -461,6 +461,65 @@ slot_start() {
         die "adapter $mode does not support start"
     fi
 
+    # Persist mode to slot if it changed or wasn't set
+    if [[ "$mode" != "$current_mode" ]]; then
+        local file
+        file="$(slots_file)"
+        local process session started
+        process="$(slot_get_field "$slot_num" "process")"
+        session="$(slot_get_field "$slot_num" "session")"
+        started="$(slot_get_field "$slot_num" "started")"
+        [[ -z "$started" ]] && started="$(date -u '+%Y-%m-%dT%H:%MZ')"
+
+        # Get existing runtime, terminals, git
+        local terminal_items git_items runtime_items
+        terminal_items="$(parse_slot_section "## Slot $slot_num" < "$file" | grep "^terminal_item=" | cut -d= -f2-)"
+        git_items="$(parse_slot_section "## Slot $slot_num" < "$file" | grep "^git_item=" | cut -d= -f2-)"
+        runtime_items="$(parse_slot_section "## Slot $slot_num" < "$file" | grep "^runtime_item=" | cut -d= -f2-)"
+
+        # Build new section with mode
+        local new_section="## Slot $slot_num
+
+**Process:** $process
+**Mode:** $mode"
+        [[ -n "$session" ]] && new_section+="
+**Session:** $session"
+        new_section+="
+**Started:** $started"
+
+        if [[ -n "$terminal_items" ]]; then
+            new_section+="
+
+**Terminals:**"
+            while IFS= read -r item; do
+                [[ -n "$item" ]] && new_section+="
+- $item"
+            done <<< "$terminal_items"
+        fi
+
+        if [[ -n "$runtime_items" ]]; then
+            new_section+="
+
+**Runtime:**"
+            while IFS= read -r item; do
+                [[ -n "$item" ]] && new_section+="
+- $item"
+            done <<< "$runtime_items"
+        fi
+
+        if [[ -n "$git_items" ]]; then
+            new_section+="
+
+**Git:**"
+            while IFS= read -r item; do
+                [[ -n "$item" ]] && new_section+="
+- $item"
+            done <<< "$git_items"
+        fi
+
+        update_slot_in_file "$slot_num" "$new_section"
+    fi
+
     info "starting $mode session for slot $slot_num..."
     "adapter_${mode_fn}_start" "$slot_num"
 }

@@ -194,8 +194,6 @@ parse_roadmap() {
 #------------------------------------------------------------------------------
 
 tasks_sync() {
-    require_command gh
-
     info "syncing tasks from all sources..."
 
     local tasks_yaml
@@ -264,6 +262,11 @@ sync_project() {
 
     # GitHub issues
     if [[ "$issues_enabled" == "true" ]]; then
+        # Check for gh only once when first needed
+        if [[ -z "${_GH_CHECKED:-}" ]]; then
+            require_command gh
+            _GH_CHECKED=1
+        fi
         local issues_json
         issues_json="$(gh issue list --repo "$repo" --state open --limit 50 --json number,title 2>/dev/null || echo "")"
 
