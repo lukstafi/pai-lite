@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  pai-lite periodic sync trigger for macOS
+
+  This plist runs 'pai-lite tasks sync' periodically.
+
+  Installation:
+    1. Copy to ~/Library/LaunchAgents/
+    2. Edit the path and interval as needed
+    3. Run: launchctl load ~/Library/LaunchAgents/com.pai-lite.sync.plist
+
+  Or use: pai-lite triggers install
+-->
+<dict>
+    <key>Label</key>
+    <string>com.pai-lite.sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Update this path to your pai-lite installation -->
+        <string>/usr/local/bin/pai-lite</string>
+        <string>tasks</string>
+        <string>sync</string>
+    </array>
+
+    <!-- Run every hour (3600 seconds) -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>/tmp/pai-lite-sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pai-lite-sync.err</string>
+</dict>
+</plist>

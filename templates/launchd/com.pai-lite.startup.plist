@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  pai-lite startup trigger for macOS
+
+  This plist runs 'pai-lite briefing' when you log in.
+
+  Installation:
+    1. Copy to ~/Library/LaunchAgents/
+    2. Edit the path to pai-lite if needed
+    3. Run: launchctl load ~/Library/LaunchAgents/com.pai-lite.startup.plist
+
+  Or use: pai-lite triggers install
+-->
+<dict>
+    <key>Label</key>
+    <string>com.pai-lite.startup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Update this path to your pai-lite installation -->
+        <string>/usr/local/bin/pai-lite</string>
+        <string>briefing</string>
+    </array>
+
+    <!-- Run when user logs in -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>/tmp/pai-lite-startup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pai-lite-startup.err</string>
+</dict>
+</plist>

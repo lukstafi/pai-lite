@@ -1,0 +1,22 @@
+# pai-lite startup service for Linux (systemd)
+#
+# This service runs 'pai-lite briefing' on login.
+#
+# Installation:
+#   1. Copy to ~/.config/systemd/user/
+#   2. Edit the ExecStart path if needed
+#   3. Run: systemctl --user enable pai-lite-startup.service
+#
+# Or use: pai-lite triggers install
+
+[Unit]
+Description=pai-lite startup briefing
+After=network.target
+
+[Service]
+Type=oneshot
+# Update this path to your pai-lite installation
+ExecStart=/usr/local/bin/pai-lite briefing
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,614 @@
+#!/usr/bin/env bash
+# pai-lite - Lightweight personal AI infrastructure
+# Main CLI entry point
+
+set -euo pipefail
+
+# Version
+readonly PAI_LITE_VERSION="0.1.0"
+
+# Determine script location for sourcing libs
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+readonly LIB_DIR="${SCRIPT_DIR}/../lib"
+readonly ADAPTERS_DIR="${SCRIPT_DIR}/../adapters"
+
+# Config file locations (in order of precedence)
+readonly CONFIG_LOCATIONS=(
+    "${PAI_LITE_CONFIG:-}"
+    "${XDG_CONFIG_HOME:-$HOME/.config}/pai-lite/config.yaml"
+    "$HOME/.pai-lite/config.yaml"
+)
+
+# Colors for output (disabled if not a terminal)
+if [[ -t 1 ]]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[0;33m'
+    readonly BLUE='\033[0;34m'
+    readonly BOLD='\033[1m'
+    readonly NC='\033[0m'
+else
+    readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+fi
+
+# Global state
+CONFIG_FILE=""
+STATE_REPO=""
+STATE_PATH=""
+STATE_DIR=""
+
+#------------------------------------------------------------------------------
+# Utility functions
+#------------------------------------------------------------------------------
+
+die() {
+    echo -e "${RED}error:${NC} $*" >&2
+    exit 1
+}
+
+warn() {
+    echo -e "${YELLOW}warning:${NC} $*" >&2
+}
+
+info() {
+    echo -e "${BLUE}::${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}ok:${NC} $*"
+}
+
+debug() {
+    [[ "${PAI_LITE_DEBUG:-}" == "1" ]] && echo -e "${BOLD}debug:${NC} $*" >&2
+}
+
+require_command() {
+    local cmd="$1"
+    command -v "$cmd" &>/dev/null || die "required command not found: $cmd"
+}
+
+#------------------------------------------------------------------------------
+# Config loading
+#------------------------------------------------------------------------------
+
+find_config() {
+    for loc in "${CONFIG_LOCATIONS[@]}"; do
+        [[ -n "$loc" && -f "$loc" ]] && { echo "$loc"; return 0; }
+    done
+    return 1
+}
+
+# Simple YAML parser for our config format
+# Usage: yaml_get "key.subkey" < file.yaml
+yaml_get() {
+    local key="$1"
+    local current_indent=0
+    local key_parts=()
+    local depth=0
+
+    # Split key by dots
+    IFS='.' read -ra key_parts <<< "$key"
+    local target_depth=${#key_parts[@]}
+
+    while IFS= read -r line; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        # Calculate indent (2 spaces per level)
+        local stripped="${line#"${line%%[![:space:]]*}"}"
+        local indent=$(( (${#line} - ${#stripped}) / 2 ))
+
+        # Extract key and value
+        if [[ "$stripped" =~ ^([a-zA-Z_][a-zA-Z0-9_-]*):(.*)$ ]]; then
+            local k="${BASH_REMATCH[1]}"
+            local v="${BASH_REMATCH[2]}"
+            v="${v#"${v%%[![:space:]]*}"}"  # trim leading whitespace
+            v="${v%"${v##*[![:space:]]}"}"  # trim trailing whitespace
+
+            # Check if this matches our target at the right depth
+            if [[ $indent -eq $((depth)) && "$k" == "${key_parts[$depth]}" ]]; then
+                if [[ $((depth + 1)) -eq $target_depth ]]; then
+                    # Found the leaf key
+                    echo "$v"
+                    return 0
+                else
+                    # Need to go deeper
+                    ((depth++))
+                fi
+            fi
+        fi
+    done
+    return 1
+}
+
+load_config() {
+    CONFIG_FILE="$(find_config)" || die "no config file found. Run 'pai-lite init' first."
+    debug "using config: $CONFIG_FILE"
+
+    STATE_REPO="$(yaml_get "state_repo" < "$CONFIG_FILE")" || die "config missing: state_repo"
+    STATE_PATH="$(yaml_get "state_path" < "$CONFIG_FILE")" || STATE_PATH="harness"
+
+    # Determine state directory (clone location)
+    local repo_name="${STATE_REPO##*/}"
+    STATE_DIR="$HOME/$repo_name/$STATE_PATH"
+
+    if [[ ! -d "$STATE_DIR" ]]; then
+        warn "state directory not found: $STATE_DIR"
+        warn "run 'pai-lite init' to set up state repository"
+    fi
+
+    debug "state_repo: $STATE_REPO"
+    debug "state_path: $STATE_PATH"
+    debug "state_dir: $STATE_DIR"
+}
+
+#------------------------------------------------------------------------------
+# Source library scripts
+#------------------------------------------------------------------------------
+
+source_libs() {
+    local lib
+    for lib in slots tasks triggers; do
+        local lib_file="$LIB_DIR/${lib}.sh"
+        if [[ -f "$lib_file" ]]; then
+            # shellcheck source=/dev/null
+            source "$lib_file"
+        else
+            debug "library not found: $lib_file"
+        fi
+    done
+}
+
+source_adapter() {
+    local adapter="$1"
+    local adapter_file="$ADAPTERS_DIR/${adapter}.sh"
+    if [[ -f "$adapter_file" ]]; then
+        # shellcheck source=/dev/null
+        source "$adapter_file"
+        return 0
+    fi
+    return 1
+}
+
+#------------------------------------------------------------------------------
+# Commands
+#------------------------------------------------------------------------------
+
+cmd_version() {
+    echo "pai-lite $PAI_LITE_VERSION"
+}
+
+cmd_help() {
+    cat <<EOF
+${BOLD}pai-lite${NC} - Lightweight personal AI infrastructure
+
+${BOLD}USAGE:${NC}
+    pai-lite <command> [arguments]
+
+${BOLD}COMMANDS:${NC}
+    ${BOLD}slots${NC}                    List all slots
+    ${BOLD}slot${NC} <n>                 Show slot n details
+    ${BOLD}slot${NC} <n> assign <task>   Assign task to slot
+    ${BOLD}slot${NC} <n> clear           Clear slot
+    ${BOLD}slot${NC} <n> start [mode]    Start agent session
+    ${BOLD}slot${NC} <n> stop            Stop agent session
+    ${BOLD}slot${NC} <n> note "text"     Add runtime note
+
+    ${BOLD}tasks${NC} sync               Aggregate tasks from all sources
+    ${BOLD}tasks${NC} list               Show unified task list
+    ${BOLD}tasks${NC} show <id>          Show task details
+
+    ${BOLD}status${NC}                   Overview of slots + tasks
+    ${BOLD}briefing${NC}                 Morning briefing
+
+    ${BOLD}init${NC}                     Initialize configuration
+    ${BOLD}triggers${NC} install         Install system triggers
+    ${BOLD}triggers${NC} uninstall       Remove system triggers
+    ${BOLD}triggers${NC} status          Show trigger status
+
+    ${BOLD}version${NC}                  Show version
+    ${BOLD}help${NC}                     Show this help
+
+${BOLD}CONFIGURATION:${NC}
+    Config file locations (in order):
+    1. \$PAI_LITE_CONFIG (if set)
+    2. \$XDG_CONFIG_HOME/pai-lite/config.yaml
+    3. ~/.pai-lite/config.yaml
+
+${BOLD}ENVIRONMENT:${NC}
+    PAI_LITE_CONFIG    Path to config file
+    PAI_LITE_DEBUG     Set to 1 for debug output
+
+EOF
+}
+
+cmd_init() {
+    info "Initializing pai-lite..."
+
+    require_command gh
+
+    # Determine config location
+    local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/pai-lite"
+    local config_file="$config_dir/config.yaml"
+
+    if [[ -f "$config_file" ]]; then
+        warn "config already exists: $config_file"
+        read -rp "Overwrite? [y/N] " confirm
+        [[ "$confirm" =~ ^[Yy] ]] || { info "aborted"; return 0; }
+    fi
+
+    # Get state repo from user
+    echo ""
+    echo "pai-lite stores state (slots, tasks) in your private repository."
+    echo "Enter your state repository (e.g., username/private-repo):"
+    read -rp "> " state_repo
+
+    [[ -z "$state_repo" ]] && die "state repository is required"
+
+    # Clone state repo if not present
+    local repo_name="${state_repo##*/}"
+    local repo_dir="$HOME/$repo_name"
+
+    if [[ ! -d "$repo_dir" ]]; then
+        info "cloning $state_repo to $repo_dir..."
+        gh repo clone "$state_repo" "$repo_dir" || die "failed to clone repository"
+    else
+        info "repository already exists: $repo_dir"
+    fi
+
+    # Create harness directory in state repo
+    local harness_dir="$repo_dir/harness"
+    if [[ ! -d "$harness_dir" ]]; then
+        info "creating harness directory..."
+        mkdir -p "$harness_dir"
+
+        # Copy templates
+        local template_dir="$SCRIPT_DIR/../templates/harness"
+        if [[ -d "$template_dir" ]]; then
+            cp "$template_dir/slots.md" "$harness_dir/" 2>/dev/null || true
+        fi
+
+        # Create initial slots.md if not copied
+        if [[ ! -f "$harness_dir/slots.md" ]]; then
+            cat > "$harness_dir/slots.md" <<'SLOTS'
+# Slots
+
+## Slot 1
+
+**Process:** (empty)
+
+---
+
+## Slot 2
+
+**Process:** (empty)
+
+---
+
+## Slot 3
+
+**Process:** (empty)
+
+---
+
+## Slot 4
+
+**Process:** (empty)
+
+---
+
+## Slot 5
+
+**Process:** (empty)
+
+---
+
+## Slot 6
+
+**Process:** (empty)
+SLOTS
+        fi
+    fi
+
+    # Create config directory and file
+    mkdir -p "$config_dir"
+    cat > "$config_file" <<EOF
+# pai-lite configuration
+# Generated by pai-lite init
+
+state_repo: $state_repo
+state_path: harness
+
+slots:
+  count: 6
+
+projects: []
+# Add your projects:
+#  - name: my-project
+#    repo: username/my-project
+#    readme_todos: true
+#    issues: true
+
+adapters:
+  agent-duo:
+    enabled: true
+  claude-code:
+    enabled: true
+  claude-ai:
+    enabled: true
+
+triggers:
+  startup:
+    enabled: false
+    action: briefing
+  sync:
+    enabled: false
+    interval: 3600
+    action: tasks sync
+EOF
+
+    success "configuration created: $config_file"
+    success "state directory: $harness_dir"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit $config_file to add your projects"
+    echo "  2. Run 'pai-lite tasks sync' to aggregate tasks"
+    echo "  3. Run 'pai-lite status' to see your slots"
+}
+
+cmd_status() {
+    load_config
+    source_libs
+
+    echo -e "${BOLD}pai-lite status${NC}"
+    echo ""
+
+    # Show slots summary
+    if declare -f slots_summary &>/dev/null; then
+        slots_summary
+    else
+        warn "slots module not loaded"
+    fi
+
+    echo ""
+
+    # Show recent tasks
+    if declare -f tasks_recent &>/dev/null; then
+        tasks_recent 5
+    else
+        debug "tasks module not loaded"
+    fi
+}
+
+cmd_briefing() {
+    load_config
+    source_libs
+
+    local date
+    date="$(date '+%A, %B %d, %Y')"
+
+    echo -e "${BOLD}Morning Briefing${NC} - $date"
+    echo ""
+
+    # Active slots
+    echo -e "${BOLD}Active Slots:${NC}"
+    if declare -f slots_list_active &>/dev/null; then
+        slots_list_active
+    else
+        echo "  (slots module not loaded)"
+    fi
+
+    echo ""
+
+    # Pending tasks by priority
+    echo -e "${BOLD}Tasks Awaiting Attention:${NC}"
+    if declare -f tasks_pending &>/dev/null; then
+        tasks_pending 10
+    else
+        echo "  (tasks module not loaded)"
+    fi
+
+    echo ""
+
+    # Suggestions
+    echo -e "${BOLD}Suggestions:${NC}"
+    if declare -f slots_suggest &>/dev/null; then
+        slots_suggest
+    else
+        echo "  - Review your task list and assign to empty slots"
+    fi
+}
+
+cmd_slots() {
+    load_config
+    source_libs
+
+    if declare -f slots_list &>/dev/null; then
+        slots_list
+    else
+        die "slots module not available"
+    fi
+}
+
+cmd_slot() {
+    load_config
+    source_libs
+
+    local slot_num="${1:-}"
+    local action="${2:-show}"
+    shift 2 2>/dev/null || true
+
+    [[ -z "$slot_num" ]] && die "usage: pai-lite slot <n> [action] [args...]"
+    [[ "$slot_num" =~ ^[1-6]$ ]] || die "slot number must be 1-6"
+
+    case "$action" in
+        show)
+            if declare -f slot_show &>/dev/null; then
+                slot_show "$slot_num"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        assign)
+            local task="${1:-}"
+            [[ -z "$task" ]] && die "usage: pai-lite slot $slot_num assign <task-id>"
+            if declare -f slot_assign &>/dev/null; then
+                slot_assign "$slot_num" "$task"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        clear)
+            if declare -f slot_clear &>/dev/null; then
+                slot_clear "$slot_num"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        start)
+            local mode="${1:-}"
+            if declare -f slot_start &>/dev/null; then
+                slot_start "$slot_num" "$mode"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        stop)
+            if declare -f slot_stop &>/dev/null; then
+                slot_stop "$slot_num"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        note)
+            local text="$*"
+            [[ -z "$text" ]] && die "usage: pai-lite slot $slot_num note \"text\""
+            if declare -f slot_note &>/dev/null; then
+                slot_note "$slot_num" "$text"
+            else
+                die "slots module not available"
+            fi
+            ;;
+        *)
+            die "unknown slot action: $action"
+            ;;
+    esac
+}
+
+cmd_tasks() {
+    load_config
+    source_libs
+
+    local action="${1:-list}"
+    shift 2>/dev/null || true
+
+    case "$action" in
+        sync)
+            if declare -f tasks_sync &>/dev/null; then
+                tasks_sync
+            else
+                die "tasks module not available"
+            fi
+            ;;
+        list)
+            if declare -f tasks_list &>/dev/null; then
+                tasks_list
+            else
+                die "tasks module not available"
+            fi
+            ;;
+        show)
+            local task_id="${1:-}"
+            [[ -z "$task_id" ]] && die "usage: pai-lite tasks show <task-id>"
+            if declare -f task_show &>/dev/null; then
+                task_show "$task_id"
+            else
+                die "tasks module not available"
+            fi
+            ;;
+        *)
+            die "unknown tasks action: $action"
+            ;;
+    esac
+}
+
+cmd_triggers() {
+    load_config
+    source_libs
+
+    local action="${1:-status}"
+    shift 2>/dev/null || true
+
+    case "$action" in
+        install)
+            if declare -f triggers_install &>/dev/null; then
+                triggers_install
+            else
+                die "triggers module not available"
+            fi
+            ;;
+        uninstall)
+            if declare -f triggers_uninstall &>/dev/null; then
+                triggers_uninstall
+            else
+                die "triggers module not available"
+            fi
+            ;;
+        status)
+            if declare -f triggers_status &>/dev/null; then
+                triggers_status
+            else
+                die "triggers module not available"
+            fi
+            ;;
+        *)
+            die "unknown triggers action: $action"
+            ;;
+    esac
+}
+
+#------------------------------------------------------------------------------
+# Main dispatch
+#------------------------------------------------------------------------------
+
+main() {
+    local cmd="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        version|--version|-v)
+            cmd_version
+            ;;
+        help|--help|-h)
+            cmd_help
+            ;;
+        init)
+            cmd_init
+            ;;
+        status)
+            cmd_status
+            ;;
+        briefing)
+            cmd_briefing
+            ;;
+        slots)
+            cmd_slots
+            ;;
+        slot)
+            cmd_slot "$@"
+            ;;
+        tasks)
+            cmd_tasks "$@"
+            ;;
+        triggers)
+            cmd_triggers "$@"
+            ;;
+        *)
+            die "unknown command: $cmd (try 'pai-lite help')"
+            ;;
+    esac
+}
+
+main "$@"

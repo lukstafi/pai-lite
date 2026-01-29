@@ -1,0 +1,63 @@
+# pai-lite harness configuration
+# This file lives in your private state repository
+#
+# Copy this to your-private-repo/harness/config.yaml and customize
+
+# Where this harness lives (used for cross-references)
+# The private repo should be cloned to ~/repo-name
+state_repo: your-username/your-private-repo
+state_path: harness
+
+# Slot configuration
+slots:
+  count: 6    # Number of concurrent slots (default: 6)
+
+# Projects to track for task aggregation
+# Each project can pull tasks from GitHub issues and/or README TODOs
+projects:
+  # Example: main project with issues and TODO tracking
+  - name: my-main-project
+    repo: your-username/my-main-project
+    readme_todos: true    # Parse TODOs from README.md
+    issues: true          # Include GitHub issues
+
+  # Example: library you maintain
+  - name: my-library
+    repo: your-username/my-library
+    issues: true          # Just track issues
+
+  # Example: personal chores and reminders
+  # Use a private repo's issues as a task list
+  - name: personal
+    repo: your-username/your-private-repo
+    issues: true
+
+# Adapter configuration
+# Enable/disable specific integrations
+adapters:
+  agent-duo:
+    enabled: true         # Two-agent parallel workflow
+  agent-solo:
+    enabled: true         # Coder + reviewer workflow
+  claude-code:
+    enabled: true         # Claude Code CLI in tmux
+  claude-ai:
+    enabled: true         # Browser-based claude.ai
+
+# System triggers (macOS launchd / Linux systemd)
+triggers:
+  # Run briefing on login
+  startup:
+    enabled: false        # Set to true to enable
+    action: briefing
+
+  # Periodic task sync
+  sync:
+    enabled: false        # Set to true to enable
+    interval: 3600        # Sync every hour (in seconds)
+    action: tasks sync
+
+# Optional: Journal settings for daily logs
+# journal:
+#   enabled: true
+#   path: journal/        # Relative to harness/
