@@ -1,0 +1,40 @@
+# pai-lite configuration
+# Copy to ~/.config/pai-lite/config.yaml and customize
+
+# Where to store state (your private repo)
+state_repo: your-username/your-private-repo
+state_path: harness
+
+# Number of concurrent slots
+slots:
+  count: 6
+
+# Projects to track
+projects:
+  - name: my-project
+    repo: your-username/my-project
+    readme_todos: true    # Parse TODOs from README
+    issues: true          # Include GitHub issues
+    
+  - name: personal
+    repo: your-username/private-repo
+    issues: true          # Chores, reminders, etc.
+
+# Adapter settings
+adapters:
+  agent-duo:
+    enabled: true
+  claude-code:
+    enabled: true
+  claude-ai:
+    enabled: true
+
+# Triggers (macOS launchd)
+triggers:
+  startup:
+    enabled: false
+    action: briefing
+  sync:
+    enabled: false
+    interval: 3600        # seconds
+    action: tasks sync
