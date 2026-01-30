@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=lib/common.sh
+source "$root_dir/lib/common.sh"
+# shellcheck source=lib/slots.sh
+source "$root_dir/lib/slots.sh"
+# shellcheck source=lib/tasks.sh
+source "$root_dir/lib/tasks.sh"
+# shellcheck source=lib/triggers.sh
+source "$root_dir/lib/triggers.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: pai-lite <command>
+
+Commands:
+  slots                       Show all slots
+  slot <n>                     Show slot n
+  slot <n> assign <task>       Assign a task to slot n
+  slot <n> clear               Clear slot n
+  slot <n> start               Start agent session (adapter)
+  slot <n> stop                Stop agent session (adapter)
+  slot <n> note "text"         Add runtime note to slot n
+
+  tasks sync                   Aggregate tasks from sources
+  tasks list                   Show unified task list
+  tasks show <id>              Show task details
+
+  status                       Overview of slots + tasks
+  briefing                     Morning briefing
+  init                         Initialize config + harness
+  triggers install             Install launchd/systemd triggers
+
+  help                         Show this message
+USAGE
+}
+
+require_config() {
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || pai_lite_die "config not found: $config (run: pai-lite init)"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  help|-h|--help|"")
+    usage
+    exit 0
+    ;;
+  init)
+    config_path="$(pai_lite_config_path)"
+    config_dir="$(dirname "$config_path")"
+    mkdir -p "$config_dir"
+
+    if [[ -f "$config_path" ]]; then
+      pai_lite_warn "config already exists: $config_path"
+    else
+      cp "$root_dir/templates/config.example.yaml" "$config_path"
+      echo "Created config: $config_path"
+    fi
+
+    if [[ -f "$config_path" ]]; then
+      state_repo="$(pai_lite_state_repo_slug)"
+      if [[ "$state_repo" == *"your-username"* ]]; then
+        pai_lite_warn "config still uses placeholder state_repo; update it before cloning"
+      else
+        pai_lite_ensure_state_repo
+        pai_lite_ensure_state_dir
+        harness_dir="$(pai_lite_state_harness_dir)"
+        if [[ ! -f "$harness_dir/config.yaml" ]]; then
+          cp "$root_dir/templates/harness/config.yaml" "$harness_dir/config.yaml"
+        fi
+        if [[ ! -f "$harness_dir/slots.md" ]]; then
+          cp "$root_dir/templates/harness/slots.md" "$harness_dir/slots.md"
+        fi
+        echo "Initialized harness in: $harness_dir"
+      fi
+    fi
+    ;;
+  slots)
+    require_config
+    slots_list
+    ;;
+  slot)
+    require_config
+    slot_num="${2:-}"
+    [[ -n "$slot_num" ]] || pai_lite_die "slot number required"
+    action="${3:-}"
+    case "$action" in
+      "")
+        slot_show "$slot_num"
+        ;;
+      assign)
+        shift 3
+        [[ -n "${*:-}" ]] || pai_lite_die "task description required"
+        slot_assign "$slot_num" "$*"
+        ;;
+      clear)
+        slot_clear "$slot_num"
+        ;;
+      start)
+        slot_start "$slot_num"
+        ;;
+      stop)
+        slot_stop "$slot_num"
+        ;;
+      note)
+        shift 3
+        [[ -n "${*:-}" ]] || pai_lite_die "note text required"
+        slot_note "$slot_num" "$*"
+        ;;
+      *)
+        pai_lite_die "unknown slot action: $action"
+        ;;
+    esac
+    ;;
+  tasks)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      sync)
+        tasks_sync
+        ;;
+      list)
+        tasks_list
+        ;;
+      show)
+        task_id="${3:-}"
+        [[ -n "$task_id" ]] || pai_lite_die "task id required"
+        tasks_show "$task_id"
+        ;;
+      *)
+        pai_lite_die "unknown tasks subcommand: $sub"
+        ;;
+    esac
+    ;;
+  status)
+    require_config
+    echo "Slots:"
+    slots_list || true
+    echo ""
+    if [[ -f "$(tasks_file_path)" ]]; then
+      echo "Tasks:"
+      tasks_list | head -n 10
+    else
+      echo "Tasks: (run 'pai-lite tasks sync')"
+    fi
+    ;;
+  briefing)
+    require_config
+    echo "pai-lite briefing - $(date)"
+    echo ""
+    echo "Slots:"
+    slots_list || true
+    echo ""
+    if [[ -f "$(tasks_file_path)" ]]; then
+      echo "Tasks:"
+      tasks_list
+    else
+      echo "Tasks: (run 'pai-lite tasks sync')"
+    fi
+    ;;
+  triggers)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      install)
+        triggers_install
+        ;;
+      *)
+        pai_lite_die "unknown triggers subcommand: $sub"
+        ;;
+    esac
+    ;;
+  *)
+    pai_lite_die "unknown command: $cmd"
+    ;;
+esac

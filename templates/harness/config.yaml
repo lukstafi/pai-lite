@@ -1,0 +1,42 @@
+# pai-lite harness configuration (private repo)
+
+state_repo: lukstafi/self-improve
+state_path: harness
+
+slots:
+  count: 6
+
+projects:
+  - name: ocannl
+    repo: lukstafi/ocannl
+    readme_todos: true
+    issues: true
+
+  - name: ppx-minidebug
+    repo: lukstafi/ppx_minidebug
+    issues: true
+
+  - name: agent-duo
+    repo: lukstafi/agent-duo
+    issues: true
+
+  - name: personal
+    repo: lukstafi/self-improve
+    issues: true
+
+adapters:
+  agent-duo:
+    enabled: true
+  claude-code:
+    enabled: true
+  claude-ai:
+    enabled: true
+
+triggers:
+  startup:
+    enabled: true
+    action: briefing
+  sync:
+    enabled: true
+    interval: 3600
+    action: tasks sync

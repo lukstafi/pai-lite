@@ -1,58 +1,84 @@
 # pai-lite
 
-A lightweight personal AI infrastructure — a harness for humans working with AI agents.
+A lightweight personal AI infrastructure — a harness for humans working with AI agents. pai-lite manages a small number of concurrent “slots,” aggregates tasks from GitHub and READMEs, and wires triggers for briefings and syncs.
 
-## What is this?
+## What you get
 
-pai-lite helps you manage multiple concurrent AI agent sessions while keeping yourself (the human) in the loop. Inspired by [PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) but much simpler — no complex memory systems, just practical orchestration.
+- **Slots**: 6 ephemeral “CPUs” for active work, not memory or identity.
+- **Task index**: unified task list from GitHub issues and README TODOs.
+- **Adapters**: thin integrations with existing agent setups (agent-duo, Claude Code, claude.ai).
+- **Triggers**: launchd/systemd automation for briefings and syncs.
 
-## Core Concepts
+## Quickstart
 
-### Slots (not tasks, not memory — CPUs)
+```bash
+# 1) Install config
+pai-lite init
 
-You have ~6 slots of working attention. Each slot is like a CPU:
-- Can run one process at a time
-- Holds runtime state while active (context, open questions, "where was I")
-- Has no persistent identity — slot 3 isn't "the OCANNL slot," it just happens to be running OCANNL now
-- Context switching has a cost
+# 2) Edit config
+${EDITOR:-vi} ~/.config/pai-lite/config.yaml
 
-### Task Aggregation
+# 3) Sync tasks
+pai-lite tasks sync
 
-Pull tasks from multiple sources into one view:
-- GitHub issues across your repos
-- TODOs from READMEs
-- Roadmap items from CHANGES.md or similar
-- Personal chores (via a private repo's issues)
+# 4) See slots + tasks
+pai-lite status
+```
 
-### Adapters
+## Configuration
 
-pai-lite doesn't run agents itself — it coordinates whatever you're using:
-- [agent-duo](https://github.com/lukstafi/agent-duo) — two agents working in parallel
-- Plain Claude Code sessions
-- Vibe Kanban, Gastown, or other orchestrators
-- Even a browser tab with claude.ai
+- Default config path: `~/.config/pai-lite/config.yaml`
+- State lives in your private repo under `state_path` (default `harness/`)
+- pai-lite will clone the private state repo into your home directory via `gh` if it is missing
 
-### Triggers
+See `templates/config.example.yaml` and `templates/harness/config.yaml` for examples.
 
-React to events:
-- Laptop startup → morning briefing
-- Repo changes → update task index
-- Time-based → daily review
+## CLI
 
-## Documentation
+```bash
+# Task management
+pai-lite tasks sync
+pai-lite tasks list
+pai-lite tasks show <id>
 
-- [Architecture](docs/ARCHITECTURE.md) — detailed design and concepts
+# Slot management
+pai-lite slots
+pai-lite slot <n>
+pai-lite slot <n> assign <task>
+pai-lite slot <n> clear
+pai-lite slot <n> start
+pai-lite slot <n> stop
+pai-lite slot <n> note "text"
 
-## Related Projects
+# Overview and setup
+pai-lite status
+pai-lite briefing
+pai-lite init
+pai-lite triggers install
+```
 
-- [PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) — the full-featured inspiration
-- [agent-duo](https://github.com/lukstafi/agent-duo) — coordinate two agents on one task
-- [Vibe Kanban](https://github.com/BloopAI/vibe-kanban) — kanban board for AI agents
-- [Gastown](https://github.com/steveyegge/gastown) — multi-agent workspace manager
+## Adapters
 
-## Status
+Adapters are thin, read-only integrations that translate external state into slot format.
+- `agent-duo`: reads `.peer-sync/` state and ports
+- `claude-code`: inspects tmux sessions
+- `claude-ai`: treats bookmarked URLs as sessions
 
-🚧 **Early development** — architecture defined, implementation in progress.
+## Triggers
+
+- **macOS**: launchd agents for `startup` and `sync`
+- **Linux (Ubuntu)**: systemd user units and timers
+
+Configure in `config.yaml` under `triggers:`. Then run:
+
+```bash
+pai-lite triggers install
+```
+
+## Development
+
+- Shell scripts are Bash 4+ and designed to be dependency-light.
+- Run `shellcheck` on `bin/` and `lib/` during changes.
 
 ## License
 
