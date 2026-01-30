@@ -9,19 +9,35 @@ A lightweight personal AI infrastructure — a harness for humans working with A
 - **Adapters**: thin integrations with existing agent setups (agent-duo, Claude Code, claude.ai).
 - **Triggers**: launchd/systemd automation for briefings and syncs.
 
-## Quickstart
+## Installation
 
 ```bash
-# 1) Install config
-pai-lite init
+# Clone and install
+gh repo clone lukstafi/pai-lite
+cd pai-lite
+./bin/pai-lite init
+```
 
-# 2) Edit config
+This installs `pai-lite` to `~/.local/bin/` and creates the initial config. If `~/.local/bin` isn't in your PATH, add it to your shell profile:
+
+```bash
+export PATH="$PATH:$HOME/.local/bin"
+```
+
+To update pai-lite later, pull the latest changes and run `./bin/pai-lite init` again.
+
+## Quickstart
+
+After installation:
+
+```bash
+# 1) Edit config
 ${EDITOR:-vi} ~/.config/pai-lite/config.yaml
 
-# 3) Sync tasks
+# 2) Sync tasks
 pai-lite tasks sync
 
-# 4) See slots + tasks
+# 3) See slots + tasks
 pai-lite status
 ```
 

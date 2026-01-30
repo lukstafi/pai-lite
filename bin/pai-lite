@@ -51,6 +51,19 @@ case "$cmd" in
     exit 0
     ;;
   init)
+    # Install script to ~/.local/bin
+    local_bin="$HOME/.local/bin"
+    mkdir -p "$local_bin"
+    cp "$root_dir/bin/pai-lite" "$local_bin/pai-lite"
+    chmod +x "$local_bin/pai-lite"
+    echo "Installed pai-lite to $local_bin/pai-lite"
+
+    # Check if ~/.local/bin is in PATH
+    if [[ ":$PATH:" != *":$local_bin:"* ]]; then
+      pai_lite_warn "$local_bin is not in PATH; add it to your shell profile:"
+      echo "  export PATH=\"\$PATH:$local_bin\""
+    fi
+
     config_path="$(pai_lite_config_path)"
     config_dir="$(dirname "$config_path")"
     mkdir -p "$config_dir"
