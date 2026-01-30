@@ -51,25 +51,25 @@ case "$cmd" in
     exit 0
     ;;
   init)
-    # Install script and support files to ~/.local
-    local_install="$HOME/.local"
-    mkdir -p "$local_install"/{bin,lib,adapters,templates}
+    # Install to ~/.local/pai-lite with symlink in ~/.local/bin
+    local_install="$HOME/.local/pai-lite"
+    local_bin="$HOME/.local/bin"
 
-    # Copy main script
-    cp "$root_dir/bin/pai-lite" "$local_install/bin/pai-lite"
-    chmod +x "$local_install/bin/pai-lite"
+    # Copy entire directory structure
+    mkdir -p "$local_install"
+    cp -r "$root_dir"/{bin,lib,adapters,templates} "$local_install/"
 
-    # Copy support directories
-    cp -r "$root_dir/lib/"* "$local_install/lib/" 2>/dev/null || true
-    cp -r "$root_dir/adapters/"* "$local_install/adapters/" 2>/dev/null || true
-    cp -r "$root_dir/templates/"* "$local_install/templates/" 2>/dev/null || true
+    # Create symlink in ~/.local/bin
+    mkdir -p "$local_bin"
+    ln -sf "$local_install/bin/pai-lite" "$local_bin/pai-lite"
 
-    echo "Installed pai-lite to $local_install/bin/pai-lite"
+    echo "Installed pai-lite to $local_install"
+    echo "Symlinked $local_bin/pai-lite -> $local_install/bin/pai-lite"
 
     # Check if ~/.local/bin is in PATH
-    if [[ ":$PATH:" != *":$local_install/bin:"* ]]; then
-      pai_lite_warn "$local_install/bin is not in PATH; add it to your shell profile:"
-      echo "  export PATH=\"\$PATH:$local_install/bin\""
+    if [[ ":$PATH:" != *":$local_bin:"* ]]; then
+      pai_lite_warn "$local_bin is not in PATH; add it to your shell profile:"
+      echo "  export PATH=\"\$PATH:$local_bin\""
     fi
 
     config_path="$(pai_lite_config_path)"

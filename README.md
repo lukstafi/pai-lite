@@ -18,7 +18,7 @@ cd pai-lite
 ./bin/pai-lite init
 ```
 
-This installs `pai-lite` to `~/.local/bin/` and creates the initial config. If `~/.local/bin` isn't in your PATH, add it to your shell profile:
+This installs pai-lite to `~/.local/pai-lite/` with a symlink at `~/.local/bin/pai-lite`, and creates the initial config. If `~/.local/bin` isn't in your PATH, add it to your shell profile:
 
 ```bash
 export PATH="$PATH:$HOME/.local/bin"
