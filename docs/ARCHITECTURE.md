@@ -1,5 +1,7 @@
 # pai-lite Architecture
 
+*Design document — describes the target architecture, not necessarily the current implementation.*
+
 ## Overview
 
 pai-lite is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (the Mayor), and maintains flow-based task management.
@@ -7,14 +9,14 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 **Core philosophy: "Autonomy babysitting automation"**
 - **Autonomous layer**: AI agents make strategic decisions (Mayor, workers)
 - **Automation layer**: Deterministic scripts execute reliably (triggers, adapters, sync)
-- The autonomous layer supervises; the automation layer never fails.
+- The autonomous layer supervises; the automation layer provides predictable, deterministic behavior.
 
 ## Architectural Layers
 
 ```
 ┌────────────────────────────────────────────────────────────┐
 │              THE MAYOR (Autonomous - Lifelong)             │
-│         Claude Code in tmux with GPT-5.2 delegation        │
+│         Claude Opus 4.5 in Claude Code (tmux/ttyd)         │
 │                                                            │
 │  Invoked by automation when AI judgment needed:            │
 │  • Analyze GitHub issues → create task files               │
@@ -22,9 +24,10 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 │  • Detect stalled work                                     │
 │  • Suggest next tasks based on flow state                  │
 │                                                            │
-│  Delegates to GPT-5.2 for technical problem-solving:       │
-│  • Low-effort: Parsing, extraction, simple algorithms      │
-│  • High-effort: Optimization, proofs, complex reasoning    │
+│  Uses native Claude Code capabilities:                     │
+│  • Task tool → Haiku/Sonnet subagents for fast tasks       │
+│  • OCaml binaries for deterministic algorithms             │
+│  • Skills with embedded delegation patterns                │
 │                                                            │
 │  Writes decisions to git-backed state (persistent)         │
 └────────────┬───────────────────────────────────────────────┘
@@ -86,20 +89,19 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - Elaborates high-level tasks into detailed Markdown specifications (SWE tasks)
 - Publishes curated updates to public notification channel
 
-**What the Mayor delegates to GPT-5.2:**
+**What the Mayor delegates:**
 
-*Low-reasoning-effort mode (fast, deterministic tasks):*
-- Extracting structured dependencies from prose ("blocked by PR #42" → `blocked_by: [task-015]`)
-- Parsing task descriptions into structured formats
-- Generating simple automation scripts
-- Validating data against schemas
+*Via Task tool (native Claude Code subagents):*
+- **Haiku**: Fast extraction, parsing, simple validation
+- **Sonnet**: Medium-complexity tasks, structured generation
 
-*High-reasoning-effort mode (complex problem-solving):*
-- Computing optimal scheduling with multiple constraints
-- Graph algorithms requiring proof-like reasoning (cycle detection, critical paths)
-- Mathematical optimization (minimize context switches, maximize throughput)
-- Technical problem-solving where higher IQ helps
-- Generating pithier, more austere implementations (when simpler is better)
+*Via OCaml binaries (deterministic algorithms):*
+- Dependency graph computation
+- Cycle detection, topological sort
+- Priority queue management
+- Schedule validation
+
+The Mayor's skills (defined in the framework) can embed delegation patterns, e.g., a `/analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mayor writes the task file.
 
 **How automation invokes the Mayor:**
 ```bash
@@ -121,102 +123,55 @@ tmux send-keys -t pai-mayor "/suggest" C-m
 - Builds institutional memory (learns patterns, preferences)
 - Consistent decision-making across analysis, scheduling, briefing
 - Can see connections across projects
-- Simpler mental model (one AI runs pai-lite, delegates to GPT when needed)
+- Simpler mental model (one AI coordinates pai-lite)
 
-**Why Claude for Mayor, not GPT-5.2?**
-- Claude is more **well-rounded** (wisdom over raw IQ)
-- Better at **SWE tasks** (task elaboration, detailed specs)
-- Better **writer** (briefings, narratives, context)
-- Better **context understanding** (reading between the lines)
-- GPT-5.2 is **delegated to** when higher IQ or simpler implementations needed
+**Why Claude Opus 4.5 for Mayor?**
+- **Well-rounded judgment** — strategic thinking over raw benchmark optimization
+- **Strong SWE skills** — task elaboration, detailed specifications
+- **Better writer** — briefings, narratives, contextual understanding
+- **Infrequent invocations** — cost is acceptable for morning briefings, issue analysis
 
-### Claude vs. GPT-5.2: Division of Labor
+**Why Opus over Sonnet for Mayor?**
+- Mayor needs **institutional memory** and nuanced judgment
+- Briefings require **depth** over speed
+- Strategic decisions benefit from more capable reasoning
+- Cost is manageable since Mayor runs infrequently
 
-**Character comparison:**
-- **GPT-5.2**: Higher IQ, better goal achievement, superior technical problem-solving, more **austere** character (leads to simpler implementations and pithier prose when that's what's needed)
-- **Claude Opus 4.5**: More well-rounded (**wiser**), better SWE and writer overall, better at contextual understanding
+**When Haiku/Sonnet subagents make sense:**
+- Fast extraction tasks (parsing dependencies from prose)
+- Structured output generation
+- Lightweight validation checks
+- Any task where latency matters more than depth
 
-**When Mayor (Claude) delegates to GPT-5.2:**
+### Delegation Strategy
 
-| Task Type | Mode | Example | Why GPT? |
-|-----------|------|---------|----------|
-| Parse structured data | Low-effort | Extract `blocked_by` from "needs PR #42 to land first" | Precise, deterministic extraction |
-| Schema validation | Low-effort | Verify task-143.md matches schema | Well-defined, verifiable goal |
-| Simple code gen | Low-effort | Generate bash wrapper script | Austere implementation preferred |
-| Constraint optimization | High-effort | Minimize context switches given constraints | Mathematical problem-solving |
-| Graph algorithms | High-effort | Prove schedule has no deadlocks | Requires proof-like reasoning |
-| Complex scheduling | High-effort | Optimize 8 tasks across 6 slots with dependencies | Higher IQ for goal achievement |
-| Austere refactoring | High-effort | Simplify over-engineered code | GPT's character leads to simpler solutions |
+The Mayor uses **Claude Code's native Task tool** for delegation, not custom API wrappers:
 
-**When Mayor (Claude) handles directly:**
+| Task | Approach | Why |
+|------|----------|-----|
+| Extract dependencies from prose | Task → Haiku | Fast, cheap, sufficient |
+| Structured output generation | Task → Sonnet | Better format adherence |
+| Graph algorithms | OCaml binary | Deterministic, type-safe |
+| Schedule validation | OCaml binary | Provably correct |
+| Strategic analysis | Mayor (Opus) | Needs judgment, context |
+| Writing briefings | Mayor (Opus) | Needs narrative skill |
 
-| Task Type | Why Claude? |
-|-----------|-------------|
-| Analyze GitHub issue for actionability | Context understanding, reading between lines |
-| Generate morning briefing | Writing quality, narrative flow, wisdom |
-| Detect if task is stalled vs. slow | Pattern recognition, judgment |
-| Elaborate task into detailed spec | SWE skills, detailed thinking |
-| Suggest strategic priorities | Wisdom over IQ, long-term thinking |
-| Write public announcements | Better writer (except when austerity helps) |
+**Example: `/analyze-issue` skill**
+```
+1. [Opus] Read issue, assess actionability
+   └─ Not actionable → return early
 
-**Example delegation flow:**
-```python
-# Mayor (Claude) analyzing a complex issue
+2. [Task → Haiku] Extract structured data
+   "Return JSON: {blocks: [...], blocked_by: [...]}"
+   └─ Fast extraction
 
-def analyze_issue(issue_text):
-    # Claude: contextual understanding
-    is_actionable = self.understand_context(issue_text)
-    if not is_actionable:
-        return None
+3. [Bash] pai_flow check-cycle <dependencies>
+   └─ OCaml validates no circular deps
 
-    # Claude: strategic thinking
-    priority = self.assess_priority(issue_text, project_context)
-
-    # Delegate to GPT-5.2 (low-effort): precise extraction
-    dependencies = gpt_low_effort(
-        "Extract dependency relationships from this text: " + issue_text,
-        "Return JSON: {blocks: [...], blocked_by: [...]}"
-    )
-
-    # Claude: SWE task - write detailed spec
-    task_spec = self.elaborate_task(
-        issue_text, dependencies, priority
-    )
-
-    # Delegate to GPT-5.2 (high-effort): validate schedule
-    is_schedulable = gpt_high_effort(
-        "Given dependency graph, prove this task can be scheduled without deadlock",
-        dependency_graph
-    )
-
-    # Claude: final decision and writing
-    return self.create_task_file(task_spec, dependencies, priority)
+4. [Opus] Write task file with context
 ```
 
-**Implementation:**
-```bash
-# Mayor's toolkit: ~/harness/mayor/tools/
-
-# gpt-low (low-reasoning-effort mode)
-#!/bin/bash
-curl https://api.openai.com/v1/chat/completions \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -d "{
-    \"model\": \"gpt-5.2\",
-    \"messages\": [{\"role\": \"user\", \"content\": \"$1\"}],
-    \"reasoning_effort\": \"low\"
-  }"
-
-# gpt-high (high-reasoning-effort mode)
-#!/bin/bash
-curl https://api.openai.com/v1/chat/completions \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -d "{
-    \"model\": \"gpt-5.2\",
-    \"messages\": [{\"role\": \"user\", \"content\": \"$1\"}],
-    \"reasoning_effort\": \"high\"
-  }"
-```
+Skills defined in the framework embed these patterns, keeping the Mayor's prompts clean.
 
 ### The Slot Model: Forcing Function for Parallelization
 
@@ -236,7 +191,7 @@ pai-lite hardcodes **6 slots** (not configurable) based on cognitive science and
 
 **Why exactly 6 slots (hardcoded)?**
 
-1. **Cognitive science**: Human working memory = 4±1 to 7±2 items. Six slots sits at the upper bound of focused attention.
+1. **Cognitive science**: Human working memory holds roughly 4–7 items. Six slots sits at the upper bound of focused attention.
 
 2. **Forcing function**: Fixed capacity creates pressure to parallelize.
    - "I have 6 slots. 2 are active. 4 are idle."
@@ -266,11 +221,12 @@ pai-lite uses **flow-based scheduling** (throughput over latency), not time-base
 - ✅ **Effort**: Small / medium / large (for WIP balancing, not time estimates)
 - ✅ **Context**: Tags for minimizing context switches
 
-**What doesn't matter:**
+**What doesn't matter (for most tasks):**
 - ❌ **SCHEDULED dates**: Arbitrary "work on this Tuesday" creates false pressure
 - ❌ **Time estimates**: "This will take 3 hours" is unknowable and creates anxiety
-- ❌ **Recurring scheduled tasks**: Flow-based work doesn't repeat on calendars
 - ❌ **Calendar agenda views**: "What's scheduled today" vs "What's ready to start"
+
+**Exception — recurring tasks:** Some work genuinely recurs (weekly reviews, monthly reports). These can be modeled as tasks with a `recurrence` field that generates new ready tasks when completed.
 
 **Why flow-based?**
 - Research and development is about **throughput** (completing valuable work over time), not **latency** (hitting arbitrary timestamps)
@@ -341,30 +297,39 @@ pai-lite flow context
 # → Shows context distribution across active slots
 ```
 
-**Mayor's flow analysis:**
-```python
-# Pseudocode for Mayor's suggestion logic
-def suggest_next_task(slots, tasks):
-    ready = [t for t in tasks if not t.blocked_by and t.status == 'ready']
+**Mayor's flow analysis (OCaml pseudocode):**
+```ocaml
+(* Suggestion logic: what to work on next *)
+let suggest_next_task slots tasks =
+  let ready = tasks |> List.filter (fun t ->
+    t.blocked_by = [] && t.status = Ready) in
 
-    # Priority 1: Hard deadlines approaching
-    urgent = [t for t in ready if t.deadline and days_until(t.deadline) < 30]
-    if urgent:
-        return max(urgent, key=lambda t: (t.priority, -days_until(t.deadline)))
+  (* Priority 1: Hard deadlines approaching *)
+  let urgent = ready |> List.filter (fun t ->
+    Option.is_some t.deadline && days_until t.deadline < 30) in
+  match List.sort by_priority_then_deadline urgent with
+  | t :: _ -> Some t
+  | [] ->
 
-    # Priority 2: High-impact (unblocks many tasks)
-    high_impact = [t for t in ready if count_blocked_tasks(t) >= 3]
-    if high_impact:
-        return max(high_impact, key=lambda t: (t.priority, count_blocked_tasks(t)))
+  (* Priority 2: High-impact (unblocks many tasks) *)
+  let high_impact = ready |> List.filter (fun t ->
+    count_blocked_tasks t >= 3) in
+  match List.sort by_priority_then_impact high_impact with
+  | t :: _ -> Some t
+  | [] ->
 
-    # Priority 3: Same context as active slots (minimize switching)
-    active_contexts = {slot.task.context for slot in slots if slot.active}
-    same_context = [t for t in ready if t.context in active_contexts]
-    if same_context:
-        return max(same_context, key=lambda t: t.priority)
+  (* Priority 3: Same context as active slots *)
+  let active_contexts = slots
+    |> List.filter_map (fun s -> Option.map (fun t -> t.context) s.task)
+    |> StringSet.of_list in
+  let same_context = ready |> List.filter (fun t ->
+    StringSet.mem t.context active_contexts) in
+  match List.sort by_priority same_context with
+  | t :: _ -> Some t
+  | [] ->
 
-    # Priority 4: Highest priority ready task
-    return max(ready, key=lambda t: t.priority)
+  (* Priority 4: Highest priority ready task *)
+  List.sort by_priority ready |> List.hd_opt
 ```
 
 ### Three-Tier Notification System
@@ -421,6 +386,12 @@ pai-lite uses **ntfy.sh** with three reserved topics:
 - Human feedback should go through proper channels (email, GitHub Issues/Discussions)
 - Prevents notification pollution (unbounded public input defeats the purpose)
 - Keeps your notification stream under control (the whole point of pai-lite)
+
+**ntfy.sh topic security:**
+The `<user>-*` topic names shown here assume **reserved topics** via an ntfy.sh subscription. Without a subscription, ntfy.sh topics are globally namespaced — anyone who guesses the name can subscribe. Options for users without subscriptions:
+- Use random suffixes (e.g., `lukstafi-pai-a7x9k2`)
+- Self-host ntfy (simple Docker deployment)
+- Use alternative notification providers
 
 ### Adapters
 
@@ -488,11 +459,9 @@ GPT-5.2 (delegated for complex reasoning):
 - ✅ Can extract reusable libraries for OCaml community
 
 **Why NOT Python?**
-- ❌ Virtual env complexity (defeats "lightweight harness")
-- ❌ Runtime errors (OCaml catches at compile time)
-- ❌ Slower startup (matters for frequent invocations)
-- ❌ Not your language (OCaml is)
-- ❌ Doesn't contribute to OCaml ecosystem
+- ❌ Runtime errors that OCaml catches at compile time
+- ❌ Slower startup (matters for frequent CLI invocations)
+- ❌ OCaml is the author's primary language (expertise, dogfooding)
 
 **Example integration:**
 ```bash
@@ -674,36 +643,13 @@ adapters:
 
 mayor:
   enabled: true
-  backend: claude-code-tmux
+  backend: tmux-ttyd           # Similar setup to agent-duo
   session: pai-mayor
+  ttyd_port: 7690              # Web terminal access
 
-  gpt_delegation:
-    enabled: true
-    provider: openai
-    model: gpt-5.2  # January 2026
-
-    # Low-reasoning-effort mode (fast, deterministic)
-    low_effort_tasks:
-      - dependency_extraction      # Parse "blocked by #42" → structured data
-      - structured_data_parsing    # Convert prose to YAML/JSON
-      - schema_validation          # Check task files against schema
-      - simple_code_generation     # Generate automation scripts
-
-    # High-reasoning-effort mode (complex problem-solving)
-    high_effort_tasks:
-      - constraint_optimization    # Minimize context switches, maximize flow
-      - graph_algorithms          # Cycle detection, critical paths, topological sort
-      - mathematical_proofs       # Prove scheduling properties
-      - technical_problem_solving # Complex algorithms, higher IQ needed
-      - austere_implementation    # When simpler is better than elaborate
-
-    # Keep for Claude (Mayor) - better at these
-    mayor_tasks:
-      - issue_prioritization      # Context understanding, judgment
-      - briefing_generation       # Writing, narrative flow
-      - stall_detection           # Wisdom, pattern recognition
-      - suggestion_synthesis      # Strategic thinking
-      - task_elaboration          # SWE tasks, detailed specs
+  # Delegation uses Claude Code's native Task tool
+  # Skills can specify subagent model (haiku, sonnet) as needed
+  # No external API configuration required
 
   autonomy_level:
     analyze_issues: auto        # Auto creates task files
@@ -923,6 +869,30 @@ watch_phase_changes() {
 
 10. **Notifications are outputs, not inputs** — ntfy for push alerts, email/GitHub for human communication
 
+## Failure Modes and Recovery
+
+The automation layer is deterministic but not infallible. Here's how pai-lite handles failures:
+
+| Failure | Detection | Recovery |
+|---------|-----------|----------|
+| Mayor crashes mid-analysis | tmux session exits, launchd notices | Restart Mayor; git state is last-committed |
+| Git sync conflict | `git pull` fails | Notify user; manual resolution required |
+| launchd trigger doesn't fire | Health check detects stale state | User runs `pai-lite triggers check` |
+| ntfy.sh unreachable | curl returns error | Log locally; retry on next trigger |
+| Claude API down | Task tool fails | Mayor retries or skips delegation, logs warning |
+| Task file corrupted | OCaml parser fails | Notify user; task excluded from flow until fixed |
+
+**Design for recovery:**
+- All state changes go through git → crash-safe, auditable
+- Mayor writes atomically (temp file → rename)
+- Adapters are stateless readers (can restart anytime)
+- Triggers are idempotent (safe to re-run)
+
+**What requires manual intervention:**
+- Git merge conflicts (by design — human resolves semantic conflicts)
+- Slot assignment (configurable: manual vs. auto with approval)
+- Starting agent sessions (configurable: manual vs. auto with approval)
+
 ## Typical Day in the Life
 
 ```
@@ -933,22 +903,17 @@ watch_phase_changes() {
 
 07:05 - Mayor analyzes new issues
   Automation: tmux send-keys -t pai-mayor "/analyze new-issues.json"
-  Mayor (Claude): reads issues with context, understands implications
-  Mayor delegates to GPT-5.2 (low-effort): extract dependencies from prose
-  GPT-5.2: returns structured data: {blocked_by: ["task-042"], blocks: []}
+  Mayor (Opus): reads issues with context, understands implications
+  Mayor: Task → Haiku extracts dependencies as JSON
   Mayor: creates task-143.md with context, acceptance criteria, code pointers
   Mayor: git commit, push
 
 08:00 - Morning briefing
   launchd: triggers briefing
   Automation: tmux send-keys -t pai-mayor "/briefing"
-  Mayor (Claude): reads slots.md, tasks/, understands context
-  OCaml: pai_flow_engine ready tasks/ (what's unblocked?)
-  Mayor delegates to GPT-5.2 (high-effort): optimize task ordering
-    Given: 8 ready tasks, 4 idle slots, 2 active contexts, 1 deadline
-    Optimize: minimize context switches, meet deadline, maximize throughput
-  GPT-5.2: returns optimal schedule with proof of optimality
-  Mayor: writes briefing.md with narrative flow and strategic rationale
+  Mayor (Opus): reads slots.md, tasks/, understands context
+  OCaml: pai_flow_engine ready tasks/ (computes ready queue, priorities)
+  Mayor: writes briefing.md with strategic suggestions
   Automation: ntfy.sh/lukstafi-pai priority 3 "Briefing ready"
   You: read on phone when you wake up
 
@@ -983,11 +948,8 @@ watch_phase_changes() {
   Bash: git commit, push
 
   Mayor (next check): sees task-101 done
-  OCaml: recomputes dependency graph structure
-  Mayor delegates to GPT-5.2 (high-effort): analyze impact
-    "Given updated graph, find critical path and optimal task ordering"
-  GPT-5.2: proves task-102, task-103 now ready; suggests priority order
-  Mayor (Claude): writes notification with context and strategic insight
+  OCaml: recomputes dependency graph, identifies newly unblocked tasks
+  Mayor (Opus): writes notification with context and strategic insight
   Mayor: ntfy.sh/lukstafi-pai "task-101 done → 2 tasks unblocked, suggests 102 first"
 
   Mayor: checks if task-101 tagged "release"
