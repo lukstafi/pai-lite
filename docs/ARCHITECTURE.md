@@ -407,6 +407,87 @@ Adapters are simple Bash scripts that:
 2. Translate to pai-lite's slot format
 3. Optionally expose actions (start, stop, status)
 
+### Orchestration: Queue-Based Communication
+
+pai-lite uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
+
+**The Problem with send-keys:**
+- `tmux send-keys -t pai-mayor "/briefing" C-m` assumes Claude is at a prompt
+- If Claude is mid-turn, the command gets injected into its response
+- No acknowledgment that the command was received
+- Overwhelming when queueing multiple requests
+
+**Queue-based approach:**
+
+```
+Automation Layer                      Mayor (Claude Code)
+     │                                      │
+     │ 1. Writes request                    │
+     ├──────────────────────────────────────>
+     │    to queue file                     │
+     │    (tasks/queue.jsonl)               │
+     │                                      │
+     │                                      │ 2. Stop hook fires
+     │                                      │    when Claude ready
+     │                                      │
+     │                                      │ 3. Reads queue
+     │ 4. Reads result                      │    Processes requests
+     <──────────────────────────────────────┤    Writes results
+     │    (tasks/results/)                  │
+```
+
+**Implementation:**
+
+Automation writes requests to the queue file:
+
+```bash
+echo '{"action": "briefing", "timestamp": "2026-02-01T08:00:00Z"}' >> \
+  "$STATE_PATH/tasks/queue.jsonl"
+```
+
+Mayor's stop hook (`~/.claude/hooks/on-stop.sh`) reads and processes queued requests:
+
+```bash
+#!/bin/bash
+QUEUE="$STATE_PATH/tasks/queue.jsonl"
+RESULTS="$STATE_PATH/tasks/results"
+
+if [ -f "$QUEUE" ] && [ -s "$QUEUE" ]; then
+    # Read first line
+    request=$(head -n 1 "$QUEUE")
+
+    # Remove it from queue
+    tail -n +2 "$QUEUE" > "$QUEUE.tmp" && mv "$QUEUE.tmp" "$QUEUE"
+
+    # Process request
+    action=$(echo "$request" | jq -r '.action')
+
+    # Hook stdout becomes the next user prompt for Claude Code
+    case "$action" in
+        briefing)
+            echo "/briefing"
+            ;;
+        analyze-issue)
+            issue=$(echo "$request" | jq -r '.issue')
+            echo "/analyze-issue $issue"
+            ;;
+        health-check)
+            echo "/health-check"
+            ;;
+    esac
+fi
+```
+
+**Benefits:**
+- ✅ **Robust**: Works regardless of Claude's state
+- ✅ **Asynchronous**: Automation doesn't block waiting
+- ✅ **Queueable**: Multiple requests can accumulate
+- ✅ **Traceable**: Queue file is git-backed, auditable
+- ✅ **Acknowledgment**: Results written to known location
+
+**Hook configuration:**
+The stop hook fires every time Claude finishes a turn and returns control to the user. This is the natural moment to check for queued work.
+
 ### Triggers
 
 Events that fire automation:
@@ -470,9 +551,11 @@ case "$1" in
         esac
         ;;
     briefing)
-        # Orchestrate: invoke Mayor (Claude), format, notify
-        tmux send-keys -t pai-mayor "/briefing" C-m
-        wait_for_completion
+        # Queue request for Mayor (processed by stop hook)
+        echo '{"action": "briefing", "timestamp": "'"$(date -Iseconds)"'"}' >> \
+          "$STATE_PATH/tasks/queue.jsonl"
+        # Wait for result file
+        wait_for_file "$STATE_PATH/briefing.md"
         cat "$STATE_PATH/briefing.md"
         notify-pai "$(head -5 $STATE_PATH/briefing.md)" 3 "Briefing"
         ;;
@@ -523,7 +606,8 @@ your-private-repo/
     │   └── ...
     ├── graph.dot                  # Generated dependency graph
     ├── journal/                   # Daily logs
-    │   └── 2026-01-31.md
+    │   ├── 2026-01-31.md
+    │   └── notifications.jsonl    # Notification history (for dashboard)
     └── mayor/                     # Mayor's persistent state
         ├── context.md             # Current understanding
         └── memory/                # Long-term patterns
@@ -728,6 +812,102 @@ pai-lite briefing                # Morning briefing (invokes Mayor)
 pai-lite init                    # Initialize config
 pai-lite triggers install        # Install launchd triggers
 ```
+
+## Web Dashboard
+
+pai-lite provides a simple web dashboard for at-a-glance status monitoring. The dashboard is a static HTML page served via a lightweight web server, refreshed via JavaScript polling or SSE.
+
+**Dashboard layout (3x2 grid):**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     pai-lite Dashboard                       │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│              │              │              │                │
+│   Slot 1     │   Slot 2     │   Slot 3     │  Ready Queue   │
+│              │              │              │                │
+│  ■ Active    │  □ Empty     │  ■ Active    │  1. task-101   │
+│  task-042    │              │  task-089    │  2. task-067   │
+│  agent-duo   │              │  claude-code │  3. task-128   │
+│  work        │              │  finalizing  │  4. task-043   │
+│  [terminals] │              │  [terminal]  │  5. task-091   │
+│              │              │              │                │
+├──────────────┼──────────────┼──────────────┤  [view all]    │
+│              │              │              │                │
+│   Slot 4     │   Slot 5     │   Slot 6     ├────────────────┤
+│              │              │              │                │
+│  □ Empty     │  □ Empty     │  □ Empty     │  Recent        │
+│              │              │              │  Notifications │
+│              │              │              │                │
+│              │              │              │  • Slot 1: PR  │
+│              │              │              │    ready       │
+│              │              │              │  • Briefing    │
+│              │              │              │    generated   │
+│              │              │              │  • task-098    │
+│              │              │              │    completed   │
+│              │              │              │                │
+├──────────────┴──────────────┴──────────────┤  [view all]    │
+│                                             │                │
+│  Mayor: Claude Code (Opus 4.5)              ├────────────────┤
+│  Status: ● Running                          │                │
+│  Last activity: 2 minutes ago               │  Quick Links   │
+│  [Open ttyd terminal] [View context]        │                │
+│                                             │  • Flow Ready  │
+│                                             │  • Tasks       │
+│                                             │  • Journal     │
+│                                             │                │
+└─────────────────────────────────────────────┴────────────────┘
+```
+
+**Features:**
+
+- **Slot status tiles**: Shows active tasks, adapter type, current phase
+  - Click tile → full slot details
+  - Click "terminals" → links to ttyd sessions (for agent-duo)
+  - Visual indicator: filled square (active), empty square (idle)
+
+- **Ready queue**: Top 5 tasks sorted by priority
+  - Click task → full task details
+  - "View all" → full flow ready list
+
+- **Recent notifications**: Last 10 from `<user>-pai` and `<user>-agents` topics
+  - Real-time updates via polling or SSE
+  - Click → full notification log
+
+- **Mayor status**: Uptime, last activity, link to ttyd terminal
+  - Direct access to Mayor's Claude Code session
+  - Context file preview
+
+**Implementation:**
+
+```bash
+# Serve dashboard (simple Python server)
+cd "$STATE_PATH/dashboard"
+python3 -m http.server 8080
+
+# Dashboard reads from git-backed state
+# - slots.md → slot status
+# - tasks/*.md → ready queue (via yq + jq)
+# - journal/notifications.jsonl → recent notifications
+
+# Auto-refresh every 10 seconds (JavaScript)
+setInterval(fetchSlotStatus, 10000);
+```
+
+**Deployment:**
+- **Local**: `http://localhost:8080` on development laptop
+- **Remote**: Nginx reverse proxy on always-on machine
+  - Requires authentication (basic auth or tailscale)
+  - Access from phone/tablet for quick checks
+
+**Why a dashboard?**
+- ✅ **At-a-glance status**: See all slots without running CLI commands
+- ✅ **Mobile-friendly**: Check status from phone
+- ✅ **Visual context**: See utilization (2/6 slots active = room for more parallelism)
+- ✅ **Quick access**: One-click to ttyd terminals, task details
+- ✅ **Complements CLI**: Not a replacement, but useful for monitoring
+
+The dashboard is **read-only** — all control happens via CLI. This keeps the implementation simple and avoids the complexity of web-based controls.
 
 ## Deployment Options
 
