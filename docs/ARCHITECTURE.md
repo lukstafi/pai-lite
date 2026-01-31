@@ -26,7 +26,7 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 │                                                            │
 │  Uses native Claude Code capabilities:                     │
 │  • Task tool → Haiku/Sonnet subagents for fast tasks       │
-│  • OCaml binaries for deterministic algorithms             │
+│  • CLI tools (yq, jq, tsort) for deterministic operations  │
 │  • Skills with embedded delegation patterns                │
 │                                                            │
 │  Writes decisions to git-backed state (persistent)         │
@@ -36,9 +36,9 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 ┌────────────────────────────────────────────────────────────┐
 │           AUTOMATION LAYER (Deterministic - Always On)     │
 │                                                            │
-│  Flow Engine (Bash + OCaml):                               │
-│    • Maintains dependency graph (OCaml: type-safe)         │
-│    • Computes ready queue (deterministic filtering)        │
+│  Flow Engine (Bash + CLI tools):                           │
+│    • Maintains dependency graph (tsort, graphviz)          │
+│    • Computes ready queue (yq, jq filtering)               │
 │    • Detects deadline violations (date math)               │
 │                                                            │
 │  Trigger System (launchd):                                 │
@@ -95,11 +95,11 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - **Haiku**: Fast extraction, parsing, simple validation
 - **Sonnet**: Medium-complexity tasks, structured generation
 
-*Via OCaml binaries (deterministic algorithms):*
-- Dependency graph computation
-- Cycle detection, topological sort
-- Priority queue management
-- Schedule validation
+*Via CLI tools (deterministic algorithms):*
+- Dependency graph: `yq` to extract, `tsort` for topological order
+- Cycle detection: `tsort` (fails on cycles)
+- Priority filtering: `jq` for sorting and selection
+- Graph visualization: `graphviz` (dot)
 
 The Mayor's skills (defined in the framework) can embed delegation patterns, e.g., a `/analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mayor writes the task file.
 
@@ -151,8 +151,9 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 |------|----------|-----|
 | Extract dependencies from prose | Task → Haiku | Fast, cheap, sufficient |
 | Structured output generation | Task → Sonnet | Better format adherence |
-| Graph algorithms | OCaml binary | Deterministic, type-safe |
-| Schedule validation | OCaml binary | Provably correct |
+| Topological sort, cycle detection | `tsort` | Standard Unix tool |
+| Filter/sort tasks | `yq` + `jq` | Fast, scriptable |
+| Graph visualization | `graphviz` | DOT format, renders PNGs |
 | Strategic analysis | Mayor (Opus) | Needs judgment, context |
 | Writing briefings | Mayor (Opus) | Needs narrative skill |
 
@@ -165,8 +166,8 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
    "Return JSON: {blocks: [...], blocked_by: [...]}"
    └─ Fast extraction
 
-3. [Bash] pai_flow check-cycle <dependencies>
-   └─ OCaml validates no circular deps
+3. [Bash] echo "$new_deps" | tsort 2>&1
+   └─ tsort validates no circular deps (fails on cycle)
 
 4. [Opus] Write task file with context
 ```
@@ -297,39 +298,35 @@ pai-lite flow context
 # → Shows context distribution across active slots
 ```
 
-**Mayor's flow analysis (OCaml pseudocode):**
-```ocaml
-(* Suggestion logic: what to work on next *)
-let suggest_next_task slots tasks =
-  let ready = tasks |> List.filter (fun t ->
-    t.blocked_by = [] && t.status = Ready) in
+**Flow analysis (shell implementation):**
+```bash
+#!/bin/bash
+# pai-lite flow ready — suggest next task
 
-  (* Priority 1: Hard deadlines approaching *)
-  let urgent = ready |> List.filter (fun t ->
-    Option.is_some t.deadline && days_until t.deadline < 30) in
-  match List.sort by_priority_then_deadline urgent with
-  | t :: _ -> Some t
-  | [] ->
+TASKS_DIR="$STATE_PATH/tasks"
 
-  (* Priority 2: High-impact (unblocks many tasks) *)
-  let high_impact = ready |> List.filter (fun t ->
-    count_blocked_tasks t >= 3) in
-  match List.sort by_priority_then_impact high_impact with
-  | t :: _ -> Some t
-  | [] ->
+# Extract all task frontmatter as JSON
+yq -s '.' "$TASKS_DIR"/*.md > /tmp/tasks.json
 
-  (* Priority 3: Same context as active slots *)
-  let active_contexts = slots
-    |> List.filter_map (fun s -> Option.map (fun t -> t.context) s.task)
-    |> StringSet.of_list in
-  let same_context = ready |> List.filter (fun t ->
-    StringSet.mem t.context active_contexts) in
-  match List.sort by_priority same_context with
-  | t :: _ -> Some t
-  | [] ->
+# Build dependency pairs for tsort (to check for cycles)
+jq -r '.[] | select(.dependencies.blocked_by) |
+  .dependencies.blocked_by[] as $dep | "\($dep) \(.id)"' \
+  /tmp/tasks.json | tsort > /dev/null 2>&1 || echo "Warning: cycle detected"
 
-  (* Priority 4: Highest priority ready task *)
-  List.sort by_priority ready |> List.hd_opt
+# Filter to ready tasks (blocked_by empty, status=ready)
+jq '[.[] | select(
+  (.dependencies.blocked_by | length) == 0 and
+  .status == "ready"
+)]' /tmp/tasks.json > /tmp/ready.json
+
+# Priority 1: Urgent (deadline within 30 days)
+jq --arg today "$(date +%Y-%m-%d)" '[.[] | select(
+  .deadline != null and
+  (.deadline | strptime("%Y-%m-%d") | mktime) - ($today | strptime("%Y-%m-%d") | mktime) < 2592000
+)] | sort_by(.priority, .deadline) | first' /tmp/ready.json
+
+# Priority 2-4: By priority, then by impact (tasks blocked), then by context match
+jq 'sort_by(.priority) | first' /tmp/ready.json
 ```
 
 ### Three-Tier Notification System
@@ -421,55 +418,56 @@ Events that fire automation:
 | Repo change | launchd `WatchPaths` | Sync tasks, analyze issues |
 | Manual | CLI command | User-initiated |
 
-## Implementation: Hybrid Bash + OCaml
+## Implementation: Pure Bash + CLI Tools
 
-pai-lite uses **Bash for coordination**, **OCaml for complex logic**:
+pai-lite uses **Bash for coordination** with standard **CLI tools for logic**:
 
 ```
-Bash (coordination layer):
+Bash (coordination + logic):
 ├─ bin/pai-lite              CLI entry, arg parsing, dispatch
 ├─ lib/triggers.sh           launchd integration
 ├─ lib/slots.sh              tmux/adapter orchestration
+├─ lib/flow.sh               Task filtering, ready queue (uses yq/jq/tsort)
 ├─ adapters/*.sh             Read .peer-sync/, git, tmux
 └─ Simple glue, process orchestration
 
-OCaml (logic layer):
-├─ pai_flow.exe              Dependency graph (basic algorithms)
-├─ pai_schedule.exe          Priority queuing, filtering
-├─ pai_parse.exe             Task frontmatter parsing
-└─ Type-safe data structures, deterministic algorithms
-
-GPT-5.2 (delegated for complex reasoning):
-├─ Low-effort mode           Parsing, extraction, validation
-└─ High-effort mode          Complex optimization, proofs, hard algorithms
+CLI tools (deterministic operations):
+├─ yq                        Parse YAML frontmatter from task files
+├─ jq                        Filter, sort, transform JSON
+├─ tsort                     Topological sort, cycle detection
+├─ graphviz (dot)            Dependency graph visualization
+└─ Standard Unix (date, sort, etc.)
 ```
 
-**Why Bash for coordination?**
-- ✅ Native language of Unix automation (tmux, git, launchd, curl)
+**Why pure Bash + CLI tools?**
 - ✅ No compilation step (edit and run immediately)
+- ✅ Minimal dependencies (yq, jq, tsort are lightweight)
 - ✅ Transparent (just read the script)
-- ✅ Minimal dependencies (works anywhere)
+- ✅ Native language of Unix automation (tmux, git, launchd, curl)
 - ✅ Perfect for glue code (pipes, redirects, subshells)
-
-**Why OCaml for logic?**
-- ✅ Type safety for complex algorithms (dependency graphs, scheduling)
-- ✅ Pattern matching for state machines (task status transitions)
-- ✅ Your primary language (dogfooding, expertise)
-- ✅ Fast execution (compiled, no startup latency)
-- ✅ Can extract reusable libraries for OCaml community
-
-**Why NOT Python?**
-- ❌ Runtime errors that OCaml catches at compile time
-- ❌ Slower startup (matters for frequent CLI invocations)
-- ❌ OCaml is the author's primary language (expertise, dogfooding)
+- ✅ `tsort` is proven correct (standard Unix utility since 1979)
 
 **Example integration:**
 ```bash
 # Bash wrapper (bin/pai-lite)
 case "$1" in
     flow)
-        # Call OCaml for graph computation
-        pai_flow_engine "$2" "$STATE_PATH/tasks/"
+        case "$2" in
+            ready)
+                # Use yq + jq for filtering
+                yq -s '.' "$STATE_PATH/tasks/"*.md | \
+                  jq '[.[] | select(.status == "ready" and (.dependencies.blocked_by | length) == 0)]
+                      | sort_by(.priority)
+                      | .[] | "\(.id) (\(.priority)) \(.title)"' -r
+                ;;
+            check-cycle)
+                # Use tsort to detect cycles
+                yq -s '.' "$STATE_PATH/tasks/"*.md | \
+                  jq -r '.[] | select(.dependencies.blocked_by) |
+                    .dependencies.blocked_by[] as $dep | "\($dep) \(.id)"' | \
+                  tsort > /dev/null 2>&1 || { echo "Cycle detected"; exit 1; }
+                ;;
+        esac
         ;;
     briefing)
         # Orchestrate: invoke Mayor (Claude), format, notify
@@ -495,22 +493,16 @@ pai-lite/
 ├── bin/
 │   └── pai-lite                   # Main CLI (Bash)
 ├── lib/
-│   ├── slots.sh                   # Slot management (Bash)
-│   ├── tasks.sh                   # Task aggregation (Bash)
-│   ├── triggers.sh                # Trigger setup (Bash)
-│   └── notify.sh                  # ntfy.sh integration (Bash)
+│   ├── slots.sh                   # Slot management
+│   ├── tasks.sh                   # Task aggregation
+│   ├── flow.sh                    # Flow engine (yq, jq, tsort)
+│   ├── triggers.sh                # Trigger setup
+│   └── notify.sh                  # ntfy.sh integration
 ├── adapters/
 │   ├── agent-duo.sh
 │   ├── agent-solo.sh
 │   ├── claude-code.sh
 │   └── claude-ai.sh
-├── pai_flow/                      # OCaml dependency analysis
-│   ├── dune
-│   ├── flow.ml
-│   └── graph.ml
-├── pai_schedule/                  # OCaml scheduling logic
-│   ├── dune
-│   └── schedule.ml
 └── templates/
     ├── config.example.yaml
     ├── slots.example.md
@@ -534,11 +526,6 @@ your-private-repo/
     │   └── 2026-01-31.md
     └── mayor/                     # Mayor's persistent state
         ├── context.md             # Current understanding
-        ├── tools/
-        │   ├── gpt-low            # GPT-5.2 low-reasoning mode
-        │   ├── gpt-high           # GPT-5.2 high-reasoning mode
-        │   ├── notify             # ntfy.sh wrapper
-        │   └── dependency-extract # GPT-powered extraction
         └── memory/                # Long-term patterns
             └── user-preferences.md
 ```
@@ -863,7 +850,7 @@ watch_phase_changes() {
 
 7. **Hardcoded constraints as forcing functions** — 6 slots create pressure to parallelize
 
-8. **Hybrid implementation** — Bash for glue, OCaml for algorithms, no Python
+8. **Pure Bash implementation** — Bash for glue, standard CLI tools (yq, jq, tsort) for algorithms
 
 9. **One lifelong Mayor** — Builds memory, consistent decisions, sees cross-project connections
 
@@ -880,7 +867,7 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
 | launchd trigger doesn't fire | Health check detects stale state | User runs `pai-lite triggers check` |
 | ntfy.sh unreachable | curl returns error | Log locally; retry on next trigger |
 | Claude API down | Task tool fails | Mayor retries or skips delegation, logs warning |
-| Task file corrupted | OCaml parser fails | Notify user; task excluded from flow until fixed |
+| Task file corrupted | yq parse fails | Notify user; task excluded from flow until fixed |
 
 **Design for recovery:**
 - All state changes go through git → crash-safe, auditable
@@ -912,15 +899,15 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
   launchd: triggers briefing
   Automation: tmux send-keys -t pai-mayor "/briefing"
   Mayor (Opus): reads slots.md, tasks/, understands context
-  OCaml: pai_flow_engine ready tasks/ (computes ready queue, priorities)
+  Bash: yq + jq compute ready queue, priorities
   Mayor: writes briefing.md with strategic suggestions
   Automation: ntfy.sh/lukstafi-pai priority 3 "Briefing ready"
   You: read on phone when you wake up
 
 09:00 - Start work (on laptop)
   You: pai-lite flow ready
-  OCaml: computes ready queue
-  Bash: formats, displays: task-101 (A, deadline 7 days), task-067 (A)...
+  Bash: yq + jq filter ready tasks, sort by priority
+  Output: task-101 (A, deadline 7 days), task-067 (A)...
 
   You: pai-lite slot 1 assign task-101
   Bash: updates slots.md, git commit, push
@@ -948,7 +935,7 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
   Bash: git commit, push
 
   Mayor (next check): sees task-101 done
-  OCaml: recomputes dependency graph, identifies newly unblocked tasks
+  Bash: jq recomputes ready queue, identifies newly unblocked tasks
   Mayor (Opus): writes notification with context and strategic insight
   Mayor: ntfy.sh/lukstafi-pai "task-101 done → 2 tasks unblocked, suggests 102 first"
 
