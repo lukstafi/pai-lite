@@ -88,6 +88,8 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - Suggests what to work on next based on priority, deadlines, and dependencies
 - Elaborates high-level tasks into detailed Markdown specifications (SWE tasks)
 - Publishes curated updates to public notification channel
+- **Learns from corrections** — updates institutional memory when mistakes are identified
+- **Consolidates learnings** — periodically synthesizes scattered corrections into structured knowledge
 
 **What the Mayor delegates:**
 
@@ -206,6 +208,49 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 ```
 
 Skills defined in the framework embed these patterns, keeping the Mayor's prompts clean.
+
+**Example: `/learn` skill (institutional memory)**
+
+When the user corrects a mistake, they can invoke `/learn` to have the Mayor update its memory:
+
+```
+User: "Don't use yq -s on single files, it expects multiple"
+User: /learn
+
+Mayor:
+1. Acknowledges the correction
+2. Writes to mayor/memory/corrections.md:
+   ---
+   - date: 2026-02-01
+     context: yq usage
+     correction: "yq -s expects multiple files; use yq eval for single files"
+     source: user feedback
+   ---
+3. If pattern is broader, updates mayor/memory/tools.md or CLAUDE.md
+```
+
+This creates a feedback loop where the Mayor learns from its mistakes and avoids repeating them.
+
+**Example: `/sync-learnings` skill (knowledge consolidation)**
+
+Periodically (or on demand), the Mayor consolidates scattered learnings:
+
+```
+/sync-learnings
+
+Mayor:
+1. Reads mayor/memory/corrections.md (recent entries)
+2. Reads journal/*.md (friction points, user feedback)
+3. Groups by theme (tooling, workflow, project-specific)
+4. Updates structured memory files:
+   - mayor/memory/tools.md (CLI tool gotchas)
+   - mayor/memory/workflows.md (process patterns)
+   - mayor/memory/projects/*.md (project-specific knowledge)
+5. Archives processed corrections (moves to corrections-archive.md)
+6. Optionally proposes CLAUDE.md updates for broad patterns
+```
+
+This prevents memory files from becoming cluttered while ensuring learnings are preserved and organized.
 
 ### The Slot Model: Forcing Function for Parallelization
 
@@ -1163,3 +1208,124 @@ Evening - You check flow state
 ```
 
 This architecture creates a **self-sustaining AI infrastructure** that amplifies your research productivity while maintaining human control through configurable autonomy levels and approval gates.
+
+## Ancillary Features
+
+These features are useful additions but not central to pai-lite's core mission of orchestrating AI agents and managing flow-based tasks. They can be implemented incrementally as needed.
+
+### `/techdebt` Skill
+
+End-of-day or end-of-week technical debt review:
+
+```
+/techdebt
+
+Mayor:
+1. Task → Haiku: scan recent commits across watched projects for code smells
+2. Identify:
+   - Duplicated code blocks (>80% similarity)
+   - TODO/FIXME comments added recently
+   - Unused imports or dead code
+   - Copy-pasted patterns that could be consolidated
+3. For each finding:
+   - Show locations
+   - Estimate maintenance cost (low/medium/high)
+   - Suggest consolidation approach
+4. Create low-priority task files for significant cleanup opportunities
+5. Optionally notify via ntfy with summary
+```
+
+This keeps technical debt visible without interrupting active work.
+
+### `/context-sync` Skill
+
+Pre-briefing aggregation of recent activity across sources:
+
+```
+/context-sync
+
+Mayor:
+1. GitHub: fetch recent issue comments across watched repos (gh api)
+2. Git: recent commits since last sync (git log --since)
+3. Notifications: read journal/notifications.jsonl (recent alerts)
+4. Optionally: external sources (Slack via MCP, if configured)
+
+Output: context-sync.md with:
+- New issue comments requiring attention
+- Recent commits by project
+- Notification summary
+- Suggested follow-ups
+
+Used by: /briefing skill can read context-sync.md for richer morning briefings
+```
+
+This aggregates scattered information into a single context document.
+
+### CI Failure Adapter
+
+Integrates GitHub Actions (or other CI) failures into the Mayor's workflow:
+
+```bash
+# adapters/github-actions.sh
+
+poll_ci_failures() {
+    local repo="$1"
+    local seen_file="$STATE_PATH/ci-failures-seen.txt"
+
+    # Fetch recent failed runs
+    gh run list --repo "$repo" --status failure --limit 10 --json databaseId,conclusion,headBranch,createdAt \
+      | jq -r '.[] | "\(.databaseId)\t\(.headBranch)\t\(.createdAt)"' > /tmp/failures.txt
+
+    # Filter to unseen failures (deduplication)
+    while IFS=$'\t' read -r run_id branch created; do
+        if ! grep -q "^$run_id$" "$seen_file" 2>/dev/null; then
+            # New failure - fetch logs and queue for Mayor
+            gh run view "$run_id" --repo "$repo" --log-failed > "/tmp/failure-$run_id.log"
+
+            # Queue analysis request
+            echo "{\"action\": \"analyze-ci-failure\", \"repo\": \"$repo\", \"run_id\": \"$run_id\", \"branch\": \"$branch\"}" \
+              >> "$STATE_PATH/tasks/queue.jsonl"
+
+            # Mark as seen
+            echo "$run_id" >> "$seen_file"
+        fi
+    done < /tmp/failures.txt
+}
+```
+
+**Deduplication**: The adapter maintains `ci-failures-seen.txt` to avoid re-processing the same failure. Entries can be pruned periodically (e.g., remove entries older than 7 days).
+
+**Mayor handling**: When the Mayor processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
+- Creates a task file if it's a new issue
+- Adds a note to an existing task if it's related to active work
+- Notifies via ntfy if it's blocking a deadline
+
+### Read-Only Slot Mode
+
+Some slots should be dedicated to analysis without mutation:
+
+```markdown
+## Slot 6
+
+**Process:** Analysis / exploration
+**Mode:** read-only
+**Purpose:** Log analysis, metrics queries, code exploration
+
+**Restrictions:**
+- No git commits
+- No file writes outside scratchpad
+- No PR creation
+
+**Use cases:**
+- Investigating production logs
+- Running BigQuery/database queries
+- Exploring unfamiliar codebases
+- Reviewing competitor implementations
+```
+
+**Implementation**: The adapter for read-only slots would:
+1. Set `CLAUDE_READ_ONLY=true` environment variable (if supported)
+2. Use a hooks configuration that blocks write operations
+3. Or simply document as a convention (no enforcement)
+
+**Why useful**: Prevents accidental mutations during exploratory work. Creates a clear "safe space" for investigation without worrying about side effects. Matches the "analysis worktree" pattern from Claude Code team workflows.
