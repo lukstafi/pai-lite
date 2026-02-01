@@ -987,6 +987,84 @@ setInterval(fetchSlotStatus, 10000);
 
 The dashboard is **read-only** — all control happens via CLI. This keeps the implementation simple and avoids the complexity of web-based controls.
 
+## Terminal Grid View
+
+A focused view for monitoring all slot terminals simultaneously, complementing the dashboard's status overview.
+
+**Layout:**
+
+```
+┌─────────────────┬─────────────────┬─────────────────┐
+│ Slot 1          │ Slot 2          │ Slot 3          │
+│ [orch][claude]  │ [claude]        │ (empty)         │
+│ ┌─────────────┐ │ ┌─────────────┐ │                 │
+│ │             │ │ │             │ │   No session    │
+│ │   <iframe>  │ │ │   <iframe>  │ │                 │
+│ │   ttyd      │ │ │   ttyd      │ │                 │
+│ └─────────────┘ │ └─────────────┘ │                 │
+├─────────────────┼─────────────────┼─────────────────┤
+│ Slot 4          │ Slot 5          │ Slot 6          │
+│ [orch][codex]   │ (empty)         │ [claude]        │
+│ ┌─────────────┐ │                 │ ┌─────────────┐ │
+│ │             │ │   No session    │ │             │ │
+│ │   <iframe>  │ │                 │ │   <iframe>  │ │
+│ │   ttyd      │ │                 │ │   ttyd      │ │
+│ └─────────────┘ │                 │ └─────────────┘ │
+└─────────────────┴─────────────────┴─────────────────┘
+```
+
+**Features:**
+
+- **3x2 grid of terminal tiles**: Each tile displays one slot's ttyd session
+- **Tabbed terminals**: Slots with multiple terminals (e.g., agent-duo) show tabs
+  - `orchestrator` — the orchestrating tmux session
+  - `claude` — Claude Code agent terminal
+  - `codex` — Codex agent terminal
+- **Dynamic tab generation**: Tabs populated from slot's `terminals` object in JSON
+- **Empty slot handling**: Placeholder shown when no active session
+
+**Tab Behavior:**
+
+```javascript
+// Each slot tile reads terminals from slots.json
+{
+  "number": 1,
+  "task": "task-042",
+  "terminals": {
+    "orchestrator": "http://localhost:7690",
+    "claude": "http://localhost:7691",
+    "codex": "http://localhost:7692"
+  }
+}
+
+// Clicking tab switches iframe src
+tabButton.onclick = () => {
+  iframe.src = tabButton.dataset.url;
+  setActiveTab(tabButton);
+};
+```
+
+**Implementation:**
+
+- **Separate page**: `terminals.html` alongside `index.html`
+- **Shared data**: Both views read from same `data/slots.json`
+- **Navigation**: Toggle between dashboard and terminal grid views
+- **Responsive**: Adapts to 2x3 or 1x6 on smaller screens
+
+**Enhancements (optional):**
+
+- **Keyboard shortcuts**: `1-6` to focus slot, `Ctrl+1/2/3` to switch tabs
+- **Tab activity indicators**: Show which terminals have recent output
+- **Persist tab selection**: Remember active tab per slot in localStorage
+- **Full-screen mode**: Double-click tile to expand single terminal
+
+**Why a terminal grid?**
+
+- ✅ **Simultaneous monitoring**: Watch all agent sessions at once
+- ✅ **Quick context switching**: Tabs avoid opening many browser windows
+- ✅ **Embedded access**: No need to leave the dashboard for terminal interaction
+- ✅ **Complements dashboard**: Dashboard for status, terminal grid for live sessions
+
 ## Deployment Options
 
 ### Option 1: Laptop (Simple Start)
