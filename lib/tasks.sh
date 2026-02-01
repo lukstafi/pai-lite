@@ -119,7 +119,7 @@ tasks_sync() {
               line_no=$((line_no + 1))
               if [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]*\[[[:space:]]\][[:space:]]*(.+)$ ]]; then
                 local task_text id escaped
-                task_text="${BASH_REMATCH[1]}"
+                task_text="${BASH_REMATCH[1]:-}"
                 id="readme-${repo_name}-${line_no}"
                 escaped="$(yaml_escape "$task_text")"
                 echo "  - id: $id"
@@ -130,7 +130,7 @@ tasks_sync() {
                 echo "    line: $line_no"
               elif [[ "$line" =~ TODO[:[:space:]]*(.+)$ ]]; then
                 local task_text id escaped
-                task_text="${BASH_REMATCH[1]}"
+                task_text="${BASH_REMATCH[1]:-}"
                 id="readme-${repo_name}-${line_no}"
                 escaped="$(yaml_escape "$task_text")"
                 echo "  - id: $id"
@@ -236,7 +236,7 @@ tasks_convert() {
           "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
         count=$((count + 1))
       fi
-      current_id="${BASH_REMATCH[1]}"
+      current_id="${BASH_REMATCH[1]:-}"
       current_id="${current_id//\"/}"
       current_title=""
       current_source=""
@@ -244,16 +244,16 @@ tasks_convert() {
       current_url=""
       current_labels=""
     elif [[ "$line" =~ ^[[:space:]]*title:[[:space:]]*\"?(.+)\"?$ ]]; then
-      current_title="${BASH_REMATCH[1]}"
+      current_title="${BASH_REMATCH[1]:-}"
       current_title="${current_title%\"}"
     elif [[ "$line" =~ ^[[:space:]]*source:[[:space:]]*(.+)$ ]]; then
-      current_source="${BASH_REMATCH[1]}"
+      current_source="${BASH_REMATCH[1]:-}"
     elif [[ "$line" =~ ^[[:space:]]*repo:[[:space:]]*(.+)$ ]]; then
-      current_repo="${BASH_REMATCH[1]}"
+      current_repo="${BASH_REMATCH[1]:-}"
     elif [[ "$line" =~ ^[[:space:]]*url:[[:space:]]*(.+)$ ]]; then
-      current_url="${BASH_REMATCH[1]}"
+      current_url="${BASH_REMATCH[1]:-}"
     elif [[ "$line" =~ ^[[:space:]]*labels:[[:space:]]*\"?(.*)\"?$ ]]; then
-      current_labels="${BASH_REMATCH[1]}"
+      current_labels="${BASH_REMATCH[1]:-}"
       current_labels="${current_labels%\"}"
     fi
   done < "$yaml_file"
@@ -319,7 +319,7 @@ EOF
     echo "url: $url" >> "$file"
   fi
   if [[ "$source" == "github" && "$id" =~ gh-[^-]+-([0-9]+)$ ]]; then
-    echo "github_issue: ${BASH_REMATCH[1]}" >> "$file"
+    echo "github_issue: ${BASH_REMATCH[1]:-}" >> "$file"
   fi
 
   cat >> "$file" << EOF
