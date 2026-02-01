@@ -11,13 +11,17 @@ source "$root_dir/lib/slots.sh"
 source "$root_dir/lib/tasks.sh"
 # shellcheck source=lib/triggers.sh
 source "$root_dir/lib/triggers.sh"
+# shellcheck source=lib/flow.sh
+source "$root_dir/lib/flow.sh"
+# shellcheck source=lib/notify.sh
+source "$root_dir/lib/notify.sh"
 
 usage() {
   cat <<'USAGE'
 Usage: pai-lite <command>
 
 Commands:
-  slots                       Show all slots
+  slots                        Show all slots
   slot <n>                     Show slot n
   slot <n> assign <task>       Assign a task to slot n
   slot <n> clear               Clear slot n
@@ -28,6 +32,28 @@ Commands:
   tasks sync                   Aggregate tasks from sources
   tasks list                   Show unified task list
   tasks show <id>              Show task details
+  tasks convert                Convert tasks.yaml to individual task files
+  tasks create <title>         Create a new task manually
+  tasks files                  List individual task files
+  tasks samples                Create sample tasks for testing
+
+  flow ready                   Priority-sorted ready tasks
+  flow blocked                 What's blocked and why
+  flow critical                Deadlines + stalled + high-priority
+  flow impact <id>             What this task unblocks
+  flow context                 Context distribution across slots
+  flow check-cycle             Check for dependency cycles
+
+  mayor briefing               Request morning briefing
+  mayor suggest                Get task suggestions
+  mayor analyze <issue>        Analyze GitHub issue
+  mayor elaborate <id>         Elaborate task into detailed spec
+  mayor health-check           Check for stalled work, deadlines
+
+  notify pai <msg>             Send strategic notification
+  notify agents <msg>          Send operational notification
+  notify public <msg>          Send public broadcast
+  notify recent [n]            Show recent notifications
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing
@@ -153,8 +179,25 @@ case "$cmd" in
         [[ -n "$task_id" ]] || pai_lite_die "task id required"
         tasks_show "$task_id"
         ;;
+      convert)
+        tasks_convert
+        ;;
+      create)
+        shift 2
+        [[ -n "${1:-}" ]] || pai_lite_die "task title required"
+        title="$1"
+        project="${2:-personal}"
+        priority="${3:-B}"
+        tasks_create "$title" "$project" "$priority"
+        ;;
+      files)
+        tasks_files_list
+        ;;
+      samples)
+        tasks_create_samples
+        ;;
       *)
-        pai_lite_die "unknown tasks subcommand: $sub"
+        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples)"
         ;;
     esac
     ;;
@@ -193,6 +236,86 @@ case "$cmd" in
         ;;
       *)
         pai_lite_die "unknown triggers subcommand: $sub"
+        ;;
+    esac
+    ;;
+  flow)
+    require_config
+    shift
+    flow_main "$@"
+    ;;
+  mayor)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      briefing)
+        request_id=$(pai_lite_queue_request "briefing")
+        echo "Queued briefing request: $request_id"
+        echo "Mayor will process when ready (check ~/.claude/hooks/on-stop.sh)"
+        ;;
+      suggest)
+        request_id=$(pai_lite_queue_request "suggest")
+        echo "Queued suggestion request: $request_id"
+        ;;
+      analyze)
+        issue="${3:-}"
+        [[ -n "$issue" ]] || pai_lite_die "issue number or URL required"
+        request_id=$(pai_lite_queue_request "analyze-issue" "\"issue\":\"$issue\"")
+        echo "Queued issue analysis: $request_id"
+        ;;
+      elaborate)
+        task_id="${3:-}"
+        [[ -n "$task_id" ]] || pai_lite_die "task id required"
+        request_id=$(pai_lite_queue_request "elaborate" "\"task\":\"$task_id\"")
+        echo "Queued task elaboration: $request_id"
+        ;;
+      health-check)
+        request_id=$(pai_lite_queue_request "health-check")
+        echo "Queued health check: $request_id"
+        ;;
+      queue)
+        # Show pending queue
+        queue_file="$(pai_lite_queue_file)"
+        if [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]; then
+          echo "Pending requests:"
+          cat "$queue_file"
+        else
+          echo "No pending requests in queue"
+        fi
+        ;;
+      *)
+        pai_lite_die "unknown mayor subcommand: $sub (use: briefing, suggest, analyze, elaborate, health-check, queue)"
+        ;;
+    esac
+    ;;
+  notify)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      pai)
+        shift 2
+        [[ -n "${*:-}" ]] || pai_lite_die "message required"
+        notify_pai "$*"
+        echo "Notification sent to pai topic"
+        ;;
+      agents)
+        shift 2
+        [[ -n "${*:-}" ]] || pai_lite_die "message required"
+        notify_agents "$*"
+        echo "Notification sent to agents topic"
+        ;;
+      public)
+        shift 2
+        [[ -n "${*:-}" ]] || pai_lite_die "message required"
+        notify_public "$*"
+        echo "Notification sent to public topic"
+        ;;
+      recent)
+        count="${3:-10}"
+        notify_recent "$count"
+        ;;
+      *)
+        pai_lite_die "unknown notify subcommand: $sub (use: pai, agents, public, recent)"
         ;;
     esac
     ;;

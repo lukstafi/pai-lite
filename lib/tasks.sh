@@ -194,3 +194,449 @@ tasks_show() {
     in_block { print }
   ' "$file"
 }
+
+#------------------------------------------------------------------------------
+# Task file directory (individual task-*.md files for flow engine)
+#------------------------------------------------------------------------------
+
+tasks_dir_path() {
+  pai_lite_ensure_state_repo
+  pai_lite_ensure_state_dir
+  echo "$(pai_lite_state_harness_dir)/tasks"
+}
+
+#------------------------------------------------------------------------------
+# Convert tasks.yaml to individual task files
+# Creates task-*.md files with YAML frontmatter for the flow engine
+#------------------------------------------------------------------------------
+
+tasks_convert() {
+  local yaml_file tasks_dir
+  yaml_file="$(tasks_file_path)"
+  tasks_dir="$(tasks_dir_path)"
+
+  [[ -f "$yaml_file" ]] || pai_lite_die "tasks.yaml not found (run: pai-lite tasks sync first)"
+
+  mkdir -p "$tasks_dir"
+
+  local today
+  today=$(date +%Y-%m-%d)
+
+  local count=0
+  local current_id="" current_title="" current_source="" current_repo=""
+  local current_url="" current_labels=""
+
+  # Parse tasks.yaml and create individual files
+  while IFS= read -r line; do
+    # New task entry
+    if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*id:[[:space:]]*(.+)$ ]]; then
+      # Write previous task if exists
+      if [[ -n "$current_id" ]]; then
+        tasks_write_file "$current_id" "$current_title" "$current_source" \
+          "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
+        count=$((count + 1))
+      fi
+      current_id="${BASH_REMATCH[1]}"
+      current_id="${current_id//\"/}"
+      current_title=""
+      current_source=""
+      current_repo=""
+      current_url=""
+      current_labels=""
+    elif [[ "$line" =~ ^[[:space:]]*title:[[:space:]]*\"?(.+)\"?$ ]]; then
+      current_title="${BASH_REMATCH[1]}"
+      current_title="${current_title%\"}"
+    elif [[ "$line" =~ ^[[:space:]]*source:[[:space:]]*(.+)$ ]]; then
+      current_source="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*repo:[[:space:]]*(.+)$ ]]; then
+      current_repo="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*url:[[:space:]]*(.+)$ ]]; then
+      current_url="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^[[:space:]]*labels:[[:space:]]*\"?(.*)\"?$ ]]; then
+      current_labels="${BASH_REMATCH[1]}"
+      current_labels="${current_labels%\"}"
+    fi
+  done < "$yaml_file"
+
+  # Write last task
+  if [[ -n "$current_id" ]]; then
+    tasks_write_file "$current_id" "$current_title" "$current_source" \
+      "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
+    count=$((count + 1))
+  fi
+
+  echo "Created $count task files in $tasks_dir"
+}
+
+# Helper: Write individual task file
+tasks_write_file() {
+  local id="$1" title="$2" source="$3" repo="$4" url="$5" labels="$6" today="$7" dir="$8"
+
+  # Skip if file already exists (don't overwrite user edits)
+  local file="$dir/${id}.md"
+  if [[ -f "$file" ]]; then
+    pai_lite_info "skipping existing: $id"
+    return
+  fi
+
+  # Infer priority from labels
+  local priority="B"
+  if [[ "$labels" =~ (urgent|critical|high|priority) ]]; then
+    priority="A"
+  elif [[ "$labels" =~ (low|minor|nice-to-have) ]]; then
+    priority="C"
+  fi
+
+  # Infer project from repo
+  local project=""
+  if [[ -n "$repo" ]]; then
+    project="${repo##*/}"
+  fi
+
+  # Write the task file
+  cat > "$file" << EOF
+---
+id: $id
+title: "$title"
+project: $project
+status: ready
+priority: $priority
+deadline: null
+dependencies:
+  blocks: []
+  blocked_by: []
+effort: medium
+context: $project
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+source: $source
+EOF
+
+  if [[ -n "$url" ]]; then
+    echo "url: $url" >> "$file"
+  fi
+  if [[ "$source" == "github" && "$id" =~ gh-[^-]+-([0-9]+)$ ]]; then
+    echo "github_issue: ${BASH_REMATCH[1]}" >> "$file"
+  fi
+
+  cat >> "$file" << EOF
+---
+
+# $title
+
+## Context
+
+$(if [[ -n "$url" ]]; then echo "Source: $url"; fi)
+$(if [[ -n "$labels" ]]; then echo "Labels: $labels"; fi)
+
+## Acceptance Criteria
+
+- [ ] TBD
+
+## Notes
+
+EOF
+
+  pai_lite_info "created: $id"
+}
+
+#------------------------------------------------------------------------------
+# Create a new task manually
+#------------------------------------------------------------------------------
+
+tasks_create() {
+  local title="$1"
+  local project="${2:-personal}"
+  local priority="${3:-B}"
+
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+  mkdir -p "$tasks_dir"
+
+  # Generate task ID
+  local count today id
+  count=$(find "$tasks_dir" -name "task-*.md" 2>/dev/null | wc -l | tr -d ' ')
+  count=$((count + 1))
+  today=$(date +%Y-%m-%d)
+  id="task-$(printf '%03d' "$count")"
+
+  local file="$tasks_dir/${id}.md"
+
+  cat > "$file" << EOF
+---
+id: $id
+title: "$title"
+project: $project
+status: ready
+priority: $priority
+deadline: null
+dependencies:
+  blocks: []
+  blocked_by: []
+effort: medium
+context: $project
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+---
+
+# $title
+
+## Context
+
+Created manually via pai-lite.
+
+## Acceptance Criteria
+
+- [ ] TBD
+
+## Notes
+
+EOF
+
+  echo "Created task: $file"
+  echo "ID: $id"
+}
+
+#------------------------------------------------------------------------------
+# List task files (not tasks.yaml entries)
+#------------------------------------------------------------------------------
+
+tasks_files_list() {
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+
+  if [[ ! -d "$tasks_dir" ]]; then
+    echo "No task files yet (run: pai-lite tasks convert)"
+    return
+  fi
+
+  for file in "$tasks_dir"/*.md; do
+    [[ -f "$file" ]] || continue
+    # Extract id and title from frontmatter
+    local id title status priority
+    id=$(awk '/^id:/ { print $2; exit }' "$file")
+    title=$(awk '/^title:/ { sub(/^title:[[:space:]]*"?/, ""); sub(/"?$/, ""); print; exit }' "$file")
+    status=$(awk '/^status:/ { print $2; exit }' "$file")
+    priority=$(awk '/^priority:/ { print $2; exit }' "$file")
+    echo "$id ($priority) [$status] $title"
+  done
+}
+
+#------------------------------------------------------------------------------
+# Create sample task files for testing
+#------------------------------------------------------------------------------
+
+tasks_create_samples() {
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+  mkdir -p "$tasks_dir"
+
+  local today
+  today=$(date +%Y-%m-%d)
+
+  # Sample 1: Ready high-priority task
+  cat > "$tasks_dir/task-001.md" << EOF
+---
+id: task-001
+title: "Implement user authentication"
+project: sample-app
+status: ready
+priority: A
+deadline: null
+dependencies:
+  blocks: [task-002, task-003]
+  blocked_by: []
+effort: large
+context: auth
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+---
+
+# Implement user authentication
+
+## Context
+
+Sample task for testing pai-lite flow engine.
+
+## Acceptance Criteria
+
+- [ ] Login form works
+- [ ] Session management implemented
+- [ ] Logout functionality
+
+## Notes
+
+This is a sample task.
+EOF
+
+  # Sample 2: Blocked task
+  cat > "$tasks_dir/task-002.md" << EOF
+---
+id: task-002
+title: "Add password reset flow"
+project: sample-app
+status: ready
+priority: B
+deadline: null
+dependencies:
+  blocks: []
+  blocked_by: [task-001]
+effort: medium
+context: auth
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+---
+
+# Add password reset flow
+
+## Context
+
+Depends on authentication being implemented first.
+
+## Acceptance Criteria
+
+- [ ] Reset email sent
+- [ ] Token validation works
+- [ ] Password update successful
+
+## Notes
+
+Blocked by task-001.
+EOF
+
+  # Sample 3: Task with deadline
+  cat > "$tasks_dir/task-003.md" << EOF
+---
+id: task-003
+title: "Write API documentation"
+project: sample-app
+status: ready
+priority: B
+deadline: $(date -v+14d +%Y-%m-%d 2>/dev/null || date -d "+14 days" +%Y-%m-%d 2>/dev/null || echo "2026-02-15")
+dependencies:
+  blocks: []
+  blocked_by: [task-001]
+effort: medium
+context: docs
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+---
+
+# Write API documentation
+
+## Context
+
+Document the auth API endpoints.
+
+## Acceptance Criteria
+
+- [ ] All endpoints documented
+- [ ] Examples provided
+- [ ] Published to docs site
+
+## Notes
+
+Has a deadline for review.
+EOF
+
+  # Sample 4: In-progress stalled task
+  local started_date
+  started_date=$(date -v-10d +%Y-%m-%d 2>/dev/null || date -d "-10 days" +%Y-%m-%d 2>/dev/null || echo "2026-01-22")
+
+  cat > "$tasks_dir/task-004.md" << EOF
+---
+id: task-004
+title: "Refactor database layer"
+project: sample-app
+status: in-progress
+priority: B
+deadline: null
+dependencies:
+  blocks: []
+  blocked_by: []
+effort: large
+context: backend
+slot: null
+adapter: null
+created: $today
+started: $started_date
+completed: null
+---
+
+# Refactor database layer
+
+## Context
+
+Been working on this for a while...
+
+## Acceptance Criteria
+
+- [ ] New ORM integrated
+- [ ] Migrations working
+- [ ] Tests passing
+
+## Notes
+
+This task is intentionally stalled for testing critical view.
+EOF
+
+  # Sample 5: Low priority task
+  cat > "$tasks_dir/task-005.md" << EOF
+---
+id: task-005
+title: "Add dark mode support"
+project: sample-app
+status: ready
+priority: C
+deadline: null
+dependencies:
+  blocks: []
+  blocked_by: []
+effort: small
+context: ui
+slot: null
+adapter: null
+created: $today
+started: null
+completed: null
+---
+
+# Add dark mode support
+
+## Context
+
+Nice-to-have feature.
+
+## Acceptance Criteria
+
+- [ ] Theme toggle works
+- [ ] Colors look good
+
+## Notes
+
+Low priority.
+EOF
+
+  echo "Created 5 sample task files in $tasks_dir"
+  echo ""
+  echo "Test with:"
+  echo "  pai-lite flow ready      # Should show task-001, task-005"
+  echo "  pai-lite flow blocked    # Should show task-002, task-003"
+  echo "  pai-lite flow critical   # Should show deadline + stalled task"
+  echo "  pai-lite flow impact task-001  # Should show task-002, task-003"
+}

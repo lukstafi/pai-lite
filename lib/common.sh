@@ -106,3 +106,132 @@ pai_lite_ensure_state_dir() {
   harness_dir="$(pai_lite_state_harness_dir)"
   [[ -d "$harness_dir" ]] || mkdir -p "$harness_dir"
 }
+
+#------------------------------------------------------------------------------
+# Mayor Queue Functions
+# Queue-based communication with Claude Code Mayor session
+#------------------------------------------------------------------------------
+
+pai_lite_queue_file() {
+  echo "$(pai_lite_state_harness_dir)/tasks/queue.jsonl"
+}
+
+pai_lite_results_dir() {
+  echo "$(pai_lite_state_harness_dir)/tasks/results"
+}
+
+# Queue a request for the Mayor
+# Usage: pai_lite_queue_request <action> [extra_json_fields]
+pai_lite_queue_request() {
+  local action="$1"
+  local extra="${2:-}"
+
+  local queue_file
+  queue_file="$(pai_lite_queue_file)"
+
+  # Ensure tasks directory exists
+  local tasks_dir
+  tasks_dir="$(dirname "$queue_file")"
+  mkdir -p "$tasks_dir"
+
+  local timestamp request_id
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  request_id="req-$(date +%s)-$$"
+
+  # Build JSON request
+  local request
+  if [[ -n "$extra" ]]; then
+    request=$(printf '{"id":"%s","action":"%s","timestamp":"%s",%s}' \
+      "$request_id" "$action" "$timestamp" "$extra")
+  else
+    request=$(printf '{"id":"%s","action":"%s","timestamp":"%s"}' \
+      "$request_id" "$action" "$timestamp")
+  fi
+
+  # Append to queue
+  echo "$request" >> "$queue_file"
+
+  echo "$request_id"
+}
+
+# Wait for a result file from the Mayor
+# Usage: pai_lite_wait_for_result <request_id> [timeout_seconds]
+pai_lite_wait_for_result() {
+  local request_id="$1"
+  local timeout="${2:-300}"
+
+  local results_dir result_file
+  results_dir="$(pai_lite_results_dir)"
+  result_file="$results_dir/${request_id}.json"
+
+  local elapsed=0
+  local interval=2
+
+  while [[ $elapsed -lt $timeout ]]; do
+    if [[ -f "$result_file" ]]; then
+      cat "$result_file"
+      return 0
+    fi
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  pai_lite_warn "timeout waiting for result: $request_id"
+  return 1
+}
+
+# Read and remove the first request from the queue (for stop hook)
+# Usage: pai_lite_queue_pop
+pai_lite_queue_pop() {
+  local queue_file
+  queue_file="$(pai_lite_queue_file)"
+
+  [[ -f "$queue_file" ]] || return 1
+  [[ -s "$queue_file" ]] || return 1
+
+  # Read first line
+  local request
+  request=$(head -n 1 "$queue_file")
+
+  # Remove it from queue (atomic via temp file)
+  local tmp="${queue_file}.tmp"
+  tail -n +2 "$queue_file" > "$tmp" && mv "$tmp" "$queue_file"
+
+  echo "$request"
+}
+
+# Check if queue has pending requests
+# Usage: pai_lite_queue_pending
+pai_lite_queue_pending() {
+  local queue_file
+  queue_file="$(pai_lite_queue_file)"
+
+  [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]
+}
+
+# Write a result file (for Mayor to call after processing)
+# Usage: pai_lite_write_result <request_id> <status> [output_file]
+pai_lite_write_result() {
+  local request_id="$1"
+  local status="$2"
+  local output_file="${3:-}"
+
+  local results_dir result_file
+  results_dir="$(pai_lite_results_dir)"
+  mkdir -p "$results_dir"
+  result_file="$results_dir/${request_id}.json"
+
+  local timestamp
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  if [[ -n "$output_file" && -f "$output_file" ]]; then
+    # Include file contents in result
+    local content
+    content=$(cat "$output_file" | jq -Rs '.')
+    printf '{"id":"%s","status":"%s","timestamp":"%s","output":%s}\n' \
+      "$request_id" "$status" "$timestamp" "$content" > "$result_file"
+  else
+    printf '{"id":"%s","status":"%s","timestamp":"%s"}\n' \
+      "$request_id" "$status" "$timestamp" > "$result_file"
+  fi
+}
