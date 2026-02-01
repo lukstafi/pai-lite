@@ -66,19 +66,19 @@ slots_load_blocks() {
 
 slots_write_file() {
   local count="$1"
-  local file
+  local file i
   file="$(slots_file_path)"
 
   {
     echo "# Slots"
     echo ""
-    for ((slot=1; slot<=count; slot++)); do
-      if [[ -n "${PAI_LITE_SLOTS[$slot]:-}" ]]; then
-        printf "%s" "${PAI_LITE_SLOTS[$slot]}"
+    for ((i=1; i<=count; i++)); do
+      if [[ -n "${PAI_LITE_SLOTS[$i]:-}" ]]; then
+        printf "%s" "${PAI_LITE_SLOTS[$i]}"
       else
-        slots_empty_block "$slot"
+        slots_empty_block "$i"
       fi
-      if [[ "$slot" -lt "$count" ]]; then
+      if [[ "$i" -lt "$count" ]]; then
         echo ""
         echo "---"
         echo ""
@@ -155,6 +155,9 @@ BLOCK
 
   PAI_LITE_SLOTS["$slot"]="$block"$'\n'
   slots_write_file "$count"
+
+  # Auto-commit state change
+  pai_lite_state_commit "slot $slot: assign $task"
 }
 
 slot_clear() {
@@ -167,6 +170,9 @@ slot_clear() {
 
   PAI_LITE_SLOTS["$slot"]="$(slots_empty_block "$slot")"$'\n'
   slots_write_file "$count"
+
+  # Auto-commit state change
+  pai_lite_state_commit "slot $slot: cleared"
 }
 
 slot_add_note_block() {

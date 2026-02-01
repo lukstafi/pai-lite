@@ -243,6 +243,51 @@ pai_lite_queue_pending() {
   [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]
 }
 
+#------------------------------------------------------------------------------
+# State Repository Commit Functions
+#------------------------------------------------------------------------------
+
+# Commit changes to the state repo
+# Usage: pai_lite_state_commit <message>
+pai_lite_state_commit() {
+  local message="$1"
+  local harness_dir
+  harness_dir="$(pai_lite_state_harness_dir)"
+
+  # Check if there are changes to commit
+  if ! git -C "$harness_dir" diff --quiet HEAD 2>/dev/null; then
+    git -C "$harness_dir" add -A
+    git -C "$harness_dir" commit -m "$message" >/dev/null
+    pai_lite_info "committed: $message"
+  elif ! git -C "$harness_dir" diff --cached --quiet 2>/dev/null; then
+    git -C "$harness_dir" commit -m "$message" >/dev/null
+    pai_lite_info "committed: $message"
+  fi
+}
+
+# Push state repo to remote
+# Usage: pai_lite_state_push
+pai_lite_state_push() {
+  local harness_dir
+  harness_dir="$(pai_lite_state_harness_dir)"
+
+  git -C "$harness_dir" push >/dev/null 2>&1 && \
+    pai_lite_info "pushed to remote" || \
+    pai_lite_warn "push failed (will retry later)"
+}
+
+# Commit and push state repo
+# Usage: pai_lite_state_sync <message>
+pai_lite_state_sync() {
+  local message="$1"
+  pai_lite_state_commit "$message"
+  pai_lite_state_push
+}
+
+#------------------------------------------------------------------------------
+# Mayor Result Functions
+#------------------------------------------------------------------------------
+
 # Write a result file (for Mayor to call after processing)
 # Usage: pai_lite_write_result <request_id> <status> [output_file]
 pai_lite_write_result() {
