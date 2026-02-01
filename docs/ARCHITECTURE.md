@@ -143,6 +143,39 @@ tmux send-keys -t pai-mayor "/suggest" C-m
 - Lightweight validation checks
 - Any task where latency matters more than depth
 
+### Future: Model Portability
+
+pai-lite is currently Claude-specific but designed with future model portability in mind. The architecture could support other frontier models (e.g., OpenAI Codex) as Mayor backends once they gain equivalent capabilities.
+
+**Current assessment (Feb 2026):**
+
+| Capability | Claude Code | Codex | Notes |
+|------------|-------------|-------|-------|
+| Subagent delegation | ✅ Task tool (Haiku/Sonnet/Opus) | ⚠️ Partial | Codex has multi-agent collaboration mode but no general Task() equivalent |
+| Skills | ✅ Markdown | ✅ Markdown | Already shared via agent-duo skill templates |
+| Tool use | ✅ Native | ✅ Native | Both strong |
+| Long-running sessions | ✅ tmux + ttyd | ✅ Similar | Comparable |
+
+**What's already portable:**
+- **Skills** — agent-duo's skill templates already install to both Claude Code and Codex
+- **Adapters** — read state from sources (`.peer-sync/`, git), not from the model
+- **Mayor interface** — `/briefing`, `/analyze-issue` are just skill invocations
+- **CLI tools** — yq, jq, tsort don't care which AI invokes them
+
+**Codex subagent status (Feb 2026):**
+
+Codex has adjacent capabilities but not a direct Task tool equivalent:
+- **Codex Cloud**: Parallel tasks in isolated sandboxes, but these are top-level tasks, not mid-conversation subagent spawning
+- **Codex CLI**: Experimental "multi-agent collaboration mode" with sub-agents and fan-out behavior, but tied to that specific feature, not general-purpose
+- **Workaround**: OpenAI Agents SDK can orchestrate multiple agents with Codex as an MCP server (handoffs, guardrails, traces)
+- **CLI profiles**: `codex --profile <name>` for behavior switching, but not isolated-context subagents
+
+What's missing: A first-class, user-invocable `Task()` tool where the Mayor can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
+
+**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mayor's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping the Mayor backend would primarily require adapting the delegation patterns.
+
+**When to revisit:** Check Codex subagent status quarterly. Key signals: official Task-equivalent announcement, or general-purpose subagent spawning in CLI docs.
+
 ### Delegation Strategy
 
 The Mayor uses **Claude Code's native Task tool** for delegation, not custom API wrappers:
