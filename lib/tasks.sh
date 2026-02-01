@@ -230,13 +230,15 @@ tasks_convert() {
   while IFS= read -r line; do
     # New task entry
     if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*id:[[:space:]]*(.+)$ ]]; then
+      # Capture new ID immediately (BASH_REMATCH is global and may be modified by tasks_write_file)
+      local new_id="${BASH_REMATCH[1]:-}"
       # Write previous task if exists
       if [[ -n "$current_id" ]]; then
         tasks_write_file "$current_id" "$current_title" "$current_source" \
           "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
         count=$((count + 1))
       fi
-      current_id="${BASH_REMATCH[1]:-}"
+      current_id="$new_id"
       current_id="${current_id//\"/}"
       current_title=""
       current_source=""
