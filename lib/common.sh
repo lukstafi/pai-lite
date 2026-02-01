@@ -20,11 +20,45 @@ pai_lite_root() {
   cd "$script_dir/.." && pwd
 }
 
-pai_lite_config_path() {
+# Get the pointer config path (minimal config in ~/.config/pai-lite/)
+pai_lite_pointer_config_path() {
   if [[ -n "${PAI_LITE_CONFIG:-}" ]]; then
     echo "$PAI_LITE_CONFIG"
   else
     echo "$HOME/.config/pai-lite/config.yaml"
+  fi
+}
+
+# Get the full config path (in the harness directory)
+# Falls back to pointer config if harness config doesn't exist
+pai_lite_config_path() {
+  local pointer_config harness_config
+  pointer_config="$(pai_lite_pointer_config_path)"
+
+  # If pointer config doesn't exist, return it anyway (error will be caught later)
+  [[ -f "$pointer_config" ]] || { echo "$pointer_config"; return; }
+
+  # Read state_repo and state_path from pointer config
+  local state_repo state_path repo_name
+  state_repo=$(awk '/^state_repo:/ { sub(/^[^:]+:[[:space:]]*/, ""); print; exit }' "$pointer_config")
+  state_path=$(awk '/^state_path:/ { sub(/^[^:]+:[[:space:]]*/, ""); print; exit }' "$pointer_config")
+
+  # Default state_path to "harness" if not specified
+  [[ -n "$state_path" ]] || state_path="harness"
+
+  # Compute harness config path
+  if [[ -n "$state_repo" ]]; then
+    repo_name="${state_repo##*/}"
+    harness_config="$HOME/$repo_name/$state_path/config.yaml"
+
+    # Return harness config if it exists, otherwise fall back to pointer
+    if [[ -f "$harness_config" ]]; then
+      echo "$harness_config"
+    else
+      echo "$pointer_config"
+    fi
+  else
+    echo "$pointer_config"
   fi
 }
 
