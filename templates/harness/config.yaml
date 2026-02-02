@@ -32,11 +32,77 @@ adapters:
   claude-ai:
     enabled: true
 
+# Mayor: Autonomous coordinator (Claude Opus 4.5 in Claude Code)
+mayor:
+  enabled: true
+  backend: tmux-ttyd
+  session: pai-mayor
+  ttyd_port: 7690
+
+  autonomy_level:
+    analyze_issues: auto
+    elaborate_tasks: auto
+    infer_dependencies: auto
+    suggest_priorities: suggest
+    assign_to_slots: manual
+    start_sessions: manual
+
+  schedule:
+    briefing: "08:00"
+    health_check: "every 4h"
+    analyze_repos: "on_change"
+
+# Three-tier notification system
+notifications:
+  provider: ntfy
+
+  topics:
+    pai: lukstafi-pai
+    agents: lukstafi-agents
+    public: lukstafi-public
+
+  priorities:
+    briefing: 3
+    health_check: 3
+    deadline_7days: 4
+    deadline_3days: 5
+    stall_detected: 4
+    critical_alert: 5
+
+  public_filter:
+    auto_publish:
+      - release_completed
+      - paper_accepted
+      - talk_accepted
+
+    never_publish:
+      - debugging_info
+      - private_deadlines
+      - internal_tasks
+      - slot_states
+
 triggers:
   startup:
     enabled: true
     action: briefing
+
   sync:
     enabled: true
     interval: 3600
+    action: tasks sync
+
+  morning:
+    enabled: true
+    hour: 8
+    minute: 0
+    action: mayor briefing
+
+  health:
+    enabled: true
+    interval: 14400
+    action: mayor health-check
+
+  watch:
+    enabled: false
+    paths: []
     action: tasks sync

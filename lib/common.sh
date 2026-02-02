@@ -98,6 +98,192 @@ pai_lite_config_slots_count() {
   ' "$config"
 }
 
+#------------------------------------------------------------------------------
+# Config Parsing: Mayor Section
+#------------------------------------------------------------------------------
+
+# Get a value from the mayor config section
+# Usage: pai_lite_config_mayor_get <key>
+# Example: pai_lite_config_mayor_get "enabled" -> true/false
+pai_lite_config_mayor_get() {
+  local key="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  awk -v key="$key" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /^[[:space:]]*mayor:/ { in_mayor=1; next }
+    in_mayor && $0 ~ "^[[:space:]]*" key ":" {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      print trim(value)
+      exit
+    }
+    in_mayor && /^[^[:space:]]/ { in_mayor=0 }
+  ' "$config"
+}
+
+# Get a nested value from mayor config (e.g., autonomy_level.analyze_issues)
+# Usage: pai_lite_config_mayor_nested_get <section> <key>
+# Example: pai_lite_config_mayor_nested_get "autonomy_level" "analyze_issues"
+pai_lite_config_mayor_nested_get() {
+  local section="$1" key="$2"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  awk -v section="$section" -v key="$key" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /^[[:space:]]*mayor:/ { in_mayor=1; next }
+    in_mayor && $0 ~ "^[[:space:]]{2}" section ":" { in_section=1; next }
+    in_mayor && in_section && $0 ~ "^[[:space:]]{4}" key ":" {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      print trim(value)
+      exit
+    }
+    in_mayor && in_section && /^[[:space:]]{2}[^[:space:]]/ { in_section=0 }
+    in_mayor && /^[^[:space:]]/ { in_mayor=0; in_section=0 }
+  ' "$config"
+}
+
+# Get mayor schedule config
+# Usage: pai_lite_config_mayor_schedule <event>
+# Example: pai_lite_config_mayor_schedule "briefing" -> "08:00"
+pai_lite_config_mayor_schedule() {
+  pai_lite_config_mayor_nested_get "schedule" "$1"
+}
+
+# Get mayor autonomy level
+# Usage: pai_lite_config_mayor_autonomy <action>
+# Example: pai_lite_config_mayor_autonomy "analyze_issues" -> "auto"
+pai_lite_config_mayor_autonomy() {
+  pai_lite_config_mayor_nested_get "autonomy_level" "$1"
+}
+
+#------------------------------------------------------------------------------
+# Config Parsing: Notifications Section
+#------------------------------------------------------------------------------
+
+# Get a value from the notifications config section
+# Usage: pai_lite_config_notifications_get <key>
+# Example: pai_lite_config_notifications_get "provider" -> ntfy
+pai_lite_config_notifications_get() {
+  local key="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  awk -v key="$key" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /^[[:space:]]*notifications:/ { in_notif=1; next }
+    in_notif && $0 ~ "^[[:space:]]*" key ":" && $0 !~ /^[[:space:]]{4}/ {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      print trim(value)
+      exit
+    }
+    in_notif && /^[^[:space:]]/ { in_notif=0 }
+  ' "$config"
+}
+
+# Get a notification topic
+# Usage: pai_lite_config_notifications_topic <tier>
+# Example: pai_lite_config_notifications_topic "pai" -> lukstafi-pai
+pai_lite_config_notifications_topic() {
+  local tier="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  awk -v tier="$tier" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /^[[:space:]]*notifications:/ { in_notif=1; next }
+    in_notif && /^[[:space:]]*topics:/ { in_topics=1; next }
+    in_notif && in_topics && $0 ~ "^[[:space:]]*" tier ":" {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      print trim(value)
+      exit
+    }
+    in_notif && /^[^[:space:]]/ { in_notif=0 }
+    in_topics && /^[[:space:]]{2}[^[:space:]]/ && $0 !~ /^[[:space:]]*(pai|agents|public):/ { in_topics=0 }
+  ' "$config"
+}
+
+# Get a notification priority
+# Usage: pai_lite_config_notifications_priority <event>
+# Example: pai_lite_config_notifications_priority "briefing" -> 3
+pai_lite_config_notifications_priority() {
+  local event="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  awk -v event="$event" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /^[[:space:]]*notifications:/ { in_notif=1; next }
+    in_notif && /^[[:space:]]*priorities:/ { in_prio=1; next }
+    in_notif && in_prio && $0 ~ "^[[:space:]]*" event ":" {
+      value=$0
+      sub(/^[^:]+:[[:space:]]*/, "", value)
+      print trim(value)
+      exit
+    }
+    in_notif && /^[^[:space:]]/ { in_notif=0 }
+    in_prio && /^[[:space:]]{2}[^[:space:]]/ && $0 !~ /^[[:space:]]*(briefing|health_check|deadline|stall|critical):/ { in_prio=0 }
+  ' "$config"
+}
+
+# Check if an event type should be auto-published
+# Usage: pai_lite_config_notifications_auto_publish <event>
+# Returns 0 if should auto-publish, 1 otherwise
+pai_lite_config_notifications_auto_publish() {
+  local event="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+
+  local result
+  result=$(awk -v event="$event" '
+    /^[[:space:]]*notifications:/ { in_notif=1; next }
+    in_notif && /^[[:space:]]*public_filter:/ { in_filter=1; next }
+    in_notif && in_filter && /^[[:space:]]*auto_publish:/ { in_auto=1; next }
+    in_notif && in_filter && in_auto && /^[[:space:]]*-[[:space:]]*/ {
+      item=$0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", item)
+      gsub(/[[:space:]]+$/, "", item)
+      if (item == event) { print "yes"; exit }
+    }
+    in_notif && in_filter && in_auto && /^[[:space:]]{4}[^[:space:]-]/ { in_auto=0 }
+    in_notif && in_filter && /^[[:space:]]{2}[^[:space:]]/ { in_filter=0 }
+    in_notif && /^[^[:space:]]/ { in_notif=0 }
+  ' "$config")
+
+  [[ "$result" == "yes" ]]
+}
+
 pai_lite_state_repo_slug() {
   pai_lite_config_get "state_repo"
 }
