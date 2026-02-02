@@ -454,6 +454,60 @@ pai_lite_queue_pending() {
 }
 
 #------------------------------------------------------------------------------
+# State Repository Pull Functions
+#------------------------------------------------------------------------------
+
+# Pull latest changes from the state repo remote
+# Usage: pai_lite_state_pull
+pai_lite_state_pull() {
+  local repo_dir
+  repo_dir="$(pai_lite_state_repo_dir)"
+
+  if [[ ! -d "$repo_dir/.git" ]]; then
+    pai_lite_warn "state repo not initialized: $repo_dir"
+    return 1
+  fi
+
+  # Stash any local changes first
+  local has_changes=0
+  if ! git -C "$repo_dir" diff --quiet HEAD 2>/dev/null; then
+    has_changes=1
+    git -C "$repo_dir" stash push -m "pai-lite auto-stash before pull" >/dev/null 2>&1 || true
+  fi
+
+  # Pull from remote
+  if git -C "$repo_dir" pull --rebase >/dev/null 2>&1; then
+    pai_lite_info "pulled latest from remote"
+  else
+    pai_lite_warn "pull failed (may need manual intervention)"
+    # Restore stashed changes on failure
+    if [[ $has_changes -eq 1 ]]; then
+      git -C "$repo_dir" stash pop >/dev/null 2>&1 || true
+    fi
+    return 1
+  fi
+
+  # Restore stashed changes
+  if [[ $has_changes -eq 1 ]]; then
+    if git -C "$repo_dir" stash pop >/dev/null 2>&1; then
+      pai_lite_info "restored local changes"
+    else
+      pai_lite_warn "conflict restoring local changes (check git stash)"
+    fi
+  fi
+
+  return 0
+}
+
+# Full state sync: pull, then push any local changes
+# Usage: pai_lite_state_full_sync
+pai_lite_state_full_sync() {
+  pai_lite_state_pull || true
+  pai_lite_state_commit "sync"
+  pai_lite_state_push
+}
+
+#------------------------------------------------------------------------------
 # State Repository Commit Functions
 #------------------------------------------------------------------------------
 
@@ -523,4 +577,82 @@ pai_lite_write_result() {
     printf '{"id":"%s","status":"%s","timestamp":"%s"}\n' \
       "$request_id" "$status" "$timestamp" > "$result_file"
   fi
+}
+
+#------------------------------------------------------------------------------
+# Journal Functions
+# Append events to journal/YYYY-MM-DD.md for audit trail
+#------------------------------------------------------------------------------
+
+pai_lite_journal_dir() {
+  echo "$(pai_lite_state_harness_dir)/journal"
+}
+
+pai_lite_journal_file() {
+  local date_str
+  date_str="$(date +%Y-%m-%d)"
+  echo "$(pai_lite_journal_dir)/${date_str}.md"
+}
+
+# Append an entry to today's journal
+# Usage: pai_lite_journal_append <category> <message>
+# Categories: slot, task, flow, mayor, system
+pai_lite_journal_append() {
+  local category="$1"
+  local message="$2"
+
+  local journal_dir journal_file timestamp
+  journal_dir="$(pai_lite_journal_dir)"
+  journal_file="$(pai_lite_journal_file)"
+  timestamp="$(date +"%H:%M:%S")"
+
+  # Ensure journal directory exists
+  mkdir -p "$journal_dir"
+
+  # Create journal file with header if it doesn't exist
+  if [[ ! -f "$journal_file" ]]; then
+    {
+      echo "# Journal $(date +%Y-%m-%d)"
+      echo ""
+    } > "$journal_file"
+  fi
+
+  # Append the entry
+  printf "- **%s** [%s] %s\n" "$timestamp" "$category" "$message" >> "$journal_file"
+}
+
+# Read recent journal entries
+# Usage: pai_lite_journal_recent [count] [category]
+pai_lite_journal_recent() {
+  local count="${1:-20}"
+  local category="${2:-}"
+
+  local journal_file
+  journal_file="$(pai_lite_journal_file)"
+
+  if [[ ! -f "$journal_file" ]]; then
+    echo "No journal entries for today"
+    return
+  fi
+
+  if [[ -n "$category" ]]; then
+    grep "\\[$category\\]" "$journal_file" | tail -n "$count"
+  else
+    grep "^- \\*\\*" "$journal_file" | tail -n "$count"
+  fi
+}
+
+# List journal files
+# Usage: pai_lite_journal_list [days]
+pai_lite_journal_list() {
+  local days="${1:-7}"
+  local journal_dir
+  journal_dir="$(pai_lite_journal_dir)"
+
+  if [[ ! -d "$journal_dir" ]]; then
+    echo "No journal directory"
+    return
+  fi
+
+  find "$journal_dir" -name "*.md" -type f -mtime -"$days" | sort -r
 }

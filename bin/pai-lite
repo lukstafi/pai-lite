@@ -34,9 +34,12 @@ Usage: pai-lite <command>
 
 Commands:
   slots                        Show all slots
+  slots refresh                Refresh slot state from adapters
   slot <n>                     Show slot n
-  slot <n> assign <task>       Assign a task to slot n
-  slot <n> clear               Clear slot n
+  slot <n> assign <task|desc> [-a adapter] [-s session]
+                               Assign a task to slot n
+  slot <n> clear [done|abandoned]
+                               Clear slot n (optionally mark task done/abandoned)
   slot <n> start               Start agent session (adapter)
   slot <n> stop                Stop agent session (adapter)
   slot <n> note "text"         Add runtime note to slot n
@@ -77,6 +80,14 @@ Commands:
   dashboard generate           Generate JSON data for dashboard
   dashboard serve [port]       Serve dashboard (default: 8080)
   dashboard install            Install dashboard to state repo
+
+  sync                         Pull + push state repo (full sync)
+  state pull                   Pull latest from state repo
+  state push                   Push local changes to state repo
+
+  journal                      Show today's journal entries
+  journal recent [n]           Show last n journal entries
+  journal list [days]          List journal files from last n days
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing
@@ -213,7 +224,18 @@ case "$cmd" in
     ;;
   slots)
     require_config
-    slots_list
+    sub="${2:-}"
+    case "$sub" in
+      refresh)
+        slots_refresh
+        ;;
+      "")
+        slots_list
+        ;;
+      *)
+        pai_lite_die "unknown slots subcommand: $sub (use: refresh, or omit for list)"
+        ;;
+    esac
     ;;
   slot)
     require_config
@@ -225,12 +247,46 @@ case "$cmd" in
         slot_show "$slot_num"
         ;;
       assign)
-        shift 3
-        [[ -n "${*:-}" ]] || pai_lite_die "task description required"
-        slot_assign "$slot_num" "$*"
+        shift 3  # Remove "pai-lite slot <n> assign"
+        # Parse flags and task description
+        adapter="manual"
+        session=""
+        task_or_desc=""
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --adapter|-a)
+              adapter="${2:-manual}"
+              shift 2
+              ;;
+            --session|-s)
+              session="${2:-}"
+              shift 2
+              ;;
+            *)
+              # Accumulate remaining args as task description
+              if [[ -n "$task_or_desc" ]]; then
+                task_or_desc="$task_or_desc $1"
+              else
+                task_or_desc="$1"
+              fi
+              shift
+              ;;
+          esac
+        done
+        [[ -n "$task_or_desc" ]] || pai_lite_die "task or description required"
+        slot_assign "$slot_num" "$task_or_desc" "$adapter" "$session"
         ;;
       clear)
-        slot_clear "$slot_num"
+        final_status="${4:-ready}"
+        # Validate final_status
+        case "$final_status" in
+          ready|done|abandoned)
+            slot_clear "$slot_num" "$final_status"
+            ;;
+          *)
+            pai_lite_die "invalid status: $final_status (use: ready, done, abandoned)"
+            ;;
+        esac
         ;;
       start)
         slot_start "$slot_num"
@@ -497,6 +553,49 @@ case "$cmd" in
     require_config
     shift
     dashboard_main "$@"
+    ;;
+  sync)
+    require_config
+    pai_lite_state_full_sync
+    echo "State sync complete"
+    ;;
+  state)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      pull)
+        pai_lite_state_pull
+        ;;
+      push)
+        pai_lite_state_push
+        ;;
+      sync)
+        pai_lite_state_full_sync
+        ;;
+      *)
+        pai_lite_die "unknown state subcommand: $sub (use: pull, push, sync)"
+        ;;
+    esac
+    ;;
+  journal)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      recent)
+        count="${3:-20}"
+        pai_lite_journal_recent "$count"
+        ;;
+      list)
+        days="${3:-7}"
+        pai_lite_journal_list "$days"
+        ;;
+      "")
+        pai_lite_journal_recent 20
+        ;;
+      *)
+        pai_lite_die "unknown journal subcommand: $sub (use: recent, list)"
+        ;;
+    esac
     ;;
   doctor)
     # Comprehensive health check
