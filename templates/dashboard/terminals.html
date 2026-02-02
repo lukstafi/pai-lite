@@ -370,11 +370,22 @@
             }
         }
 
-        // Get terminal URLs for a slot
+        // Check if a value is a valid URL (http/https)
+        function isValidUrl(value) {
+            return value && (value.startsWith('http://') || value.startsWith('https://'));
+        }
+
+        // Get terminal URLs for a slot (filters out non-URL values like "tmux session `name`")
         function getTerminalsForSlot(slot) {
-            // If slot has terminals field from slots.json, use it directly
+            // If slot has terminals field from slots.json, filter for valid URLs only
             if (slot.terminals && Object.keys(slot.terminals).length > 0) {
-                return slot.terminals;
+                const validTerminals = {};
+                for (const [name, url] of Object.entries(slot.terminals)) {
+                    if (isValidUrl(url)) {
+                        validTerminals[name] = url;
+                    }
+                }
+                return validTerminals;
             }
 
             // Fallback: no terminals configured in slots.json
