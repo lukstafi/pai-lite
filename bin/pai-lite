@@ -23,6 +23,8 @@ source "$root_dir/lib/triggers.sh"
 source "$root_dir/lib/flow.sh"
 # shellcheck source=lib/notify.sh
 source "$root_dir/lib/notify.sh"
+# shellcheck source=lib/dashboard.sh
+source "$root_dir/lib/dashboard.sh"
 
 usage() {
   cat <<'USAGE'
@@ -62,6 +64,10 @@ Commands:
   notify agents <msg>          Send operational notification
   notify public <msg>          Send public broadcast
   notify recent [n]            Show recent notifications
+
+  dashboard generate           Generate JSON data for dashboard
+  dashboard serve [port]       Serve dashboard (default: 8080)
+  dashboard install            Install dashboard to state repo
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing
@@ -335,6 +341,11 @@ case "$cmd" in
         pai_lite_die "unknown notify subcommand: $sub (use: pai, agents, public, recent)"
         ;;
     esac
+    ;;
+  dashboard)
+    require_config
+    shift
+    dashboard_main "$@"
     ;;
   doctor)
     # Comprehensive health check

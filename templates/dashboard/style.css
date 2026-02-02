@@ -42,6 +42,27 @@ header h1 {
     font-weight: 600;
 }
 
+/* Navigation */
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+.nav-links a:hover {
+    color: var(--accent);
+}
+
+.nav-links a.active {
+    color: var(--accent);
+}
+
 .status-bar {
     display: flex;
     gap: 1.5rem;
