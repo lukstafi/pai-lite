@@ -98,6 +98,28 @@ pai_lite_config_slots_count() {
   ' "$config"
 }
 
+# Get nested config value (e.g., "mayor.ttyd_port")
+# Usage: pai_lite_config_get_nested "section" "key"
+pai_lite_config_get_nested() {
+  local section="$1"
+  local key="$2"
+  local config
+  config="$(pai_lite_config_path)"
+  [[ -f "$config" ]] || return 1
+  awk -v section="$section" -v key="$key" '
+    $0 ~ "^" section ":" { in_section=1; next }
+    in_section && $0 ~ "^[[:space:]]+" key ":" {
+      sub(/^[^:]+:[[:space:]]*/, "", $0)
+      sub(/[[:space:]]+$/, "", $0)
+      # Remove quotes if present
+      gsub(/^["'"'"']|["'"'"']$/, "", $0)
+      print $0
+      exit
+    }
+    in_section && $0 !~ /^[[:space:]]/ && $0 !~ /^#/ && $0 !~ /^$/ { in_section=0 }
+  ' "$config"
+}
+
 #------------------------------------------------------------------------------
 # Config Parsing: Mayor Section
 #------------------------------------------------------------------------------
@@ -284,6 +306,7 @@ pai_lite_config_notifications_auto_publish() {
 
   [[ "$result" == "yes" ]]
 }
+
 
 pai_lite_state_repo_slug() {
   pai_lite_config_get "state_repo"

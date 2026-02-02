@@ -25,6 +25,8 @@ source "$root_dir/lib/flow.sh"
 source "$root_dir/lib/notify.sh"
 # shellcheck source=lib/dashboard.sh
 source "$root_dir/lib/dashboard.sh"
+# shellcheck source=lib/mayor.sh
+source "$root_dir/lib/mayor.sh"
 
 usage() {
   cat <<'USAGE'
@@ -54,11 +56,18 @@ Commands:
   flow context                 Context distribution across slots
   flow check-cycle             Check for dependency cycles
 
+  mayor start                  Start Mayor tmux session
+  mayor stop                   Stop Mayor tmux session
+  mayor status                 Show Mayor status
+  mayor attach                 Attach to Mayor tmux session
+  mayor logs [n]               Show recent Mayor activity
+  mayor doctor                 Health check for Mayor setup
   mayor briefing               Request morning briefing
   mayor suggest                Get task suggestions
   mayor analyze <issue>        Analyze GitHub issue
   mayor elaborate <id>         Elaborate task into detailed spec
   mayor health-check           Check for stalled work, deadlines
+  mayor queue                  Show pending queue requests
 
   notify pai <msg>             Send strategic notification
   notify agents <msg>          Send operational notification
@@ -98,9 +107,9 @@ case "$cmd" in
     local_install="$HOME/.local/pai-lite"
     local_bin="$HOME/.local/bin"
 
-    # Copy entire directory structure
+    # Copy entire directory structure (including skills for Mayor)
     mkdir -p "$local_install"
-    cp -r "$root_dir"/{bin,lib,adapters,templates} "$local_install/"
+    cp -r "$root_dir"/{bin,lib,adapters,templates,skills} "$local_install/"
 
     # Create symlink in ~/.local/bin
     mkdir -p "$local_bin"
@@ -140,8 +149,66 @@ case "$cmd" in
         if [[ ! -f "$harness_dir/slots.md" ]]; then
           cp "$root_dir/templates/harness/slots.md" "$harness_dir/slots.md"
         fi
+
+        # Create Mayor directory structure
+        mayor_dir="$harness_dir/mayor"
+        mkdir -p "$mayor_dir/memory/projects"
+        if [[ ! -f "$mayor_dir/context.md" ]]; then
+          cp "$root_dir/templates/mayor/context.md" "$mayor_dir/context.md" 2>/dev/null || \
+            echo "# Mayor Context" > "$mayor_dir/context.md"
+        fi
+        if [[ ! -f "$mayor_dir/memory/corrections.md" ]]; then
+          cp "$root_dir/templates/mayor/memory/corrections.md" "$mayor_dir/memory/corrections.md" 2>/dev/null || \
+            echo "# Corrections" > "$mayor_dir/memory/corrections.md"
+        fi
+        if [[ ! -f "$mayor_dir/memory/tools.md" ]]; then
+          cp "$root_dir/templates/mayor/memory/tools.md" "$mayor_dir/memory/tools.md" 2>/dev/null || \
+            echo "# Tools Knowledge" > "$mayor_dir/memory/tools.md"
+        fi
+        if [[ ! -f "$mayor_dir/memory/workflows.md" ]]; then
+          cp "$root_dir/templates/mayor/memory/workflows.md" "$mayor_dir/memory/workflows.md" 2>/dev/null || \
+            echo "# Workflows" > "$mayor_dir/memory/workflows.md"
+        fi
+        echo "Initialized Mayor memory in: $mayor_dir"
+
         echo "Initialized harness in: $harness_dir"
       fi
+    fi
+
+    # Install stop hook if --hooks flag is provided
+    install_hooks="${2:-}"
+    if [[ "$install_hooks" == "--hooks" ]]; then
+      hooks_dir="$HOME/.claude/hooks"
+      mkdir -p "$hooks_dir"
+
+      hook_file="$hooks_dir/pai-lite-on-stop.sh"
+      if [[ -f "$hook_file" ]]; then
+        pai_lite_warn "Stop hook already exists: $hook_file"
+        echo "To reinstall, remove it first: rm $hook_file"
+      else
+        cp "$root_dir/templates/hooks/pai-lite-on-stop.sh" "$hook_file"
+        chmod +x "$hook_file"
+        echo "Installed stop hook: $hook_file"
+        echo "Note: You may need to configure Claude Code to use this hook"
+      fi
+
+      # Print guidance about skills installation
+      echo ""
+      echo "=== Skills Setup ==="
+      echo "The Mayor skills are in: $root_dir/skills/"
+      echo ""
+      echo "To use skills like /briefing, /suggest, etc. in Claude Code:"
+      echo "1. Copy skills to Claude Code's skills directory:"
+      echo "   cp -r $root_dir/skills/*.md ~/.claude/skills/"
+      echo ""
+      echo "2. Or symlink them:"
+      echo "   mkdir -p ~/.claude/skills"
+      echo "   ln -sf $root_dir/skills/*.md ~/.claude/skills/"
+      echo ""
+      echo "3. Ensure Claude Code is configured to load skills from ~/.claude/skills/"
+    else
+      echo ""
+      echo "To install the Mayor stop hook and skills, run: pai-lite init --hooks"
     fi
     ;;
   slots)
@@ -220,6 +287,25 @@ case "$cmd" in
     ;;
   status)
     require_config
+    echo "=== pai-lite status - $(date) ==="
+    echo ""
+
+    # Mayor status (brief)
+    echo "Mayor:"
+    if mayor_is_running; then
+      echo "  Session: $MAYOR_SESSION_NAME (running)"
+      _queue_file="$(pai_lite_queue_file)"
+      if [[ -f "$_queue_file" ]] && [[ -s "$_queue_file" ]]; then
+        _pending_count=$(wc -l < "$_queue_file" | tr -d ' ')
+        echo "  Pending requests: $_pending_count"
+      else
+        echo "  Pending requests: 0"
+      fi
+    else
+      echo "  Session: not running"
+    fi
+    echo ""
+
     echo "Slots:"
     slots_list || true
     echo ""
@@ -232,16 +318,36 @@ case "$cmd" in
     ;;
   briefing)
     require_config
-    echo "pai-lite briefing - $(date)"
+    echo "=== pai-lite briefing - $(date) ==="
     echo ""
+
+    # Quick status first
     echo "Slots:"
     slots_list || true
     echo ""
-    if [[ -f "$(tasks_file_path)" ]]; then
-      echo "Tasks:"
-      tasks_list
+
+    # Check if Mayor is running and queue a briefing
+    if mayor_is_running; then
+      echo "Requesting strategic briefing from Mayor..."
+      echo ""
+      mayor_briefing true 300
     else
-      echo "Tasks: (run 'pai-lite tasks sync')"
+      # Fallback to basic briefing without Mayor
+      echo "Mayor not running - showing basic briefing"
+      echo "(Start Mayor with: pai-lite mayor start)"
+      echo ""
+
+      if [[ -f "$(tasks_file_path)" ]]; then
+        echo "Tasks:"
+        tasks_list
+      else
+        echo "Tasks: (run 'pai-lite tasks sync')"
+      fi
+
+      # Show flow critical if available
+      echo ""
+      echo "Critical items:"
+      flow_main critical 2>/dev/null || echo "  (flow engine not initialized)"
     fi
     ;;
   triggers)
@@ -271,10 +377,35 @@ case "$cmd" in
     require_config
     sub="${2:-}"
     case "$sub" in
+      start)
+        mayor_start
+        ;;
+      stop)
+        mayor_stop
+        ;;
+      status)
+        mayor_status
+        ;;
+      attach)
+        mayor_attach
+        ;;
+      logs)
+        lines="${3:-100}"
+        mayor_logs "$lines"
+        ;;
+      doctor)
+        mayor_doctor
+        ;;
       briefing)
-        request_id=$(pai_lite_queue_request "briefing")
-        echo "Queued briefing request: $request_id"
-        echo "Mayor will process when ready (check ~/.claude/hooks/on-stop.sh)"
+        # Queue and optionally wait for briefing
+        wait_flag="${3:-}"
+        if [[ "$wait_flag" == "--no-wait" ]]; then
+          request_id=$(pai_lite_queue_request "briefing")
+          echo "Queued briefing request: $request_id"
+          echo "Mayor will process when ready"
+        else
+          mayor_briefing true
+        fi
         ;;
       suggest)
         request_id=$(pai_lite_queue_request "suggest")
@@ -296,6 +427,22 @@ case "$cmd" in
         request_id=$(pai_lite_queue_request "health-check")
         echo "Queued health check: $request_id"
         ;;
+      learn)
+        request_id=$(pai_lite_queue_request "learn")
+        echo "Queued learn request: $request_id"
+        ;;
+      sync-learnings)
+        request_id=$(pai_lite_queue_request "sync-learnings")
+        echo "Queued sync-learnings request: $request_id"
+        ;;
+      techdebt)
+        request_id=$(pai_lite_queue_request "techdebt")
+        echo "Queued techdebt review: $request_id"
+        ;;
+      context-sync)
+        request_id=$(pai_lite_queue_request "context-sync")
+        echo "Queued context-sync: $request_id"
+        ;;
       queue)
         # Show pending queue
         queue_file="$(pai_lite_queue_file)"
@@ -306,8 +453,12 @@ case "$cmd" in
           echo "No pending requests in queue"
         fi
         ;;
+      "")
+        # No subcommand - show status
+        mayor_status
+        ;;
       *)
-        pai_lite_die "unknown mayor subcommand: $sub (use: briefing, suggest, analyze, elaborate, health-check, queue)"
+        pai_lite_die "unknown mayor subcommand: $sub (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, learn, sync-learnings, techdebt, context-sync, queue)"
         ;;
     esac
     ;;

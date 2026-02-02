@@ -63,6 +63,7 @@ notifications:
     public: your-username-public     # Public read-only (broadcasts)
 
   # Priority levels by event type (1=min, 5=urgent)
+
   priorities:
     briefing: 3
     health_check: 3
