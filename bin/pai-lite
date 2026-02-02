@@ -67,6 +67,9 @@ Commands:
   briefing                     Morning briefing
   init                         Initialize config + harness
   triggers install             Install launchd/systemd triggers
+  triggers status              Show trigger status
+  triggers uninstall           Remove all triggers
+  doctor                       Check system health and dependencies
 
   help                         Show this message
 USAGE
@@ -242,8 +245,14 @@ case "$cmd" in
       install)
         triggers_install
         ;;
+      status)
+        triggers_status
+        ;;
+      uninstall)
+        triggers_uninstall
+        ;;
       *)
-        pai_lite_die "unknown triggers subcommand: $sub"
+        pai_lite_die "unknown triggers subcommand: $sub (use: install, status, uninstall)"
         ;;
     esac
     ;;
@@ -326,6 +335,248 @@ case "$cmd" in
         pai_lite_die "unknown notify subcommand: $sub (use: pai, agents, public, recent)"
         ;;
     esac
+    ;;
+  doctor)
+    # Comprehensive health check
+    echo "pai-lite doctor - system health check"
+    echo "======================================"
+    echo ""
+
+    all_ok=true
+    warnings=0
+
+    #------------------------------------------
+    # Required tools
+    #------------------------------------------
+    echo "Required tools:"
+
+    # git
+    if command -v git >/dev/null 2>&1; then
+      echo "  [ok] git: $(git --version | head -1)"
+    else
+      echo "  [FAIL] git: NOT FOUND"
+      all_ok=false
+    fi
+
+    # gh (GitHub CLI)
+    if command -v gh >/dev/null 2>&1; then
+      echo "  [ok] gh: $(gh --version | head -1)"
+      # Check auth status
+      if gh auth status >/dev/null 2>&1; then
+        echo "    -> authenticated"
+      else
+        echo "    -> [warn] not authenticated (run: gh auth login)"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  [FAIL] gh: NOT FOUND"
+      echo "    Install: https://cli.github.com/"
+      all_ok=false
+    fi
+
+    # yq
+    if command -v yq >/dev/null 2>&1; then
+      echo "  [ok] yq: $(yq --version 2>&1 | head -1)"
+    else
+      echo "  [FAIL] yq: NOT FOUND"
+      echo "    Install: brew install yq"
+      all_ok=false
+    fi
+
+    # jq
+    if command -v jq >/dev/null 2>&1; then
+      echo "  [ok] jq: $(jq --version)"
+    else
+      echo "  [FAIL] jq: NOT FOUND"
+      echo "    Install: brew install jq"
+      all_ok=false
+    fi
+
+    # curl
+    if command -v curl >/dev/null 2>&1; then
+      echo "  [ok] curl: $(curl --version | head -1)"
+    else
+      echo "  [FAIL] curl: NOT FOUND"
+      all_ok=false
+    fi
+
+    echo ""
+
+    #------------------------------------------
+    # Optional tools
+    #------------------------------------------
+    echo "Optional tools:"
+
+    # tmux
+    if command -v tmux >/dev/null 2>&1; then
+      echo "  [ok] tmux: $(tmux -V)"
+    else
+      echo "  [warn] tmux: not found (needed for claude-code/codex adapters)"
+      echo "    Install: brew install tmux"
+      warnings=$((warnings + 1))
+    fi
+
+    # ttyd
+    if command -v ttyd >/dev/null 2>&1; then
+      echo "  [ok] ttyd: $(ttyd --version 2>&1 | head -1)"
+    else
+      echo "  [warn] ttyd: not found (optional web terminal access)"
+      echo "    Install: brew install ttyd"
+      warnings=$((warnings + 1))
+    fi
+
+    # tsort (usually part of coreutils)
+    if command -v tsort >/dev/null 2>&1; then
+      echo "  [ok] tsort: available"
+    else
+      echo "  [warn] tsort: not found (needed for flow dependency analysis)"
+      warnings=$((warnings + 1))
+    fi
+
+    # shellcheck
+    if command -v shellcheck >/dev/null 2>&1; then
+      echo "  [ok] shellcheck: $(shellcheck --version | grep version:)"
+    else
+      echo "  [warn] shellcheck: not found (for development)"
+      warnings=$((warnings + 1))
+    fi
+
+    echo ""
+
+    #------------------------------------------
+    # Configuration
+    #------------------------------------------
+    echo "Configuration:"
+
+    config_path="$(pai_lite_config_path 2>/dev/null || echo "")"
+    pointer_path="$(pai_lite_pointer_config_path)"
+
+    if [[ -n "$config_path" && -f "$config_path" ]]; then
+      echo "  [ok] config: $config_path"
+
+      # Check state repo
+      state_repo="$(pai_lite_state_repo_slug 2>/dev/null || echo "")"
+      if [[ -n "$state_repo" && "$state_repo" != *"your-username"* ]]; then
+        echo "    -> state_repo: $state_repo"
+
+        # Check if state repo is cloned
+        state_dir="$(pai_lite_state_repo_dir 2>/dev/null || echo "")"
+        if [[ -n "$state_dir" && -d "$state_dir/.git" ]]; then
+          echo "    -> state dir: $state_dir (exists)"
+        else
+          echo "    -> [warn] state dir: not cloned"
+          warnings=$((warnings + 1))
+        fi
+      else
+        echo "    -> [warn] state_repo: using placeholder value"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  [warn] config: not found at $pointer_path"
+      echo "    Run: pai-lite init"
+      warnings=$((warnings + 1))
+    fi
+
+    echo ""
+
+    #------------------------------------------
+    # Adapters
+    #------------------------------------------
+    echo "Adapter checks:"
+
+    # Source adapters for doctor functions
+    for adapter_file in "$root_dir"/adapters/*.sh; do
+      [[ -f "$adapter_file" ]] || continue
+      adapter_name="$(basename "$adapter_file" .sh)"
+
+      # Skip manual adapter (no tools needed)
+      [[ "$adapter_name" == "manual" ]] && continue
+
+      # shellcheck source=/dev/null
+      source "$adapter_file" 2>/dev/null || continue
+
+      # Check if adapter has doctor function
+      doctor_func="adapter_${adapter_name//-/_}_doctor"
+      if declare -f "$doctor_func" >/dev/null 2>&1; then
+        echo ""
+        echo "--- $adapter_name ---"
+        if ! "$doctor_func"; then
+          all_ok=false
+        fi
+      fi
+    done
+
+    echo ""
+
+    #------------------------------------------
+    # Triggers
+    #------------------------------------------
+    echo "Triggers:"
+    uname_out="$(uname -s)"
+    case "$uname_out" in
+      Darwin)
+        # Count triggers; use || true to handle missing directory
+        trigger_count=$( (find "$HOME/Library/LaunchAgents" -maxdepth 1 -name 'com.pai-lite.*.plist' 2>/dev/null || true) | wc -l | tr -d ' ')
+        if [[ "$trigger_count" -gt 0 ]]; then
+          echo "  [ok] launchd: $trigger_count trigger(s) installed"
+        else
+          echo "  [warn] launchd: no triggers installed"
+          echo "    Run: pai-lite triggers install"
+          warnings=$((warnings + 1))
+        fi
+        ;;
+      Linux)
+        if command -v systemctl >/dev/null 2>&1; then
+          # Count triggers; use || true to handle missing directory
+          trigger_count=$( (find "$HOME/.config/systemd/user" -maxdepth 1 -name 'pai-lite-*.service' 2>/dev/null || true) | wc -l | tr -d ' ')
+          if [[ "$trigger_count" -gt 0 ]]; then
+            echo "  [ok] systemd: $trigger_count trigger(s) installed"
+          else
+            echo "  [warn] systemd: no triggers installed"
+            echo "    Run: pai-lite triggers install"
+            warnings=$((warnings + 1))
+          fi
+        else
+          echo "  [warn] systemctl not available"
+        fi
+        ;;
+    esac
+
+    echo ""
+
+    #------------------------------------------
+    # Notifications
+    #------------------------------------------
+    echo "Notifications:"
+    pai_topic="$(pai_lite_config_notifications_topic "pai" 2>/dev/null || echo "")"
+    if [[ -n "$pai_topic" ]]; then
+      echo "  [ok] ntfy.sh topics configured"
+      echo "    -> pai: $pai_topic"
+      agents_topic="$(pai_lite_config_notifications_topic "agents" 2>/dev/null || echo "")"
+      [[ -n "$agents_topic" ]] && echo "    -> agents: $agents_topic"
+      public_topic="$(pai_lite_config_notifications_topic "public" 2>/dev/null || echo "")"
+      [[ -n "$public_topic" ]] && echo "    -> public: $public_topic"
+    else
+      echo "  [warn] ntfy.sh topics not configured"
+      warnings=$((warnings + 1))
+    fi
+
+    echo ""
+
+    #------------------------------------------
+    # Summary
+    #------------------------------------------
+    echo "======================================"
+    if $all_ok && [[ $warnings -eq 0 ]]; then
+      echo "[OK] All checks passed"
+      exit 0
+    elif $all_ok; then
+      echo "[OK] Required checks passed ($warnings warning(s))"
+      exit 0
+    else
+      echo "[FAIL] Some required checks failed ($warnings warning(s))"
+      exit 1
+    fi
     ;;
   *)
     pai_lite_die "unknown command: $cmd"

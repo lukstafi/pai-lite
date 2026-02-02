@@ -5,7 +5,7 @@
 state_repo: your-username/your-private-repo
 state_path: harness
 
-# Number of concurrent slots
+# Number of concurrent slots (hardcoded to 6 as a forcing function)
 slots:
   count: 6
 
@@ -15,7 +15,7 @@ projects:
     repo: your-username/my-project
     readme_todos: true    # Parse TODOs from README
     issues: true          # Include GitHub issues
-    
+
   - name: personal
     repo: your-username/private-repo
     issues: true          # Chores, reminders, etc.
@@ -29,12 +29,89 @@ adapters:
   claude-ai:
     enabled: true
 
+# Mayor: Autonomous coordinator (Claude Opus 4.5 in Claude Code)
+# Provides strategic thinking while automation handles reliable execution
+mayor:
+  enabled: false
+  backend: tmux-ttyd        # or tmux (no web terminal)
+  session: pai-mayor
+  ttyd_port: 7690           # Web terminal access (optional)
+
+  # Autonomy levels: auto | suggest | manual
+  autonomy_level:
+    analyze_issues: auto        # Auto creates task files from issues
+    elaborate_tasks: auto       # Auto writes detailed specs
+    infer_dependencies: auto    # Auto adds blocks/blocked-by
+    suggest_priorities: suggest # Suggests, doesn't set
+    assign_to_slots: manual     # Requires approval
+    start_sessions: manual      # Requires approval
+
+  # Schedule for automated invocations
+  schedule:
+    briefing: "08:00"           # Morning briefing time (HH:MM)
+    health_check: "every 4h"    # Periodic health check interval
+    analyze_repos: "on_change"  # Triggered by WatchPaths
+
+# Three-tier notification system via ntfy.sh
+notifications:
+  provider: ntfy              # Currently only ntfy.sh supported
+
+  # Topic names (use random suffixes for privacy without ntfy subscription)
+  topics:
+    pai: your-username-pai           # Private strategic (Mayor)
+    agents: your-username-agents     # Private operational (workers)
+    public: your-username-public     # Public read-only (broadcasts)
+
+  # Priority levels by event type (1=min, 5=urgent)
+  priorities:
+    briefing: 3
+    health_check: 3
+    deadline_7days: 4
+    deadline_3days: 5
+    stall_detected: 4
+    critical_alert: 5
+
+  # What gets auto-published to public topic
+  public_filter:
+    auto_publish:
+      - release_completed
+      - paper_accepted
+      - talk_accepted
+
+    never_publish:
+      - debugging_info
+      - private_deadlines
+      - internal_tasks
+      - slot_states
+
 # Triggers (macOS launchd / Linux systemd)
 triggers:
+  # Run at system login
   startup:
     enabled: false
     action: briefing
+
+  # Periodic sync (e.g., every hour)
   sync:
     enabled: false
-    interval: 3600        # seconds
+    interval: 3600            # seconds
+    action: tasks sync
+
+  # Morning briefing (StartCalendarInterval)
+  morning:
+    enabled: false
+    hour: 8                   # 08:00
+    minute: 0
+    action: mayor briefing
+
+  # Periodic health check
+  health:
+    enabled: false
+    interval: 14400           # 4 hours in seconds
+    action: mayor health-check
+
+  # Watch for repo changes (WatchPaths)
+  watch:
+    enabled: false
+    paths: []                 # List of paths to watch
     action: tasks sync
