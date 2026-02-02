@@ -868,12 +868,25 @@ pai-lite flow context            # Context distribution
 
 # Slot management (always 6 slots)
 pai-lite slots                   # Show all slots
+pai-lite slots refresh           # Refresh slot state from adapters
 pai-lite slot <n>                # Show slot n (1-6)
-pai-lite slot <n> assign <task>  # Assign task to slot
-pai-lite slot <n> clear          # Clear slot
+pai-lite slot <n> assign <task|desc> [-a adapter] [-s session]
+                                 # Assign task to slot
+pai-lite slot <n> clear [done|abandoned]
+                                 # Clear slot (optionally mark task done/abandoned)
 pai-lite slot <n> start          # Start agent session (uses adapter)
 pai-lite slot <n> stop           # Stop agent session
 pai-lite slot <n> note "text"    # Add to runtime notes
+
+# State synchronization
+pai-lite sync                    # Full sync (pull + push)
+pai-lite state pull              # Pull latest from remote
+pai-lite state push              # Push local changes
+
+# Journal
+pai-lite journal                 # Show today's journal entries
+pai-lite journal recent [n]      # Show last n entries
+pai-lite journal list [days]     # List journal files from last n days
 
 # Mayor interaction
 pai-lite mayor briefing          # Generate strategic briefing
