@@ -646,20 +646,24 @@ slot_merge_adapter_state() {
   # Terminals, Runtime, Git are the canonical sections
   # Status, Warnings, Notes, Agents get merged into Runtime
   local terminals_section="" runtime_section="" git_section=""
+  local has_terminals=0 has_runtime=0 has_git=0
   local current_section=""
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       "**Terminals:"*|"**Terminals**"*)
         current_section="terminals"
+        has_terminals=1
         continue
         ;;
       "**Runtime:"*|"**Runtime**"*)
         current_section="runtime"
+        has_runtime=1
         continue
         ;;
       "**Git:"*|"**Git**"*)
         current_section="git"
+        has_git=1
         continue
         ;;
       "**Mode:"*|"**Session:"*|"**Feature:"*)
@@ -671,6 +675,7 @@ slot_merge_adapter_state() {
         # Any other **SectionName:** header (Status, Agents, Warnings, Notes,
         # Roles, Conversations, Stats, etc.) gets mapped into runtime
         current_section="runtime"
+        has_runtime=1
         runtime_section+="$line"$'\n'
         continue
         ;;
@@ -691,7 +696,7 @@ slot_merge_adapter_state() {
   done <<< "$adapter_output"
 
   # Now rebuild the block, preserving Process/Task/Mode/Session/Started
-  # and replacing Terminals/Runtime/Git with adapter data
+  # Only replace Terminals/Runtime/Git if the adapter actually provided that section
   local output="" in_section="" skip_until_next=0
 
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -699,28 +704,46 @@ slot_merge_adapter_state() {
     case "$line" in
       "**Terminals:"*)
         output+="**Terminals:**"$'\n'
-        if [[ -n "$terminals_section" ]]; then
-          output+="$terminals_section"
+        if [[ $has_terminals -eq 1 ]]; then
+          # Adapter provided this section - use adapter data
+          if [[ -n "$terminals_section" ]]; then
+            output+="$terminals_section"
+          fi
+          skip_until_next=1
+        else
+          # Adapter didn't provide this section - preserve existing content
+          skip_until_next=0
         fi
-        skip_until_next=1
         in_section="terminals"
         continue
         ;;
       "**Runtime:"*)
         output+="**Runtime:**"$'\n'
-        if [[ -n "$runtime_section" ]]; then
-          output+="$runtime_section"
+        if [[ $has_runtime -eq 1 ]]; then
+          # Adapter provided this section - use adapter data
+          if [[ -n "$runtime_section" ]]; then
+            output+="$runtime_section"
+          fi
+          skip_until_next=1
+        else
+          # Adapter didn't provide this section - preserve existing content
+          skip_until_next=0
         fi
-        skip_until_next=1
         in_section="runtime"
         continue
         ;;
       "**Git:"*)
         output+="**Git:**"$'\n'
-        if [[ -n "$git_section" ]]; then
-          output+="$git_section"
+        if [[ $has_git -eq 1 ]]; then
+          # Adapter provided this section - use adapter data
+          if [[ -n "$git_section" ]]; then
+            output+="$git_section"
+          fi
+          skip_until_next=1
+        else
+          # Adapter didn't provide this section - preserve existing content
+          skip_until_next=0
         fi
-        skip_until_next=1
         in_section="git"
         continue
         ;;
