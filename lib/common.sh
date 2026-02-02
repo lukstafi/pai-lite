@@ -252,7 +252,8 @@ pai_lite_config_notifications_priority() {
       exit
     }
     in_notif && /^[^[:space:]]/ { in_notif=0 }
-    in_prio && /^[[:space:]]{2}[^[:space:]]/ && $0 !~ /^[[:space:]]*(briefing|health_check|deadline|stall|critical):/ { in_prio=0 }
+    # Exit priorities section when we see a new section at 2-space indent (not a priority key)
+    in_prio && /^[[:space:]]{2}[a-z_]+:/ && $0 !~ /^[[:space:]]*[a-z_]+:[[:space:]]*[0-9]+/ { in_prio=0 }
   ' "$config"
 }
 
