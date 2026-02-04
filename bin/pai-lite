@@ -59,7 +59,7 @@ Commands:
   flow context                 Context distribution across slots
   flow check-cycle             Check for dependency cycles
 
-  mayor start                  Start Mayor tmux session
+  mayor start [--no-ttyd]      Start Mayor tmux session (with ttyd by default)
   mayor stop                   Stop Mayor tmux session
   mayor status                 Show Mayor status
   mayor attach                 Attach to Mayor tmux session
@@ -434,7 +434,8 @@ case "$cmd" in
     sub="${2:-}"
     case "$sub" in
       start)
-        mayor_start
+        shift 2  # Remove 'mayor start'
+        mayor_start "$@"
         ;;
       stop)
         mayor_stop

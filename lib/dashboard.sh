@@ -296,10 +296,11 @@ dashboard_generate_mayor() {
     fi
   fi
 
-  # Get Mayor ttyd port from config (default: 7690)
+  # Get Mayor ttyd port from config (default: 7679)
   local mayor_port
   mayor_port=$(dashboard_get_mayor_ttyd_port)
-  [[ -n "$mayor_port" ]] && terminal="http://localhost:$mayor_port"
+  [[ -z "$mayor_port" ]] && mayor_port="7679"
+  terminal="http://localhost:$mayor_port"
 
   # Check for Mayor state file (from claude-code adapter pattern)
   local mayor_state="$HOME/.config/pai-lite/mayor.state"

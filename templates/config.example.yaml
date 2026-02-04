@@ -35,7 +35,7 @@ mayor:
   enabled: false
   backend: tmux-ttyd        # or tmux (no web terminal)
   session: pai-mayor
-  ttyd_port: 7690           # Web terminal access (optional)
+  ttyd_port: 7679           # Web terminal access (default, starts automatically)
 
   # Autonomy levels: auto | suggest | manual
   autonomy_level:

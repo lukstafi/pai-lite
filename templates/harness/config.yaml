@@ -37,7 +37,7 @@ mayor:
   enabled: true
   backend: tmux-ttyd
   session: pai-mayor
-  ttyd_port: 7690
+  ttyd_port: 7679
 
   autonomy_level:
     analyze_issues: auto

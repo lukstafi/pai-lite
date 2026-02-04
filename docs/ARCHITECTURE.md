@@ -79,7 +79,7 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 
 ### The Mayor: Autonomous Coordinator
 
-The **Mayor** is a persistent Claude Code instance running in a dedicated tmux session (`pai-mayor`). It provides autonomous strategic thinking while the automation layer handles reliable execution.
+The **Mayor** is a persistent Claude Code instance running in a dedicated tmux session (`pai-mayor`) with ttyd web access enabled by default on port 7679. It provides autonomous strategic thinking while the automation layer handles reliable execution.
 
 **What the Mayor does (Claude Opus 4.5):**
 - Analyzes GitHub issues for actionability and dependencies (context understanding)
@@ -794,7 +794,7 @@ mayor:
   enabled: true
   backend: tmux-ttyd           # Similar setup to agent-duo
   session: pai-mayor
-  ttyd_port: 7690              # Web terminal access
+  ttyd_port: 7679              # Web terminal access (default, ttyd starts automatically)
 
   # Delegation uses Claude Code's native Task tool
   # Skills can specify subagent model (haiku, sonnet) as needed
@@ -1094,9 +1094,9 @@ tabButton.onclick = () => {
 
 **Setup:**
 ```bash
-# Mayor runs in tmux on laptop
-tmux new-session -s pai-mayor -d -c ~/repos/self-improve/harness/mayor
-tmux send-keys -t pai-mayor "claude" C-m
+# Mayor runs in tmux with ttyd web access (starts ttyd by default)
+pai-lite mayor start
+# Or without ttyd: pai-lite mayor start --no-ttyd
 
 # launchd triggers (when laptop awake)
 pai-lite triggers install

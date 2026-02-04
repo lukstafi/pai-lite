@@ -9,7 +9,7 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 MAYOR_SESSION_NAME="${PAI_LITE_MAYOR_SESSION:-pai-mayor}"
-MAYOR_DEFAULT_PORT="${PAI_LITE_MAYOR_PORT:-7690}"
+MAYOR_DEFAULT_PORT="${PAI_LITE_MAYOR_PORT:-7679}"
 
 #------------------------------------------------------------------------------
 # Helper: Get Mayor state directory
@@ -54,6 +54,20 @@ mayor_is_running() {
 
 mayor_start() {
   local state_dir working_dir state_file
+  local use_ttyd=true
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-ttyd)
+        use_ttyd=false
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
 
   if ! command -v tmux >/dev/null 2>&1; then
     pai_lite_die "mayor start: tmux is required but not installed"
@@ -102,13 +116,18 @@ EOF
 
   echo "Mayor session started. Attach with: tmux attach -t $MAYOR_SESSION_NAME"
 
-  # Optionally start ttyd if configured
-  local ttyd_port
-  ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null || echo "")
-  if [[ -n "$ttyd_port" ]] && command -v ttyd >/dev/null 2>&1; then
-    pai_lite_info "Starting ttyd on port $ttyd_port..."
-    # Note: ttyd would need to be started separately to connect to the session
-    echo "To enable web access: ttyd -p $ttyd_port tmux attach -t $MAYOR_SESSION_NAME"
+  # Start ttyd by default unless --no-ttyd was passed
+  if [[ "$use_ttyd" == "true" ]]; then
+    if command -v ttyd >/dev/null 2>&1; then
+      local ttyd_port
+      ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null || echo "$MAYOR_DEFAULT_PORT")
+      pai_lite_info "Starting ttyd on port $ttyd_port..."
+      # Start ttyd in background, connecting to the Mayor tmux session
+      nohup ttyd -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" >/dev/null 2>&1 &
+      echo "Web access available at: http://localhost:$ttyd_port"
+    else
+      pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
+    fi
   fi
 
   return 0
@@ -130,6 +149,14 @@ mayor_stop() {
 
   # Update status before stopping
   mayor_signal "stopped" "session stopped by user"
+
+  # Kill any ttyd processes attached to this session
+  local ttyd_pids
+  ttyd_pids=$(pgrep -f "ttyd.*$MAYOR_SESSION_NAME" 2>/dev/null || true)
+  if [[ -n "$ttyd_pids" ]]; then
+    pai_lite_info "Stopping ttyd process(es)..."
+    echo "$ttyd_pids" | xargs kill 2>/dev/null || true
+  fi
 
   pai_lite_info "Stopping Mayor tmux session '$MAYOR_SESSION_NAME'..."
   tmux kill-session -t "$MAYOR_SESSION_NAME"
@@ -373,6 +400,14 @@ mayor_doctor() {
   else
     echo "jq: NOT FOUND (required for queue processing)"
     all_ok=false
+  fi
+
+  # Check ttyd (for web access)
+  if command -v ttyd >/dev/null 2>&1; then
+    echo "ttyd: found at $(command -v ttyd)"
+  else
+    echo "ttyd: NOT FOUND (optional, for web access)"
+    echo "  Install: brew install ttyd (macOS) or apt install ttyd (Linux)"
   fi
 
   echo ""
