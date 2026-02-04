@@ -10,43 +10,32 @@ set -euo pipefail
 # Parallel task discovery via .agent-sessions/ registry
 #------------------------------------------------------------------------------
 
-# List all active sessions for a project (parallel task mode)
+# List all active sessions for a project
 # Returns: feature:root_worktree:peer_sync_path per line
 adapter_list_sessions() {
   local project_dir="${1:-.}"
   local sessions_dir="$project_dir/.agent-sessions"
 
-  # Check for parallel task mode (new multi-session)
-  if [[ -d "$sessions_dir" ]]; then
-    for session_link in "$sessions_dir"/*.session; do
-      [[ -L "$session_link" ]] || continue
+  [[ -d "$sessions_dir" ]] || return 0
 
-      local filename feature peer_sync_path root_worktree
-      filename="$(basename "$session_link")"
-      feature="${filename%.session}"
-      peer_sync_path="$(readlink "$session_link" 2>/dev/null)" || continue
+  for session_link in "$sessions_dir"/*.session; do
+    [[ -L "$session_link" ]] || continue
 
-      # Validate the symlink target exists
-      [[ -d "$peer_sync_path" ]] || continue
+    local filename feature peer_sync_path root_worktree
+    filename="$(basename "$session_link")"
+    feature="${filename%.session}"
+    peer_sync_path="$(readlink "$session_link" 2>/dev/null)" || continue
 
-      root_worktree="$(dirname "$peer_sync_path")"
-      echo "$feature:$root_worktree:$peer_sync_path"
-    done
-    return 0
-  fi
+    # Validate the symlink target exists
+    [[ -d "$peer_sync_path" ]] || continue
 
-  # Fallback to legacy single-session mode
-  local sync_dir="$project_dir/.peer-sync"
-  if [[ -d "$sync_dir" ]]; then
-    local feature=""
-    [[ -f "$sync_dir/feature" ]] && feature=$(cat "$sync_dir/feature" 2>/dev/null | tr -d '\n')
-    [[ -z "$feature" ]] && feature="default"
-    echo "$feature:$project_dir:$sync_dir"
-  fi
+    root_worktree="$(dirname "$peer_sync_path")"
+    echo "$feature:$root_worktree:$peer_sync_path"
+  done
 }
 
-# Check if project uses parallel task mode
-adapter_is_parallel_mode() {
+# Check if project has active agent sessions
+adapter_has_sessions() {
   local project_dir="${1:-.}"
   [[ -d "$project_dir/.agent-sessions" ]]
 }
@@ -188,7 +177,7 @@ adapter_output_terminals() {
   fi
 }
 
-# Get all terminal URLs for parallel mode
+# Get all terminal URLs for sessions
 # Args: project_dir port_keys... [mode_filter]
 # Returns: "feature label|url" per line
 adapter_all_terminals() {
@@ -204,34 +193,22 @@ adapter_all_terminals() {
   done
   [[ $# -eq 1 ]] && mode_filter="$1"
 
-  if adapter_is_parallel_mode "$project_dir"; then
-    while IFS=: read -r feature _ peer_sync_path; do
-      if [[ -n "$mode_filter" ]]; then
-        local mode=""
-        [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
-        [[ "$mode" == "$mode_filter" ]] || continue
-      fi
+  while IFS=: read -r feature _ peer_sync_path; do
+    if [[ -n "$mode_filter" ]]; then
+      local mode=""
+      [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
+      [[ "$mode" == "$mode_filter" ]] || continue
+    fi
 
-      local ports_file="$peer_sync_path/ports"
-      if [[ -f "$ports_file" ]]; then
-        while IFS='=' read -r key value; do
-          if [[ -n "${labels[$key]:-}" ]]; then
-            echo "$feature ${labels[$key]}|http://localhost:$value"
-          fi
-        done < "$ports_file"
-      fi
-    done < <(adapter_list_sessions "$project_dir")
-  else
-    # Legacy mode
-    local ports_file="$project_dir/.peer-sync/ports"
+    local ports_file="$peer_sync_path/ports"
     if [[ -f "$ports_file" ]]; then
       while IFS='=' read -r key value; do
         if [[ -n "${labels[$key]:-}" ]]; then
-          echo "${labels[$key]}|http://localhost:$value"
+          echo "$feature ${labels[$key]}|http://localhost:$value"
         fi
       done < "$ports_file"
     fi
-  fi
+  done < <(adapter_list_sessions "$project_dir")
 }
 
 #------------------------------------------------------------------------------
@@ -244,37 +221,29 @@ adapter_slot_summary() {
   local project_dir="${1:-.}"
   local mode_filter="${2:-}"
 
-  if adapter_is_parallel_mode "$project_dir"; then
-    local session_count=0 features=""
+  local session_count=0 features=""
 
-    while IFS=: read -r feature _ peer_sync_path; do
-      if [[ -n "$mode_filter" ]]; then
-        local mode=""
-        [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
-        [[ "$mode" == "$mode_filter" ]] || continue
-      fi
-
-      ((session_count++)) || true
-      if [[ -n "$features" ]]; then
-        features="$features, $feature"
-      else
-        features="$feature"
-      fi
-    done < <(adapter_list_sessions "$project_dir")
-
-    if [[ $session_count -eq 0 ]]; then
-      echo "(no sessions)"
-    elif [[ $session_count -eq 1 ]]; then
-      echo "$features"
-    else
-      echo "$features ($session_count parallel tasks)"
+  while IFS=: read -r feature _ peer_sync_path; do
+    if [[ -n "$mode_filter" ]]; then
+      local mode=""
+      [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
+      [[ "$mode" == "$mode_filter" ]] || continue
     fi
+
+    ((session_count++)) || true
+    if [[ -n "$features" ]]; then
+      features="$features, $feature"
+    else
+      features="$feature"
+    fi
+  done < <(adapter_list_sessions "$project_dir")
+
+  if [[ $session_count -eq 0 ]]; then
+    echo "(no sessions)"
+  elif [[ $session_count -eq 1 ]]; then
+    echo "$features"
   else
-    # Legacy mode
-    local sync_dir="$project_dir/.peer-sync"
-    local feature=""
-    [[ -f "$sync_dir/feature" ]] && feature=$(cat "$sync_dir/feature" 2>/dev/null | tr -d '\n')
-    echo "${feature:-active session}"
+    echo "$features ($session_count parallel tasks)"
   fi
 }
 
@@ -284,38 +253,33 @@ adapter_aggregated_status() {
   local project_dir="${1:-.}"
   local mode_filter="${2:-}"
 
-  if adapter_is_parallel_mode "$project_dir"; then
-    local session_count=0 work_count=0 review_count=0 other_count=0
+  local session_count=0 work_count=0 review_count=0 other_count=0
 
-    while IFS=: read -r _ _ peer_sync_path; do
-      if [[ -n "$mode_filter" ]]; then
-        local mode=""
-        [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
-        [[ "$mode" == "$mode_filter" ]] || continue
-      fi
-
-      ((session_count++)) || true
-      local phase=""
-      [[ -f "$peer_sync_path/phase" ]] && phase=$(cat "$peer_sync_path/phase" 2>/dev/null | tr -d '\n')
-      case "$phase" in
-        work) ((work_count++)) || true ;;
-        review|pr-comments) ((review_count++)) || true ;;
-        *) ((other_count++)) || true ;;
-      esac
-    done < <(adapter_list_sessions "$project_dir")
-
-    if [[ $session_count -eq 0 ]]; then
-      echo "inactive"
-    elif [[ $work_count -gt 0 ]]; then
-      echo "working ($work_count of $session_count)"
-    elif [[ $review_count -gt 0 ]]; then
-      echo "reviewing ($review_count of $session_count)"
-    else
-      echo "active ($session_count sessions)"
+  while IFS=: read -r _ _ peer_sync_path; do
+    if [[ -n "$mode_filter" ]]; then
+      local mode=""
+      [[ -f "$peer_sync_path/mode" ]] && mode=$(cat "$peer_sync_path/mode" 2>/dev/null | tr -d '\n')
+      [[ "$mode" == "$mode_filter" ]] || continue
     fi
+
+    ((session_count++)) || true
+    local phase=""
+    [[ -f "$peer_sync_path/phase" ]] && phase=$(cat "$peer_sync_path/phase" 2>/dev/null | tr -d '\n')
+    case "$phase" in
+      work) ((work_count++)) || true ;;
+      review|pr-comments) ((review_count++)) || true ;;
+      *) ((other_count++)) || true ;;
+    esac
+  done < <(adapter_list_sessions "$project_dir")
+
+  if [[ $session_count -eq 0 ]]; then
+    echo "inactive"
+  elif [[ $work_count -gt 0 ]]; then
+    echo "working ($work_count of $session_count)"
+  elif [[ $review_count -gt 0 ]]; then
+    echo "reviewing ($review_count of $session_count)"
   else
-    # Caller should handle legacy mode with their get_status function
-    echo "active"
+    echo "active ($session_count sessions)"
   fi
 }
 
