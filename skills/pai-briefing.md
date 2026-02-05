@@ -23,13 +23,24 @@ This skill is invoked by the pai-lite automation when:
    - Check for critical items: `pai-lite flow critical`
    - Read recent journal entries: `journal/*.md`
 
-2. **Analyze state**:
+2. **Elaborate unprocessed tasks** (before analysis):
+   - Run `pai-lite tasks needs-elaboration` to find unprocessed tasks
+   - For tasks that might appear in the briefing (ready, high-priority, or deadline soon):
+     - Use the Task tool to invoke `/pai-elaborate <task-id>` inline
+     - This ensures the briefing has detailed task information
+   - Example (parallel elaboration of candidates):
+     ```
+     Task tool: /pai-elaborate task-101
+     Task tool: /pai-elaborate task-042
+     ```
+
+3. **Analyze state**:
    - Identify high-priority ready tasks (A-priority, empty blocked_by)
    - Detect approaching deadlines (within 7 days)
    - Identify stalled work (in-progress > 7 days without updates)
    - Check slot utilization (X/6 slots active)
 
-3. **Generate briefing**:
+4. **Generate briefing**:
    Write a strategic briefing covering:
    - **Current state**: Active slots, ongoing work
    - **Ready tasks**: Priority-sorted list of what can start
@@ -37,7 +48,7 @@ This skill is invoked by the pai-lite automation when:
    - **Suggestions**: What to work on today and why
    - **Context switches**: Note if changing context is expensive
 
-4. **Write result**:
+5. **Write result**:
    - Write briefing to `$PAI_LITE_STATE_PATH/briefing.md`
    - Write result JSON to `$PAI_LITE_RESULTS_DIR/$PAI_LITE_REQUEST_ID.json`
 
@@ -85,8 +96,8 @@ Current context focus: [einsum/ocannl] - switching to [other] would incur contex
 ## Delegation Strategy
 
 - **CLI tools** for ready queue computation (yq, jq, tsort)
+- **Task tool** to invoke `/pai-elaborate` for unprocessed tasks (parallel)
 - **Direct Opus analysis** for strategic suggestions
-- No subagent delegation needed for briefings
 
 ## Error Handling
 

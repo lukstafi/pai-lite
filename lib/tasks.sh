@@ -642,3 +642,70 @@ EOF
   echo "  pai-lite flow critical   # Should show deadline + stalled task"
   echo "  pai-lite flow impact task-001  # Should show task-002, task-003"
 }
+
+#------------------------------------------------------------------------------
+# Detect tasks that need elaboration
+# A task needs elaboration if:
+#   - It has "- [ ] TBD" in Acceptance Criteria (template marker)
+#   - OR it lacks an "elaborated:" field in frontmatter
+# This has no false negatives on tasks created by tasks_convert() or tasks_create()
+#------------------------------------------------------------------------------
+
+tasks_needs_elaboration() {
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+
+  if [[ ! -d "$tasks_dir" ]]; then
+    return
+  fi
+
+  for file in "$tasks_dir"/*.md; do
+    [[ -f "$file" ]] || continue
+
+    local id needs_elab=false
+
+    # Extract task ID
+    id=$(awk '/^id:/ { print $2; exit }' "$file")
+
+    # Check 1: Has "elaborated:" in frontmatter?
+    if ! grep -q '^elaborated:' "$file"; then
+      needs_elab=true
+    fi
+
+    # Check 2: Has "- [ ] TBD" marker? (template placeholder)
+    if grep -q '^\- \[ \] TBD$' "$file"; then
+      needs_elab=true
+    fi
+
+    if [[ "$needs_elab" == "true" ]]; then
+      echo "$id"
+    fi
+  done
+}
+
+# Check if a specific task needs elaboration
+tasks_check_elaboration() {
+  local task_id="$1"
+  local tasks_dir file
+  tasks_dir="$(tasks_dir_path)"
+  file="$tasks_dir/${task_id}.md"
+
+  if [[ ! -f "$file" ]]; then
+    pai_lite_die "task file not found: $file"
+  fi
+
+  # Check for elaborated field
+  if ! grep -q '^elaborated:' "$file"; then
+    echo "needs-elaboration"
+    return 0
+  fi
+
+  # Check for TBD marker
+  if grep -q '^\- \[ \] TBD$' "$file"; then
+    echo "needs-elaboration"
+    return 0
+  fi
+
+  echo "elaborated"
+  return 0
+}

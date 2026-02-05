@@ -34,11 +34,19 @@ This skill is invoked when:
    - Read `tasks/queue.jsonl`
    - Flag if requests have been pending > 1h
 
-5. **Generate report**:
+5. **Check task elaboration**:
+   - Run `pai-lite tasks needs-elaboration` to find unprocessed tasks
+   - For each unprocessed task that is ready (not blocked), enqueue elaboration:
+     ```bash
+     pai-lite mayor elaborate <task-id>
+     ```
+   - This queues `/pai-elaborate` requests for Mayor to process, avoiding starvation of other requests
+
+6. **Generate report**:
    - Categorize issues by severity
    - Include actionable recommendations
 
-6. **Send notifications** for critical issues:
+7. **Send notifications** for critical issues:
    ```bash
    pai-lite notify pai "Critical: task-042 deadline in 2 days" 5 "Health Check"
    ```
@@ -63,6 +71,11 @@ This skill is invoked when:
 - Ready tasks: 8
 - Blocked tasks: 3
 - Queue pending: 0
+- Tasks needing elaboration: 5
+
+## Queued Elaborations
+- Queued `/pai-elaborate task-101` (ready, unelaborated)
+- Queued `/pai-elaborate task-042` (deadline approaching, unelaborated)
 
 ## Recommendations
 1. Prioritize task-042 - deadline is imminent

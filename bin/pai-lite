@@ -51,6 +51,8 @@ Commands:
   tasks create <title>         Create a new task manually
   tasks files                  List individual task files
   tasks samples                Create sample tasks for testing
+  tasks needs-elaboration      List tasks needing elaboration
+  tasks check <id>             Check if task needs elaboration
 
   flow ready                   Priority-sorted ready tasks
   flow blocked                 What's blocked and why
@@ -379,8 +381,16 @@ case "$cmd" in
       samples)
         tasks_create_samples
         ;;
+      needs-elaboration)
+        tasks_needs_elaboration
+        ;;
+      check)
+        task_id="${3:-}"
+        [[ -n "$task_id" ]] || pai_lite_die "task id required"
+        tasks_check_elaboration "$task_id"
+        ;;
       *)
-        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples)"
+        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples, needs-elaboration, check)"
         ;;
     esac
     ;;
