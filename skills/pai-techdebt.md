@@ -49,59 +49,36 @@ This skill is invoked when:
 ### Tech Debt Report
 
 ```markdown
-# Technical Debt Review - 2026-02-01
+# Technical Debt Review - YYYY-MM-DD
 
 ## Summary
-- 3 high-priority items
-- 7 medium-priority items
-- 12 low-priority items
+- N high-priority items
+- N medium-priority items
+- N low-priority items
 
 ## High Priority
 
-### ocannl: Duplicated einsum parsing
-**Files**:
-- `lib/einsum/parser.ml:142-180`
-- `lib/einsum/legacy_parser.ml:89-127`
+### [project]: [short description]
+**Files**: [file paths with line ranges]
 
-**Issue**: 80% code similarity in parsing logic
+**Issue**: [what's wrong]
 
-**Suggestion**: Extract common parsing functions to shared module
-
-**Estimated effort**: Medium
+**Suggestion**: [how to fix]
 
 ---
 
-### ppx-minidebug: Long function
-**File**: `lib/ppx_minidebug.ml:423-580` (157 lines)
-
-**Issue**: `transform_expr` is too long, hard to maintain
-
-**Suggestion**: Break into helper functions by expression type
-
----
+[...more high-priority items...]
 
 ## Medium Priority
 
-### ocannl: TODO comment
-**File**: `lib/tensor.ml:89`
-**Comment**: `(* TODO: optimize for sparse tensors *)`
-**Added**: 2026-01-28
-
----
-
-### ppx-minidebug: Unused import
-**File**: `lib/ppx_minidebug.ml:3`
-**Import**: `open Unused_module`
-
----
+[TODO comments, moderate duplication, etc.]
 
 ## Low Priority
-- Minor style inconsistencies (12 items)
-- See full list in `techdebt-details.md`
+
+[Style issues, minor items - can reference separate details file]
 
 ## Tasks Created
-- task-201: Consolidate einsum parsing (C-priority)
-- task-202: Refactor transform_expr (C-priority)
+[List any task files created for high-cost items]
 ```
 
 ### Result JSON
@@ -111,10 +88,10 @@ This skill is invoked when:
   "id": "req-...",
   "status": "completed",
   "timestamp": "...",
-  "high": 3,
-  "medium": 7,
-  "low": 12,
-  "tasks_created": ["task-201", "task-202"]
+  "high": N,
+  "medium": N,
+  "low": N,
+  "tasks_created": [...]
 }
 ```
 

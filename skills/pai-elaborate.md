@@ -52,51 +52,33 @@ The task file should be updated with additional sections:
 elaborated: 2026-02-01
 ---
 
-# Context
+## Context
 [existing context]
 
-# Acceptance Criteria
+## Acceptance Criteria
 [refined criteria]
 
-# Implementation Plan
+## Implementation Plan
 
-## Phase 1: Parser Changes
-- [ ] Modify `lib/einsum/parser.ml` to recognize `^` operator
-- [ ] Add AST node for concatenation
-- [ ] Update precedence rules (same as `,`)
+[do NOT micro-manage: describe at the highest level that still captures all or most interactions between tasks]
 
-## Phase 2: Inference
-- [ ] Extend `lib/einsum/infer.ml` for concatenation projections
-- [ ] Handle dimension alignment
+## Technical Notes
 
-## Phase 3: Codegen
-- [ ] Update `lib/einsum/codegen.ml`
-- [ ] Add runtime concatenation implementation
+### Code Pointers
 
-## Phase 4: Testing
-- [ ] Add unit tests in `test/einsum_test.ml`
-- [ ] Add integration test with existing benchmarks
+- [...]
 
-# Technical Notes
+### Edge Cases
 
-## Code Pointers
-- Parser entry point: `lib/einsum/parser.ml:142`
-- Inference main: `lib/einsum/infer.ml:87`
-- Similar feature: tensor product implementation at line 203
+- [...]
 
-## Edge Cases
-- Empty tensors
-- Mismatched dimensions
-- Broadcasting behavior
+## Estimated Effort
+[e.g.]
 
-## Dependencies
-- Requires task-041 (parser refactoring) to be complete
-
-# Estimated Effort
 Medium (2-3 days)
-- Day 1: Parser + AST
-- Day 2: Inference + Codegen
-- Day 3: Testing + edge cases
+- Day 1: ...
+- Day 2: ...
+- Day 3: ...
 ```
 
 ### Result JSON

@@ -55,62 +55,52 @@ This skill is invoked when:
 ### context-sync.md
 
 ```markdown
-# Context Sync - 2026-02-01 08:00
+# Context Sync - YYYY-MM-DD HH:MM
 
 ## GitHub Activity (Last 24h)
 
 ### Issue Comments
 
-**ocannl#127** - "Tensor concatenation"
-- @contributor1: "Have you considered using ^ for the operator?"
-- @contributor2: "That aligns with the mathematical notation"
+**repo#NNN** - "[title]"
+- @user: "[comment summary]"
+- [note if needs attention]
 
-**ppx-minidebug#45** - "Performance regression"
-- @user: "Still seeing slow output on large traces"
-- Needs attention - may need investigation
+[...more if relevant...]
 
 ### PR Updates
 
-**ocannl#134** - "Einsum parser refactoring"
-- Status: Approved, ready to merge
-- Last update: 2h ago
+**repo#NNN** - "[title]"
+- Status: [state]
+- [relevant details]
 
 ### New Issues
 
-- ocannl#129: "Support for complex tensors" (needs triage)
+- repo#NNN: "[title]" (needs triage)
 
 ---
 
 ## Git Activity
 
-### ocannl
-- `a1b2c3d` Fix dimension broadcasting edge case
-- `e4f5g6h` Add einsum concatenation tests
-
-### ppx-minidebug
-- `i7j8k9l` Update changelog for 3.0 release
+### [project]
+- `hash` [commit message]
+- [...]
 
 ---
 
 ## Notifications (Last 24h)
 
-- 14:30: Slot 1 PR ready
-- 18:00: Health check - task-089 stalled warning
-- 22:00: Build failed on ppx-minidebug main
+- [timestamp]: [notification summary]
+- [...]
 
 ---
 
 ## Items Requiring Attention
 
-1. **ocannl#129**: New issue needs triage
-2. **ppx-minidebug#45**: Performance complaint - investigate?
-3. **ocannl#134**: PR ready to merge
+1. [Prioritized list of things needing human decision]
 
 ## Suggested Follow-ups
 
-- Review and merge ocannl#134
-- Triage ocannl#129
-- Investigate ppx-minidebug performance complaint
+- [Actionable next steps]
 ```
 
 ### Result JSON
@@ -120,12 +110,12 @@ This skill is invoked when:
   "id": "req-...",
   "status": "completed",
   "timestamp": "...",
-  "github_comments": 4,
-  "pr_updates": 1,
-  "new_issues": 1,
-  "commits": 3,
-  "notifications": 3,
-  "attention_items": 3
+  "github_comments": N,
+  "pr_updates": N,
+  "new_issues": N,
+  "commits": N,
+  "notifications": N,
+  "attention_items": N
 }
 ```
 

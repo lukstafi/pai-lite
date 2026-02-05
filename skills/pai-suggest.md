@@ -40,19 +40,19 @@ This skill is invoked when:
 ## Suggested Tasks
 
 ### Top Recommendation
-**task-101**: Implement einsum concatenation
+**task-NNN**: [title]
 
-*Why*: A-priority, unblocks 3 tasks, matches your current einsum context.
+*Why*: [reasoning based on priority, impact, context, deadlines]
 
 ### Alternatives
-1. **task-067**: Fix type inference edge case
-   - Same context, smaller scope, quick win
+1. **task-NNN**: [title]
+   - [why this is a good alternative]
 
-2. **task-128**: Update documentation
-   - Lower priority but deadline in 5 days
+2. **task-NNN**: [title]
+   - [different tradeoff - e.g., smaller scope, approaching deadline]
 
 ### Consider Later
-- task-089 has been stalled for 10 days - need to either restart or abandon
+- [Any stalled or problematic tasks that need decision]
 ```
 
 ## Result JSON
@@ -63,8 +63,8 @@ This skill is invoked when:
   "status": "completed",
   "timestamp": "...",
   "suggestions": [
-    {"task": "task-101", "priority": 1, "reason": "..."},
-    {"task": "task-067", "priority": 2, "reason": "..."}
+    {"task": "task-NNN", "priority": 1, "reason": "..."},
+    {"task": "task-NNN", "priority": 2, "reason": "..."}
   ]
 }
 ```

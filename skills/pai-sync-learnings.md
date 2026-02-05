@@ -49,32 +49,28 @@ This skill is invoked when:
 ### Sync Report
 
 ```markdown
-# Learnings Sync - 2026-02-01
+# Learnings Sync - YYYY-MM-DD
 
 ## Processed
-- 12 corrections from corrections.md
-- 3 friction points from journal
+- N corrections from corrections.md
+- N friction points from journal
 
 ## Updates Made
 
 ### tools.md
-- Added yq gotchas section
-- Added jq multiline handling note
+- [what was added/updated]
 
 ### workflows.md
-- Added "PR review checklist" pattern
-- Updated "task elaboration" process
+- [what was added/updated]
 
-### projects/ocannl.md
-- Added einsum parsing notes
-- Added build system quirks
+### projects/[project].md
+- [what was added/updated]
 
 ## Archived
-- Moved 8 processed corrections to corrections-archive.md
+- Moved N processed corrections to corrections-archive.md
 
 ## Suggested CLAUDE.md Updates
-Consider adding:
-> When using yq, prefer `yq eval` over `yq -s` for single file operations.
+[If broad patterns detected, suggest additions - do not auto-update]
 ```
 
 ### Result JSON
@@ -84,77 +80,23 @@ Consider adding:
   "id": "req-...",
   "status": "completed",
   "timestamp": "...",
-  "processed": 12,
+  "processed": N,
   "updates": {
-    "tools.md": 2,
-    "workflows.md": 2,
-    "projects/ocannl.md": 2
+    "tools.md": N,
+    "workflows.md": N,
+    "projects/[project].md": N
   },
-  "archived": 8
+  "archived": N
 }
 ```
 
-## Memory File Formats
+## Memory File Structure
 
-### tools.md
+The structured memory files follow these patterns:
 
-```markdown
-# CLI Tools Knowledge
-
-## yq
-
-### Usage
-- Single file: `yq eval '.key' file.yaml`
-- Multiple files: `yq -s '.' *.yaml`
-
-### Gotchas
-- `yq -s` expects multiple files
-- Output is JSON by default, use `-o yaml` for YAML
-
-## jq
-
-### Gotchas
-- Use `--slurpfile` for loading JSON files as variables
-- Multiline strings need careful quoting
-```
-
-### workflows.md
-
-```markdown
-# Workflow Patterns
-
-## Task Elaboration
-1. Read task file and linked issue
-2. Check related tasks for context
-3. Identify specific files to modify
-4. Break into subtasks with acceptance criteria
-
-## PR Review Checklist
-- [ ] Tests pass
-- [ ] No new warnings
-- [ ] Documentation updated if needed
-- [ ] Commit message follows convention
-```
-
-### projects/ocannl.md
-
-```markdown
-# OCANNL Project Knowledge
-
-## Build System
-- Uses dune
-- `dune build` from root
-- Tests: `dune test`
-
-## Einsum Module
-- Parser at `lib/einsum/parser.ml`
-- Entry point: `parse_einsum`
-- Uses menhir for parsing
-
-## Common Issues
-- Type inference can be slow on large tensors
-- Watch for dimension broadcasting edge cases
-```
+- **tools.md**: CLI tool knowledge organized by tool, with Usage and Gotchas subsections
+- **workflows.md**: Process patterns as numbered steps or checklists
+- **projects/[project].md**: Project-specific knowledge (build system, key modules, common issues)
 
 ## Delegation Strategy
 

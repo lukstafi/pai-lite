@@ -56,44 +56,42 @@ This skill is invoked when:
 
 ```yaml
 ---
-id: task-143
-title: "Implement tensor concatenation with ^ operator"
-project: ocannl
+id: task-NNN
+title: "[concise title from issue]"
+project: [project name]
 status: ready
-priority: B
-deadline: null
+priority: [A/B/C based on labels, milestone, urgency]
+deadline: [if any]
 dependencies:
   blocks: []
-  blocked_by: [task-042]
-effort: medium
-context: einsum
+  blocked_by: [...]
+effort: [small/medium/large]
+context: [area tag]
 slot: null
 adapter: null
-created: 2026-02-01
+created: YYYY-MM-DD
 started: null
 completed: null
-github_issue: 127
+github_issue: [issue number]
 ---
 
-# Context
+## Context
 
-From GitHub issue #127:
+From GitHub issue #NNN:
 [Summary of the issue in your own words]
 
-# Acceptance Criteria
+## Acceptance Criteria
 
-- [ ] Parse `^` in einsum expressions
-- [ ] Implement projection inference for concatenation
-- [ ] Add tests for edge cases
-- [ ] Update documentation
+- [ ] [criteria derived from issue]
+- [ ] [...]
 
-# Technical Notes
+## Technical Notes
 
-[Any code pointers, relevant files, or implementation hints]
+[Code pointers, relevant files, implementation hints - if identifiable]
 
-# Dependencies
+## Dependencies
 
-- Blocked by task-042 (einsum parser refactoring)
+[Explain blocking relationships if any]
 ```
 
 ### Result JSON
@@ -103,9 +101,9 @@ From GitHub issue #127:
   "id": "req-...",
   "status": "completed",
   "timestamp": "...",
-  "output": "Created task-143.md from issue #127",
-  "task_id": "task-143",
-  "github_issue": 127
+  "output": "Created task-NNN.md from issue #NNN",
+  "task_id": "task-NNN",
+  "github_issue": NNN
 }
 ```
 
