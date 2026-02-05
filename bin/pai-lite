@@ -192,40 +192,77 @@ case "$cmd" in
       fi
     fi
 
-    # Install stop hook if --hooks flag is provided
+    # Install skills and hooks if --hooks flag is provided
     install_hooks="${2:-}"
     if [[ "$install_hooks" == "--hooks" ]]; then
-      hooks_dir="$HOME/.claude/hooks"
-      mkdir -p "$hooks_dir"
+      echo ""
+      echo "=== Installing Skills and Hooks ==="
 
-      hook_file="$hooks_dir/pai-lite-on-stop.sh"
-      if [[ -f "$hook_file" ]]; then
-        pai_lite_warn "Stop hook already exists: $hook_file"
-        echo "To reinstall, remove it first: rm $hook_file"
-      else
-        cp "$root_dir/templates/hooks/pai-lite-on-stop.sh" "$hook_file"
-        chmod +x "$hook_file"
-        echo "Installed stop hook: $hook_file"
-        echo "Note: You may need to configure Claude Code to use this hook"
+      # Install skills to ~/.claude/commands/ (like agent-duo)
+      claude_skills="$HOME/.claude/commands"
+      mkdir -p "$claude_skills"
+
+      skill_count=0
+      for skill_file in "$local_install/skills"/*.md; do
+        [[ -f "$skill_file" ]] || continue
+        skill_name="$(basename "$skill_file")"
+        cp "$skill_file" "$claude_skills/$skill_name"
+        skill_count=$((skill_count + 1))
+      done
+      echo "Installed $skill_count skills to $claude_skills"
+
+      # Install stop hook script
+      hook_script="$local_bin/pai-lite-on-stop"
+      if [[ -f "$root_dir/templates/hooks/pai-lite-on-stop.sh" ]]; then
+        cp "$root_dir/templates/hooks/pai-lite-on-stop.sh" "$hook_script"
+        chmod +x "$hook_script"
+        echo "Installed stop hook script: $hook_script"
       fi
 
-      # Print guidance about skills installation
+      # Configure Claude settings.json to use the stop hook
+      claude_settings="$HOME/.claude/settings.json"
+      if [[ -f "$claude_settings" ]]; then
+        # Check if hooks already configured
+        if grep -q '"hooks"' "$claude_settings" 2>/dev/null; then
+          pai_lite_warn "Claude settings already has 'hooks' - not overwriting"
+          echo "To enable pai-lite hook, manually add to $claude_settings:"
+          echo "  \"hooks\": {\"Stop\": [{\"matcher\": \"\", \"hooks\": [{\"type\": \"command\", \"command\": \"$hook_script\"}]}]}"
+        else
+          # Add hooks to existing settings using jq
+          if command -v jq >/dev/null 2>&1; then
+            tmp_settings="$(mktemp)"
+            jq --arg cmd "$hook_script" \
+              '.hooks = {"Stop": [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]}' \
+              "$claude_settings" > "$tmp_settings"
+            mv "$tmp_settings" "$claude_settings"
+            echo "Configured Stop hook in $claude_settings"
+          else
+            pai_lite_warn "jq not found - please manually add hooks to $claude_settings"
+          fi
+        fi
+      else
+        # Create new settings file with hooks
+        mkdir -p "$(dirname "$claude_settings")"
+        if command -v jq >/dev/null 2>&1; then
+          jq -n --arg cmd "$hook_script" \
+            '{hooks: {"Stop": [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]}}' \
+            > "$claude_settings"
+          echo "Created $claude_settings with Stop hook"
+        else
+          pai_lite_warn "jq not found - please create $claude_settings manually"
+        fi
+      fi
+
       echo ""
-      echo "=== Skills Setup ==="
-      echo "The Mayor skills are in: $root_dir/skills/"
-      echo ""
-      echo "To use skills like /briefing, /suggest, etc. in Claude Code:"
-      echo "1. Copy skills to Claude Code's skills directory:"
-      echo "   cp -r $root_dir/skills/*.md ~/.claude/skills/"
-      echo ""
-      echo "2. Or symlink them:"
-      echo "   mkdir -p ~/.claude/skills"
-      echo "   ln -sf $root_dir/skills/*.md ~/.claude/skills/"
-      echo ""
-      echo "3. Ensure Claude Code is configured to load skills from ~/.claude/skills/"
+      echo "Skills installed:"
+      for skill_file in "$claude_skills"/*.md; do
+        [[ -f "$skill_file" ]] || continue
+        skill_name="$(basename "$skill_file" .md)"
+        echo "  /$skill_name"
+      done
     else
       echo ""
-      echo "To install the Mayor stop hook and skills, run: pai-lite init --hooks"
+      echo "To install Mayor skills and hooks, run: pai-lite init --hooks"
     fi
     ;;
   slots)
@@ -736,7 +773,7 @@ case "$cmd" in
       warnings=$((warnings + 1))
     fi
 
-    # shellcheck
+    # shell linter
     if command -v shellcheck >/dev/null 2>&1; then
       echo "  [ok] shellcheck: $(shellcheck --version | grep version:)"
     else
@@ -863,6 +900,59 @@ case "$cmd" in
         fi
         ;;
     esac
+
+    echo ""
+
+    #------------------------------------------
+    # Skills and Hooks
+    #------------------------------------------
+    echo "Skills and Hooks:"
+
+    # Check for installed skills
+    claude_skills="$HOME/.claude/commands"
+    if [[ -d "$claude_skills" ]]; then
+      skill_count=$(find "$claude_skills" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+      pai_lite_skills=0
+      for skill in briefing suggest analyze-issue elaborate health-check learn sync-learnings techdebt context-sync; do
+        [[ -f "$claude_skills/$skill.md" ]] && pai_lite_skills=$((pai_lite_skills + 1))
+      done
+      if [[ "$pai_lite_skills" -gt 0 ]]; then
+        echo "  [ok] skills: $pai_lite_skills pai-lite skills installed in $claude_skills"
+      else
+        echo "  [warn] skills: no pai-lite skills found in $claude_skills"
+        echo "    Run: pai-lite init --hooks"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  [warn] skills: $claude_skills does not exist"
+      echo "    Run: pai-lite init --hooks"
+      warnings=$((warnings + 1))
+    fi
+
+    # Check for stop hook script
+    hook_script="$HOME/.local/bin/pai-lite-on-stop"
+    if [[ -x "$hook_script" ]]; then
+      echo "  [ok] hook script: $hook_script"
+    else
+      echo "  [warn] hook script: not found at $hook_script"
+      echo "    Run: pai-lite init --hooks"
+      warnings=$((warnings + 1))
+    fi
+
+    # Check for hook configuration in settings.json
+    claude_settings="$HOME/.claude/settings.json"
+    if [[ -f "$claude_settings" ]]; then
+      if grep -q 'pai-lite-on-stop' "$claude_settings" 2>/dev/null; then
+        echo "  [ok] hook config: pai-lite hook configured in settings.json"
+      else
+        echo "  [warn] hook config: pai-lite hook not in settings.json"
+        echo "    Run: pai-lite init --hooks (or add manually)"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  [warn] hook config: $claude_settings not found"
+      warnings=$((warnings + 1))
+    fi
 
     echo ""
 
