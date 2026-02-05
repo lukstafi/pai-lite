@@ -656,3 +656,14 @@ pai_lite_journal_list() {
 
   find "$journal_dir" -name "*.md" -type f -mtime -"$days" | sort -r
 }
+
+#------------------------------------------------------------------------------
+# Source network helpers if available
+#------------------------------------------------------------------------------
+
+_pai_lite_network_sh="$(dirname "${BASH_SOURCE[0]}")/network.sh"
+if [[ -f "$_pai_lite_network_sh" ]]; then
+  # shellcheck source=lib/network.sh
+  source "$_pai_lite_network_sh"
+fi
+unset _pai_lite_network_sh

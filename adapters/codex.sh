@@ -276,7 +276,7 @@ adapter_codex_read_state() {
         echo ""
         echo "**Web Terminal:**"
         echo "- ttyd running on port $ttyd_port (PID: $ttyd_pid)"
-        echo "- URL: http://localhost:$ttyd_port"
+        echo "- URL: $(pai_lite_get_url "$ttyd_port")"
       fi
     fi
   fi
@@ -519,7 +519,7 @@ adapter_codex_start_ttyd() {
   fi
 
   echo "ttyd server started (PID: $ttyd_pid)"
-  echo "Access web terminal at: http://localhost:$port"
+  echo "Access web terminal at: $(pai_lite_get_url "$port")"
   return 0
 }
 
@@ -793,7 +793,7 @@ adapter_codex_list_sessions() {
       ttyd_pid=$(grep '^ttyd_pid=' "$state_file" | cut -d= -f2-)
       ttyd_port=$(grep '^ttyd_port=' "$state_file" 2>/dev/null | cut -d= -f2-)
       if kill -0 "$ttyd_pid" 2>/dev/null; then
-        echo "  Web terminal: http://localhost:$ttyd_port"
+        echo "  Web terminal: $(pai_lite_get_url "$ttyd_port")"
       fi
     fi
 

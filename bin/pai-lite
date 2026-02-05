@@ -89,6 +89,12 @@ Commands:
   journal recent [n]           Show last n journal entries
   journal list [days]          List journal files from last n days
 
+  network status               Show network configuration
+  federation status            Show federation status (multi-machine Mayor)
+  federation tick              Publish heartbeat and run leader election
+  federation elect             Run leader election only
+  federation heartbeat         Publish heartbeat only
+
   status                       Overview of slots + tasks
   briefing                     Morning briefing
   init                         Initialize config + harness
@@ -598,6 +604,41 @@ case "$cmd" in
         ;;
     esac
     ;;
+  network)
+    require_config
+    sub="${2:-status}"
+    case "$sub" in
+      status)
+        pai_lite_network_status
+        ;;
+      *)
+        pai_lite_die "unknown network subcommand: $sub (use: status)"
+        ;;
+    esac
+    ;;
+  federation)
+    require_config
+    # Source federation library
+    source "$root_dir/lib/federation.sh"
+    sub="${2:-status}"
+    case "$sub" in
+      status)
+        federation_status
+        ;;
+      tick)
+        federation_tick
+        ;;
+      elect)
+        federation_elect
+        ;;
+      heartbeat)
+        federation_heartbeat_publish
+        ;;
+      *)
+        pai_lite_die "unknown federation subcommand: $sub (use: status, tick, elect, heartbeat)"
+        ;;
+    esac
+    ;;
   doctor)
     # Comprehensive health check
     echo "pai-lite doctor - system health check"
@@ -701,6 +742,25 @@ case "$cmd" in
     else
       echo "  [warn] shellcheck: not found (for development)"
       warnings=$((warnings + 1))
+    fi
+
+    # tailscale
+    if command -v tailscale >/dev/null 2>&1; then
+      echo "  [ok] tailscale: available"
+      if tailscale status >/dev/null 2>&1; then
+        local ts_hostname
+        ts_hostname=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' 2>/dev/null | sed 's/\.$//')
+        if [[ -n "$ts_hostname" ]]; then
+          echo "    -> connected as: $ts_hostname"
+        else
+          echo "    -> connected"
+        fi
+      else
+        echo "    -> [warn] not connected (run: tailscale up)"
+        warnings=$((warnings + 1))
+      fi
+    else
+      echo "  [info] tailscale: not installed (optional, for multi-machine setup)"
     fi
 
     echo ""

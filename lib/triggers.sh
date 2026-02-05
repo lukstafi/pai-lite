@@ -84,6 +84,7 @@ PLIST_SYNC="com.pai-lite.sync"
 PLIST_MORNING="com.pai-lite.morning"
 PLIST_HEALTH="com.pai-lite.health"
 PLIST_WATCH="com.pai-lite.watch"
+PLIST_FEDERATION="com.pai-lite.federation"
 
 #------------------------------------------------------------------------------
 # macOS launchd triggers
@@ -122,12 +123,13 @@ triggers_install_macos() {
   bin_path="$(pai_lite_root)/bin/pai-lite"
   mkdir -p "$HOME/Library/LaunchAgents"
 
-  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled
+  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled federation_enabled
   startup_enabled="$(trigger_get startup enabled)"
   sync_enabled="$(trigger_get sync enabled)"
   morning_enabled="$(trigger_get morning enabled)"
   health_enabled="$(trigger_get health enabled)"
   watch_enabled="$(trigger_get watch enabled)"
+  federation_enabled="$(trigger_get federation enabled)"
 
   # Startup trigger (RunAtLoad)
   if [[ "$startup_enabled" == "true" ]]; then
@@ -289,6 +291,34 @@ PLIST
       pai_lite_warn "watch trigger enabled but no paths configured"
     fi
   fi
+
+  # Federation trigger (StartInterval - for multi-machine Mayor coordination)
+  if [[ "$federation_enabled" == "true" ]]; then
+    local action interval plist
+    action="$(command_from_action "$(trigger_get federation action)")"
+    interval="$(trigger_get federation interval)"
+    [[ -n "$interval" ]] || interval=300  # 5 minutes default
+    plist="$HOME/Library/LaunchAgents/${PLIST_FEDERATION}.plist"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${PLIST_FEDERATION}</string>
+  <key>StartInterval</key>
+  <integer>$interval</integer>
+PLIST
+    # shellcheck disable=SC2086
+    _plist_write_args "$plist" "$bin_path" $action
+    _plist_write_logs "$plist" "federation"
+    echo "</dict>" >> "$plist"
+    echo "</plist>" >> "$plist"
+
+    launchctl unload "$plist" >/dev/null 2>&1 || true
+    launchctl load "$plist" >/dev/null 2>&1 || true
+    echo "Installed launchd trigger: federation (every $((interval / 60))m)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -300,12 +330,13 @@ triggers_install_linux() {
   bin_path="$(pai_lite_root)/bin/pai-lite"
   mkdir -p "$HOME/.config/systemd/user"
 
-  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled
+  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled federation_enabled
   startup_enabled="$(trigger_get startup enabled)"
   sync_enabled="$(trigger_get sync enabled)"
   morning_enabled="$(trigger_get morning enabled)"
   health_enabled="$(trigger_get health enabled)"
   watch_enabled="$(trigger_get watch enabled)"
+  federation_enabled="$(trigger_get federation enabled)"
 
   # Startup trigger
   if [[ "$startup_enabled" == "true" ]]; then
@@ -475,6 +506,38 @@ PATH
       pai_lite_warn "watch trigger enabled but no paths configured"
     fi
   fi
+
+  # Federation trigger (periodic timer - for multi-machine Mayor coordination)
+  if [[ "$federation_enabled" == "true" ]]; then
+    local action interval service_file timer_file
+    action="$(command_from_action "$(trigger_get federation action)")"
+    interval="$(trigger_get federation interval)"
+    [[ -n "$interval" ]] || interval=300  # 5 minutes default
+    service_file="$HOME/.config/systemd/user/pai-lite-federation.service"
+    timer_file="$HOME/.config/systemd/user/pai-lite-federation.timer"
+    cat > "$service_file" <<SERVICE
+[Unit]
+Description=pai-lite federation heartbeat
+
+[Service]
+Type=oneshot
+ExecStart=$bin_path $action
+SERVICE
+    cat > "$timer_file" <<TIMER
+[Unit]
+Description=pai-lite federation timer
+
+[Timer]
+OnUnitActiveSec=${interval}s
+Unit=pai-lite-federation.service
+
+[Install]
+WantedBy=timers.target
+TIMER
+    systemctl --user daemon-reload
+    systemctl --user enable --now pai-lite-federation.timer
+    echo "Installed systemd trigger: federation (every $((interval / 60))m)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -502,7 +565,7 @@ triggers_install() {
 
 triggers_uninstall_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION")
 
   for label in "${plists[@]}"; do
     local plist="$agents_dir/${label}.plist"
@@ -517,7 +580,7 @@ triggers_uninstall_macos() {
 }
 
 triggers_uninstall_linux() {
-  local services=("startup" "sync" "morning" "health" "watch")
+  local services=("startup" "sync" "morning" "health" "watch" "federation")
 
   for name in "${services[@]}"; do
     local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
@@ -567,7 +630,7 @@ triggers_uninstall() {
 
 triggers_status_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION")
   local found_any=false
 
   echo "pai-lite launchd triggers:"
@@ -614,7 +677,7 @@ triggers_status_macos() {
 }
 
 triggers_status_linux() {
-  local services=("startup" "sync" "morning" "health" "watch")
+  local services=("startup" "sync" "morning" "health" "watch" "federation")
   local found_any=false
 
   echo "pai-lite systemd triggers:"

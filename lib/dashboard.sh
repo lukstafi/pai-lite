@@ -300,7 +300,7 @@ dashboard_generate_mayor() {
   local mayor_port
   mayor_port=$(dashboard_get_mayor_ttyd_port)
   [[ -z "$mayor_port" ]] && mayor_port="7679"
-  terminal="http://localhost:$mayor_port"
+  terminal="$(pai_lite_get_url "$mayor_port")"
 
   # Check for Mayor state file (from claude-code adapter pattern)
   local mayor_state="$HOME/.config/pai-lite/mayor.state"
@@ -415,7 +415,7 @@ dashboard_serve() {
     pai_lite_die "dashboard not installed. Run: pai-lite dashboard install"
   fi
 
-  pai_lite_info "serving dashboard at http://localhost:$port"
+  pai_lite_info "serving dashboard at $(pai_lite_get_url "$port")"
   pai_lite_info "press Ctrl+C to stop"
 
   cd "$dashboard_dir"

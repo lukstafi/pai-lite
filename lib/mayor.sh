@@ -55,12 +55,17 @@ mayor_is_running() {
 mayor_start() {
   local state_dir working_dir state_file
   local use_ttyd=true
+  local skip_federation=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --no-ttyd)
         use_ttyd=false
+        shift
+        ;;
+      --skip-federation)
+        skip_federation=true
         shift
         ;;
       *)
@@ -71,6 +76,24 @@ mayor_start() {
 
   if ! command -v tmux >/dev/null 2>&1; then
     pai_lite_die "mayor start: tmux is required but not installed"
+  fi
+
+  # Check federation - only leader should start Mayor
+  if [[ "$skip_federation" != "true" ]]; then
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -f "$script_dir/federation.sh" ]]; then
+      # shellcheck source=lib/federation.sh
+      source "$script_dir/federation.sh"
+      if ! federation_should_run_mayor 2>/dev/null; then
+        pai_lite_warn "Mayor blocked: not the federation leader"
+        echo "Current leader: $(federation_current_leader 2>/dev/null || echo 'unknown')"
+        echo "Run 'pai-lite federation status' for details"
+        echo ""
+        echo "To override, use: pai-lite mayor start --skip-federation"
+        return 0
+      fi
+    fi
   fi
 
   # Check if session already exists
@@ -124,7 +147,7 @@ EOF
       pai_lite_info "Starting ttyd on port $ttyd_port..."
       # Start ttyd in background, connecting to the Mayor tmux session
       nohup ttyd -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" >/dev/null 2>&1 &
-      echo "Web access available at: http://localhost:$ttyd_port"
+      echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
     else
       pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
     fi

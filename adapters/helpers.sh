@@ -171,7 +171,7 @@ adapter_output_terminals() {
 
     while IFS='=' read -r key value; do
       if [[ -n "${labels[$key]:-}" ]]; then
-        echo "- ${labels[$key]}: http://localhost:$value"
+        echo "- ${labels[$key]}: $(pai_lite_get_url "$value")"
       fi
     done < "$ports_file"
   fi
@@ -204,7 +204,7 @@ adapter_all_terminals() {
     if [[ -f "$ports_file" ]]; then
       while IFS='=' read -r key value; do
         if [[ -n "${labels[$key]:-}" ]]; then
-          echo "$feature ${labels[$key]}|http://localhost:$value"
+          echo "$feature ${labels[$key]}|$(pai_lite_get_url "$value")"
         fi
       done < "$ports_file"
     fi
