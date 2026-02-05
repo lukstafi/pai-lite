@@ -1,4 +1,4 @@
-# /analyze-issue - GitHub Issue Analysis
+# /pai-analyze-issue - GitHub Issue Analysis
 
 Analyze a GitHub issue and create a task file with inferred dependencies.
 

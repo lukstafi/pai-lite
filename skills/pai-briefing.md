@@ -1,4 +1,4 @@
-# /briefing - Strategic Morning Briefing
+# /pai-briefing - Strategic Morning Briefing
 
 Generate a comprehensive strategic briefing for the user.
 

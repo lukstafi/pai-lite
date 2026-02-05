@@ -1,4 +1,4 @@
-# /elaborate - Task Elaboration
+# /pai-elaborate - Task Elaboration
 
 Elaborate a high-level task into a detailed specification.
 

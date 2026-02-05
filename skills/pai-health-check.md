@@ -1,4 +1,4 @@
-# /health-check - System Health Check
+# /pai-health-check - System Health Check
 
 Detect stalled work, approaching deadlines, and other issues requiring attention.
 

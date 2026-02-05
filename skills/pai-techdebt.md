@@ -1,4 +1,4 @@
-# /techdebt - Technical Debt Review
+# /pai-techdebt - Technical Debt Review
 
 End-of-day or end-of-week technical debt review.
 

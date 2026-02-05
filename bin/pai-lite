@@ -913,7 +913,7 @@ case "$cmd" in
     if [[ -d "$claude_skills" ]]; then
       skill_count=$(find "$claude_skills" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
       pai_lite_skills=0
-      for skill in briefing suggest analyze-issue elaborate health-check learn sync-learnings techdebt context-sync; do
+      for skill in pai-briefing pai-suggest pai-analyze-issue pai-elaborate pai-health-check pai-learn pai-sync-learnings pai-techdebt pai-context-sync; do
         [[ -f "$claude_skills/$skill.md" ]] && pai_lite_skills=$((pai_lite_skills + 1))
       done
       if [[ "$pai_lite_skills" -gt 0 ]]; then

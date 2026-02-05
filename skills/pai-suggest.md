@@ -1,4 +1,4 @@
-# /suggest - Task Suggestions
+# /pai-suggest - Task Suggestions
 
 Provide intelligent task suggestions based on current flow state.
 

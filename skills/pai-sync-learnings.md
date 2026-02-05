@@ -1,4 +1,4 @@
-# /sync-learnings - Knowledge Consolidation
+# /pai-sync-learnings - Knowledge Consolidation
 
 Consolidate scattered learnings from corrections.md into structured memory files.
 

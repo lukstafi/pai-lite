@@ -117,33 +117,33 @@ export PAI_LITE_RESULTS_DIR="$RESULTS"
 # The output here becomes Claude Code's next input
 case "$action" in
     briefing)
-        echo "/briefing"
+        echo "/pai-briefing"
         ;;
     suggest)
-        echo "/suggest"
+        echo "/pai-suggest"
         ;;
     analyze-issue)
         issue=$(echo "$request" | jq -r '.issue' 2>/dev/null)
-        echo "/analyze-issue $issue"
+        echo "/pai-analyze-issue $issue"
         ;;
     elaborate)
         task=$(echo "$request" | jq -r '.task' 2>/dev/null)
-        echo "/elaborate $task"
+        echo "/pai-elaborate $task"
         ;;
     health-check)
-        echo "/health-check"
+        echo "/pai-health-check"
         ;;
     learn)
-        echo "/learn"
+        echo "/pai-learn"
         ;;
     sync-learnings)
-        echo "/sync-learnings"
+        echo "/pai-sync-learnings"
         ;;
     techdebt)
-        echo "/techdebt"
+        echo "/pai-techdebt"
         ;;
     context-sync)
-        echo "/context-sync"
+        echo "/pai-context-sync"
         ;;
     *)
         # Unknown action - log to stderr and skip

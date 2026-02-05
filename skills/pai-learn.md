@@ -1,4 +1,4 @@
-# /learn - Institutional Learning
+# /pai-learn - Institutional Learning
 
 Update Mayor's memory from user corrections and feedback.
 

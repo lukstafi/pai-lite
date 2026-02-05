@@ -1,4 +1,4 @@
-# /context-sync - Pre-Briefing Context Aggregation
+# /pai-context-sync - Pre-Briefing Context Aggregation
 
 Aggregate recent activity across sources for richer briefings.
 
