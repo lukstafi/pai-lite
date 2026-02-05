@@ -129,9 +129,9 @@ EOF
   # Update status
   mayor_signal "running" "session started"
 
-  # Start Claude Code CLI if available
+  # Start Claude Code CLI if available (with -c to continue previous session, fallback to new)
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude" C-m
+    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c || claude" C-m
     pai_lite_info "Started Claude Code in Mayor session"
   else
     pai_lite_warn "claude CLI not found; session started without Claude Code"
@@ -143,10 +143,12 @@ EOF
   if [[ "$use_ttyd" == "true" ]]; then
     if command -v ttyd >/dev/null 2>&1; then
       local ttyd_port
-      ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null || echo "$MAYOR_DEFAULT_PORT")
+      ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null)
+      ttyd_port="${ttyd_port:-$MAYOR_DEFAULT_PORT}"
       pai_lite_info "Starting ttyd on port $ttyd_port..."
       # Start ttyd in background, connecting to the Mayor tmux session
-      nohup ttyd -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" >/dev/null 2>&1 &
+      # -W enables writable mode (readonly by default)
+      nohup ttyd -W -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" >/dev/null 2>&1 &
       echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
     else
       pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
