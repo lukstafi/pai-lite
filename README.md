@@ -267,6 +267,10 @@ pai-lite mayor health-check      # Check for stalled work, deadlines
 pai-lite mayor queue             # Show pending requests
 ```
 
+### Using skills directly
+
+You don't need Mayor to use pai-lite skills. Clone your harness repository and run Claude Code in the harness directory — skills like `pai-briefing`, `pai-elaborate`, and others work directly. This is useful for read-only tasks (checking status, getting briefings) or when you need something done immediately without waiting for the Mayor queue.
+
 ### Overview and setup
 
 ```bash
@@ -304,6 +308,49 @@ Configure in `config.yaml` under `triggers:`. Then run:
 pai-lite triggers install
 ```
 
+## Multi-machine setup
+
+pai-lite supports running across multiple machines. All state lives in a git repository, so any machine with access can read slots, tasks, and flow views. For coordinating Mayor (so only one instance runs at a time), pai-lite provides federation with Tailscale networking.
+
+### How it works
+
+- **Git-backed state**: every machine clones the same harness repo. Pull to see the latest state, push to share yours.
+- **Tailscale networking**: optional MagicDNS-based hostname resolution for cross-machine URLs. Configure `network.mode: tailscale` in your harness config.
+- **Seniority-based leader election**: nodes are listed in your config in priority order. The highest-priority node with a fresh heartbeat (< 15 min) becomes the Mayor leader. If the leader goes offline, the next node takes over automatically.
+- **Heartbeats**: each node publishes a heartbeat every 5 minutes to `federation/heartbeats/`. The federation trigger handles this.
+
+### Typical deployment
+
+An always-on machine (e.g., Mac Mini) runs Mayor 24/7 via launchd, while your laptop pulls state via git and runs worker slots. Any machine can also run pai-lite skills directly by opening Claude Code in the harness directory.
+
+### Federation commands
+
+```bash
+pai-lite network status              # Show network configuration
+pai-lite federation status           # Show leader, nodes, heartbeats
+pai-lite federation tick             # Publish heartbeat + run election
+pai-lite federation elect            # Run leader election only
+pai-lite federation heartbeat        # Publish heartbeat only
+```
+
+Enable federation in your harness `config.yaml`:
+
+```yaml
+network:
+  mode: tailscale
+  nodes:
+    - name: mac-mini
+      tailscale_hostname: mac-mini.tailnet-name.ts.net
+    - name: macbook
+      tailscale_hostname: macbook.tailnet-name.ts.net
+
+triggers:
+  federation:
+    enabled: true
+    interval: 300
+    action: federation tick
+```
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, including:
@@ -313,6 +360,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, including:
 - Mayor (autonomous Claude Opus coordinator)
 - Queue-based communication
 - Notification tiers
+- Multi-machine federation and deployment
 
 ## Development
 
