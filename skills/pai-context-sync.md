@@ -6,7 +6,7 @@ Aggregate recent activity across sources for richer briefings.
 
 This skill is invoked when:
 - The user runs `pai-lite mayor context-sync`
-- Before `/briefing` (can be chained)
+- Before `/pai-briefing` (can be chained)
 - On demand for catching up after being away
 
 ## Inputs
@@ -119,9 +119,9 @@ This skill is invoked when:
 }
 ```
 
-## Integration with /briefing
+## Integration with /pai-briefing
 
-The `/briefing` skill can read `context-sync.md` to provide richer context:
+The `/pai-briefing` skill can read `context-sync.md` to provide richer context:
 
 ```markdown
 # Briefing - 2026-02-01

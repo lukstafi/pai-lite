@@ -14,7 +14,7 @@ Implement the Mayor lifecycle, queue handling integration, skills scaffolding, a
 - `pai-lite mayor start|stop|status|attach|logs` commands.
 - `pai-lite init` optionally installs stop hook to a pai-lite-specific path (e.g., `~/.claude/hooks/pai-lite-on-stop.sh`) — don't overwrite existing hooks.
 - Stop hook uses `PAI_LITE_STATE_PATH` or derives state path safely.
-- Skills: `/briefing`, `/suggest`, `/analyze-issue`, `/elaborate`, `/health-check`, `/learn`, `/sync-learnings`, `/techdebt`, `/context-sync`.
+- Skills: `/pai-briefing`, `/pai-suggest`, `/pai-analyze-issue`, `/pai-elaborate`, `/pai-health-check`, `/pai-learn`, `/pai-sync-learnings`, `/pai-techdebt`, `/pai-context-sync`.
 - Mayor memory templates — see ARCHITECTURE.md "Mayor memory" section for structure (`mayor/context.md`, `mayor/memory/` subfiles).
 - `pai-lite briefing` queues Mayor, waits for result, renders `briefing.md`, notifies.
 - `pai-lite status` includes Mayor status (if available).
@@ -42,7 +42,7 @@ Implement the Mayor lifecycle, queue handling integration, skills scaffolding, a
 - Run shellcheck on changed scripts.
 - Manual sanity check:
   - `pai-lite mayor start`
-  - `pai-lite mayor briefing` queues and stop hook emits `/briefing`.
+  - `pai-lite mayor briefing` queues and stop hook emits `/pai-briefing`.
   - Results written to `tasks/results/<id>.json`.
 
 ## Out of Scope

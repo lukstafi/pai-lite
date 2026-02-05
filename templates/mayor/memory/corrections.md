@@ -1,8 +1,8 @@
 # Corrections Log
 
-This file records corrections and learnings from user feedback. The Mayor updates this file when `/learn` is invoked.
+This file records corrections and learnings from user feedback. The Mayor updates this file when `/pai-learn` is invoked.
 
-Entries are periodically consolidated into structured memory files via `/sync-learnings`.
+Entries are periodically consolidated into structured memory files via `/pai-sync-learnings`.
 
 ---
 

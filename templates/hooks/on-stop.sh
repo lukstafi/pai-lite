@@ -39,21 +39,21 @@ mkdir -p "$RESULTS"
 # The output here becomes Claude Code's next input
 case "$action" in
     briefing)
-        echo "/briefing"
+        echo "/pai-briefing"
         ;;
     suggest)
-        echo "/suggest"
+        echo "/pai-suggest"
         ;;
     analyze-issue)
         issue=$(echo "$request" | jq -r '.issue' 2>/dev/null)
-        echo "/analyze-issue $issue"
+        echo "/pai-analyze-issue $issue"
         ;;
     elaborate)
         task=$(echo "$request" | jq -r '.task' 2>/dev/null)
-        echo "/elaborate $task"
+        echo "/pai-elaborate $task"
         ;;
     health-check)
-        echo "/health-check"
+        echo "/pai-health-check"
         ;;
     *)
         # Unknown action - log and skip

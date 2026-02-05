@@ -103,21 +103,21 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - Priority filtering: `jq` for sorting and selection
 - Graph visualization: `graphviz` (dot)
 
-The Mayor's skills (defined in the framework) can embed delegation patterns, e.g., a `/analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mayor writes the task file.
+The Mayor's skills (defined in the framework) can embed delegation patterns, e.g., a `/pai-analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mayor writes the task file.
 
 **How automation invokes the Mayor:**
 ```bash
 # Trigger at 08:00 (launchd)
-tmux send-keys -t pai-mayor "/briefing" C-m
+tmux send-keys -t pai-mayor "/pai-briefing" C-m
 # Mayor writes to briefing.md
 # Automation reads and notifies
 
 # New issue detected
-tmux send-keys -t pai-mayor "/analyze-issue ocannl 127" C-m
+tmux send-keys -t pai-mayor "/pai-analyze-issue ocannl 127" C-m
 # Mayor creates task-143.md with inferred dependencies
 
 # User asks for suggestions
-tmux send-keys -t pai-mayor "/suggest" C-m
+tmux send-keys -t pai-mayor "/pai-suggest" C-m
 # Mayor analyzes flow state, writes suggestions
 ```
 
@@ -161,7 +161,7 @@ pai-lite is currently Claude-specific but designed with future model portability
 **What's already portable:**
 - **Skills** — agent-duo's skill templates already install to both Claude Code and Codex
 - **Adapters** — read state from sources (`.peer-sync/`, git), not from the model
-- **Mayor interface** — `/briefing`, `/analyze-issue` are just skill invocations
+- **Mayor interface** — `/pai-briefing`, `/pai-analyze-issue` are just skill invocations
 - **CLI tools** — yq, jq, tsort don't care which AI invokes them
 
 **Codex subagent status (Feb 2026):**
@@ -192,7 +192,7 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 | Strategic analysis | Mayor (Opus) | Needs judgment, context |
 | Writing briefings | Mayor (Opus) | Needs narrative skill |
 
-**Example: `/analyze-issue` skill**
+**Example: `/pai-analyze-issue` skill**
 ```
 1. [Opus] Read issue, assess actionability
    └─ Not actionable → return early
@@ -209,13 +209,13 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 
 Skills defined in the framework embed these patterns, keeping the Mayor's prompts clean.
 
-**Example: `/learn` skill (institutional memory)**
+**Example: `/pai-learn` skill (institutional memory)**
 
-When the user corrects a mistake, they can invoke `/learn` to have the Mayor update its memory:
+When the user corrects a mistake, they can invoke `/pai-learn` to have the Mayor update its memory:
 
 ```
 User: "Don't use yq -s on single files, it expects multiple"
-User: /learn
+User: /pai-learn
 
 Mayor:
 1. Acknowledges the correction
@@ -231,12 +231,12 @@ Mayor:
 
 This creates a feedback loop where the Mayor learns from its mistakes and avoids repeating them.
 
-**Example: `/sync-learnings` skill (knowledge consolidation)**
+**Example: `/pai-sync-learnings` skill (knowledge consolidation)**
 
 Periodically (or on demand), the Mayor consolidates scattered learnings:
 
 ```
-/sync-learnings
+/pai-sync-learnings
 
 Mayor:
 1. Reads mayor/memory/corrections.md (recent entries)
@@ -490,7 +490,7 @@ Adapters are simple Bash scripts that:
 pai-lite uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
 
 **The Problem with send-keys:**
-- `tmux send-keys -t pai-mayor "/briefing" C-m` assumes Claude is at a prompt
+- `tmux send-keys -t pai-mayor "/pai-briefing" C-m` assumes Claude is at a prompt
 - If Claude is mid-turn, the command gets injected into its response
 - No acknowledgment that the command was received
 - Overwhelming when queueing multiple requests
@@ -543,14 +543,14 @@ if [ -f "$QUEUE" ] && [ -s "$QUEUE" ]; then
     # Hook stdout becomes the next user prompt for Claude Code
     case "$action" in
         briefing)
-            echo "/briefing"
+            echo "/pai-briefing"
             ;;
         analyze-issue)
             issue=$(echo "$request" | jq -r '.issue')
-            echo "/analyze-issue $issue"
+            echo "/pai-analyze-issue $issue"
             ;;
         health-check)
-            echo "/health-check"
+            echo "/pai-health-check"
             ;;
     esac
 fi
@@ -1248,7 +1248,7 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
 
 08:00 - Morning briefing
   launchd: triggers briefing
-  Automation: tmux send-keys -t pai-mayor "/briefing"
+  Automation: tmux send-keys -t pai-mayor "/pai-briefing"
   Mayor (Opus): reads slots.md, tasks/, understands context
   Bash: yq + jq compute ready queue, priorities
   Mayor: writes briefing.md with strategic suggestions
@@ -1270,7 +1270,7 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
 
 12:00 - Periodic health check
   launchd: triggers every 4h
-  Automation: tmux send-keys -t pai-mayor "/health-check"
+  Automation: tmux send-keys -t pai-mayor "/pai-health-check"
   Mayor: scans tasks in-progress
   Mayor: detects task-089 stalled (14 days, no updates)
   Mayor: ntfy.sh/lukstafi-pai priority 4 "task-089 stalled 14 days"
@@ -1306,12 +1306,12 @@ This architecture creates a **self-sustaining AI infrastructure** that amplifies
 
 These features are useful additions but not central to pai-lite's core mission of orchestrating AI agents and managing flow-based tasks. They can be implemented incrementally as needed.
 
-### `/techdebt` Skill
+### `/pai-techdebt` Skill
 
 End-of-day or end-of-week technical debt review:
 
 ```
-/techdebt
+/pai-techdebt
 
 Mayor:
 1. Task → Haiku: scan recent commits across watched projects for code smells
@@ -1330,12 +1330,12 @@ Mayor:
 
 This keeps technical debt visible without interrupting active work.
 
-### `/context-sync` Skill
+### `/pai-context-sync` Skill
 
 Pre-briefing aggregation of recent activity across sources:
 
 ```
-/context-sync
+/pai-context-sync
 
 Mayor:
 1. GitHub: fetch recent issue comments across watched repos (gh api)
@@ -1349,7 +1349,7 @@ Output: context-sync.md with:
 - Notification summary
 - Suggested follow-ups
 
-Used by: /briefing skill can read context-sync.md for richer morning briefings
+Used by: /pai-briefing skill can read context-sync.md for richer morning briefings
 ```
 
 This aggregates scattered information into a single context document.

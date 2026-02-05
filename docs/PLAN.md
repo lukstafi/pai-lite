@@ -100,15 +100,15 @@ This document tracks implementation tasks based on the architecture described in
 
 Architecture describes these Mayor-invokable skills:
 
-- [ ] `/briefing` - Generate morning briefing with strategic suggestions
-- [ ] `/suggest` - Suggest next tasks based on flow state
-- [ ] `/analyze-issue <repo> <issue>` - Analyze GitHub issue, create task file
-- [ ] `/elaborate <task-id>` - Elaborate task into detailed specification
-- [ ] `/health-check` - Detect stalled work, approaching deadlines
-- [ ] `/learn` - Update institutional memory from corrections
-- [ ] `/sync-learnings` - Consolidate scattered learnings into structured knowledge
-- [ ] `/techdebt` - End-of-day/week technical debt review (ancillary)
-- [ ] `/context-sync` - Pre-briefing aggregation of recent activity (ancillary)
+- [ ] `/pai-briefing` - Generate morning briefing with strategic suggestions
+- [ ] `/pai-suggest` - Suggest next tasks based on flow state
+- [ ] `/pai-analyze-issue <repo> <issue>` - Analyze GitHub issue, create task file
+- [ ] `/pai-elaborate <task-id>` - Elaborate task into detailed specification
+- [ ] `/pai-health-check` - Detect stalled work, approaching deadlines
+- [ ] `/pai-learn` - Update institutional memory from corrections
+- [ ] `/pai-sync-learnings` - Consolidate scattered learnings into structured knowledge
+- [ ] `/pai-techdebt` - End-of-day/week technical debt review (ancillary)
+- [ ] `/pai-context-sync` - Pre-briefing aggregation of recent activity (ancillary)
 
 **Implementation approach:**
 Skills should be Markdown files in `skills/` directory that can be installed to `~/.claude/skills/` or used via a custom skills path. Format follows Claude Code skill specification.
@@ -338,7 +338,7 @@ Additional alignment tasks:
 ### Phase 2: Core Mayor Functionality
 1. Mayor session management commands (start, stop, status)
 2. Stop hook installation in `pai-lite init`
-3. Basic Mayor skills (/briefing, /suggest, /health-check)
+3. Basic Mayor skills (/pai-briefing, /pai-suggest, /pai-health-check)
 
 ### Phase 3: Dashboard Completion
 1. `pai-lite dashboard generate` command
@@ -353,7 +353,7 @@ Additional alignment tasks:
 
 ### Phase 5: Ancillary Features
 1. CI failure integration
-2. /techdebt and /context-sync skills
+2. /pai-techdebt and /pai-context-sync skills
 3. Graph visualization + agenda generation
 4. Read-only slot mode
 5. Journal/audit trail

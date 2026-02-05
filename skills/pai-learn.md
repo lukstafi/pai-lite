@@ -5,8 +5,8 @@ Update Mayor's memory from user corrections and feedback.
 ## Trigger
 
 This skill is invoked when:
-- The user provides a correction and says `/learn`
-- Example: "Don't use yq -s on single files, it expects multiple" then `/learn`
+- The user provides a correction and says `/pai-learn`
+- Example: "Don't use yq -s on single files, it expects multiple" then `/pai-learn`
 
 ## Inputs
 
