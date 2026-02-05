@@ -198,8 +198,8 @@ case "$cmd" in
       echo ""
       echo "=== Installing Skills and Hooks ==="
 
-      # Install skills to ~/.claude/commands/ (like agent-duo)
-      claude_skills="$HOME/.claude/commands"
+      # Install skills to state harness directory (project-scoped for Mayor)
+      claude_skills="$harness_dir/.claude/commands"
       mkdir -p "$claude_skills"
 
       skill_count=0
@@ -254,7 +254,7 @@ case "$cmd" in
       fi
 
       echo ""
-      echo "Skills installed:"
+      echo "Skills installed (in state harness for Mayor):"
       for skill_file in "$claude_skills"/*.md; do
         [[ -f "$skill_file" ]] || continue
         skill_name="$(basename "$skill_file" .md)"
@@ -908,9 +908,10 @@ case "$cmd" in
     #------------------------------------------
     echo "Skills and Hooks:"
 
-    # Check for installed skills
-    claude_skills="$HOME/.claude/commands"
-    if [[ -d "$claude_skills" ]]; then
+    # Check for installed skills in state harness directory
+    harness_dir="$(pai_lite_state_harness_dir 2>/dev/null || echo "")"
+    claude_skills="$harness_dir/.claude/commands"
+    if [[ -n "$harness_dir" && -d "$claude_skills" ]]; then
       skill_count=$(find "$claude_skills" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
       pai_lite_skills=0
       for skill in pai-briefing pai-suggest pai-analyze-issue pai-elaborate pai-health-check pai-learn pai-sync-learnings pai-techdebt pai-context-sync; do
@@ -924,7 +925,7 @@ case "$cmd" in
         warnings=$((warnings + 1))
       fi
     else
-      echo "  [warn] skills: $claude_skills does not exist"
+      echo "  [warn] skills: state harness .claude/commands does not exist"
       echo "    Run: pai-lite init --hooks"
       warnings=$((warnings + 1))
     fi
