@@ -678,7 +678,7 @@ your-private-repo/
     ├── config.yaml                # Projects, Mayor settings, notification topics
     ├── slots.md                   # Current slot states (6 slots, always)
     ├── agenda.md                  # Generated flow view (not calendar)
-    ├── tasks/                     # Task tree (git-backed)
+    ├── tasks/                     # Task files (git-backed, unmarked)
     │   ├── task-001.md
     │   ├── task-002.md
     │   └── ...
@@ -691,6 +691,8 @@ your-private-repo/
         └── memory/                # Long-term patterns
             └── user-preferences.md
 ```
+
+**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `pai-lite convert` (from a GitHub issue or README TODO) looks identical to one elaborated by the Mayor or created manually. The Mayor processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
 
 ## State Format
 

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  pai-lite Mayor keepalive agent
+
+  Ensures the Mayor tmux session is running:
+  - Starts on login (RunAtLoad)
+  - Checks every 15 minutes (StartInterval)
+  - Idempotent: exits early if already running
+
+  Installation:
+    1. Copy to ~/Library/LaunchAgents/
+    2. Edit the path to pai-lite
+    3. Run: launchctl load ~/Library/LaunchAgents/pai-lite-mayor.plist
+
+  Or use: pai-lite triggers install
+-->
+<dict>
+  <key>Label</key>
+  <string>com.pai-lite.mayor</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/pai-lite</string>
+    <string>mayor</string>
+    <string>start</string>
+  </array>
+
+  <!-- Start on login -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Check every 15 minutes (900 seconds) -->
+  <!-- Idempotent: pai-lite mayor start exits early if session exists -->
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <!-- Environment -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <!-- Logging -->
+  <key>StandardOutPath</key>
+  <string>/tmp/pai-lite-mayor.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/pai-lite-mayor.err.log</string>
+</dict>
+</plist>
