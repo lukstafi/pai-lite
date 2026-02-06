@@ -105,59 +105,21 @@ pai-lite tasks convert
 
 This creates one `.md` file per task in `harness/tasks/`, with YAML frontmatter for priority, dependencies, status, etc.
 
-### Step 5: View your task flow
+### Step 5: Install triggers
 
-Now you can use the flow engine to see what to work on:
-
-```bash
-# What's ready to work on? (sorted by priority)
-pai-lite flow ready
-
-# What's blocked and why?
-pai-lite flow blocked
-
-# What needs attention? (deadlines, stalled work)
-pai-lite flow critical
-
-# What does completing a task unblock?
-pai-lite flow impact task-001
-```
-
-### Step 6: Assign work to slots
-
-Slots are like CPUs — each one holds one active piece of work:
+Triggers automate Mayor startup and periodic tasks via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, this also installs a keepalive that starts the Mayor at login and checks every 15 minutes:
 
 ```bash
-# See all slots
-pai-lite slots
-
-# Assign a task to slot 1
-pai-lite slot 1 assign "Working on task-001: Implement auth"
-
-# Add notes as you work
-pai-lite slot 1 note "Completed login form"
-
-# Clear when done
-pai-lite slot 1 clear
+pai-lite triggers install
 ```
 
-Slot changes auto-commit to your state repo.
-
-### Step 7: Use adapters for agent sessions
-
-If you're using AI agents (agent-duo, Claude Code), adapters can track their state:
+Verify with:
 
 ```bash
-# Start an agent session in slot 2
-pai-lite slot 2 assign "task-042 via agent-duo"
-pai-lite slot 2 start   # Starts the adapter
-
-# Stop when done
-pai-lite slot 2 stop
-pai-lite slot 2 clear
+pai-lite triggers status
 ```
 
-### Step 8: Get an overview
+### Step 6: Get an overview
 
 ```bash
 # Quick status
@@ -185,6 +147,9 @@ projects:
     repo: your-username/my-app
     readme_todos: true
     issues: true
+
+mayor:
+  enabled: true
 
 adapters:
   agent-duo:
@@ -299,10 +264,12 @@ Adapters are thin integrations that translate external state into slot format:
 
 Triggers automate periodic actions:
 
-- **macOS**: launchd agents for `startup` and `sync`
+- **macOS**: launchd agents for `startup`, `sync`, and Mayor keepalive
 - **Linux (Ubuntu)**: systemd user units and timers
 
-Configure in `config.yaml` under `triggers:`. Then run:
+If `mayor.enabled` is `true` in your config, `triggers install` also creates a Mayor keepalive service that starts the Mayor at login and checks every 15 minutes.
+
+Configure in `config.yaml` under `triggers:` and `mayor:`. Then run:
 
 ```bash
 pai-lite triggers install

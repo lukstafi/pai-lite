@@ -85,6 +85,7 @@ PLIST_MORNING="com.pai-lite.morning"
 PLIST_HEALTH="com.pai-lite.health"
 PLIST_WATCH="com.pai-lite.watch"
 PLIST_FEDERATION="com.pai-lite.federation"
+PLIST_MAYOR="com.pai-lite.mayor"
 
 #------------------------------------------------------------------------------
 # macOS launchd triggers
@@ -319,6 +320,40 @@ PLIST
     launchctl load "$plist" >/dev/null 2>&1 || true
     echo "Installed launchd trigger: federation (every $((interval / 60))m)"
   fi
+
+  # Mayor keepalive trigger (RunAtLoad + StartInterval)
+  local mayor_enabled
+  mayor_enabled="$(pai_lite_config_mayor_get enabled 2>/dev/null || echo "")"
+  if [[ "$mayor_enabled" == "true" ]]; then
+    local plist mayor_interval
+    mayor_interval=900  # 15 minutes
+    plist="$HOME/Library/LaunchAgents/${PLIST_MAYOR}.plist"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${PLIST_MAYOR}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>$mayor_interval</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$HOME/.local/bin</string>
+  </dict>
+PLIST
+    _plist_write_args "$plist" "$bin_path" "mayor" "start"
+    _plist_write_logs "$plist" "mayor"
+    echo "</dict>" >> "$plist"
+    echo "</plist>" >> "$plist"
+
+    launchctl unload "$plist" >/dev/null 2>&1 || true
+    launchctl load "$plist" >/dev/null 2>&1 || true
+    echo "Installed launchd trigger: mayor (keepalive every 15m)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -538,6 +573,39 @@ TIMER
     systemctl --user enable --now pai-lite-federation.timer
     echo "Installed systemd trigger: federation (every $((interval / 60))m)"
   fi
+
+  # Mayor keepalive trigger (boot + periodic timer)
+  local mayor_enabled
+  mayor_enabled="$(pai_lite_config_mayor_get enabled 2>/dev/null || echo "")"
+  if [[ "$mayor_enabled" == "true" ]]; then
+    local mayor_interval service_file timer_file
+    mayor_interval=900  # 15 minutes
+    service_file="$HOME/.config/systemd/user/pai-lite-mayor.service"
+    timer_file="$HOME/.config/systemd/user/pai-lite-mayor.timer"
+    cat > "$service_file" <<SERVICE
+[Unit]
+Description=pai-lite Mayor keepalive
+
+[Service]
+Type=oneshot
+ExecStart=$bin_path mayor start
+SERVICE
+    cat > "$timer_file" <<TIMER
+[Unit]
+Description=pai-lite Mayor keepalive timer
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=${mayor_interval}s
+Unit=pai-lite-mayor.service
+
+[Install]
+WantedBy=timers.target
+TIMER
+    systemctl --user daemon-reload
+    systemctl --user enable --now pai-lite-mayor.timer
+    echo "Installed systemd trigger: mayor (keepalive every 15m)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -565,7 +633,7 @@ triggers_install() {
 
 triggers_uninstall_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
 
   for label in "${plists[@]}"; do
     local plist="$agents_dir/${label}.plist"
@@ -580,7 +648,7 @@ triggers_uninstall_macos() {
 }
 
 triggers_uninstall_linux() {
-  local services=("startup" "sync" "morning" "health" "watch" "federation")
+  local services=("startup" "sync" "morning" "health" "watch" "federation" "mayor")
 
   for name in "${services[@]}"; do
     local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
@@ -630,7 +698,7 @@ triggers_uninstall() {
 
 triggers_status_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
   local found_any=false
 
   echo "pai-lite launchd triggers:"
@@ -677,7 +745,7 @@ triggers_status_macos() {
 }
 
 triggers_status_linux() {
-  local services=("startup" "sync" "morning" "health" "watch" "federation")
+  local services=("startup" "sync" "morning" "health" "watch" "federation" "mayor")
   local found_any=false
 
   echo "pai-lite systemd triggers:"
