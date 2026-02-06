@@ -133,8 +133,14 @@ pai-lite briefing
 
 pai-lite uses a two-tier config:
 
-1. **Pointer config** (`~/.config/pai-lite/config.yaml`): minimal, just points to state repo
-2. **Full config** (`~/state-repo/harness/config.yaml`): projects, adapters, triggers, notifications
+1. **Pointer config** (`~/.config/pai-lite/config.yaml`): minimal, just points to state repo:
+   ```yaml
+   state_repo: your-username/your-private-repo
+   state_path: harness   # optional, defaults to "harness"
+   ```
+2. **Full config** (`~/state-repo/harness/config.yaml`): projects, adapters, triggers, notifications — once this exists, the pointer config is only used to locate it.
+
+For the full list of options and their defaults, see [`templates/config.example.yaml`](templates/config.example.yaml).
 
 ### Example full config
 
