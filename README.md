@@ -79,12 +79,17 @@ Add the projects you want to track:
 projects:
   - name: my-project
     repo: your-username/my-project
-    readme_todos: true    # Parse TODOs from README
     issues: true          # Fetch GitHub issues
 
   - name: another-project
     repo: your-username/another-project
     issues: true
+
+triggers:
+  watch:
+    - paths:
+        - ~/repos/my-project/README.md   # Scan for checkboxes/TODOs
+      action: tasks sync
 ```
 
 ### Step 3: Sync tasks from your projects
@@ -151,7 +156,6 @@ state_path: harness
 projects:
   - name: my-app
     repo: your-username/my-app
-    readme_todos: true
     issues: true
 
 mayor:
@@ -173,6 +177,10 @@ triggers:
     enabled: true
     interval: 3600
     action: tasks sync
+  watch:
+    - paths:
+        - ~/repos/my-app/README.md
+      action: tasks sync
 
 notifications:
   provider: ntfy

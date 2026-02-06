@@ -6,6 +6,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/common.sh"
+# shellcheck source=lib/triggers.sh
+source "$script_dir/triggers.sh"
 
 pai_lite_projects_list() {
   local config
@@ -23,22 +25,17 @@ pai_lite_projects_list() {
     in_projects {
       if ($0 ~ /^[[:space:]]*-[[:space:]]*name:/) {
         if (name != "") {
-          printf "%s|%s|%s|%s\n", name, repo, readme, issues
+          printf "%s|%s|%s\n", name, repo, issues
         }
         name=$0
         sub(/^[^:]+:[[:space:]]*/, "", name)
         name=trim(name)
         repo=""
-        readme="false"
         issues="false"
       } else if ($0 ~ /^[[:space:]]*repo:/) {
         repo=$0
         sub(/^[^:]+:[[:space:]]*/, "", repo)
         repo=trim(repo)
-      } else if ($0 ~ /^[[:space:]]*readme_todos:/) {
-        readme=$0
-        sub(/^[^:]+:[[:space:]]*/, "", readme)
-        readme=trim(readme)
       } else if ($0 ~ /^[[:space:]]*issues:/) {
         issues=$0
         sub(/^[^:]+:[[:space:]]*/, "", issues)
@@ -47,7 +44,7 @@ pai_lite_projects_list() {
     }
     END {
       if (name != "") {
-        printf "%s|%s|%s|%s\n", name, repo, readme, issues
+        printf "%s|%s|%s\n", name, repo, issues
       }
     }
   ' "$config"
@@ -58,6 +55,15 @@ yaml_escape() {
   value=${value//\\/\\\\}
   value=${value//\"/\\\"}
   printf "%s" "$value"
+}
+
+# Sanitize a file path for use in task IDs
+# Strips $HOME/ prefix, replaces /, spaces, dots with -
+sanitize_path_for_id() {
+  local path="$1"
+  path="${path/#$HOME\//}"
+  path="${path/#\~\//}"
+  echo "$path" | tr '/. ' '---' | tr -cd 'a-zA-Z0-9_-'
 }
 
 tasks_file_path() {
@@ -79,7 +85,8 @@ tasks_sync() {
     echo "generated_at: \"$timestamp\""
     echo "tasks:"
 
-    while IFS='|' read -r name repo readme issues; do
+    # GitHub issues from projects config
+    while IFS='|' read -r name repo issues; do
       local repo_name
       repo_name="${repo##*/}"
 
@@ -104,51 +111,49 @@ tasks_sync() {
               fi
             done
       fi
-
-      if [[ "$readme" == "true" ]]; then
-        local repo_dir readme_file
-        repo_dir="$HOME/$repo_name"
-        if [[ ! -d "$repo_dir" && -d "$HOME/repos/$repo_name" ]]; then
-          repo_dir="$HOME/repos/$repo_name"
-        fi
-        if [[ -d "$repo_dir" ]]; then
-          readme_file=$(find "$repo_dir" -maxdepth 1 -iname "README*" | head -n 1)
-          if [[ -n "$readme_file" ]]; then
-            local line_no=0
-            while IFS= read -r line || [[ -n "$line" ]]; do
-              line_no=$((line_no + 1))
-              if [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]*\[[[:space:]]\][[:space:]]*(.+)$ ]]; then
-                local task_text id escaped
-                task_text="${BASH_REMATCH[1]:-}"
-                id="readme-${repo_name}-${line_no}"
-                escaped="$(yaml_escape "$task_text")"
-                echo "  - id: $id"
-                echo "    title: \"$escaped\""
-                echo "    source: readme"
-                echo "    repo: $repo"
-                echo "    path: \"$(yaml_escape "$readme_file")\""
-                echo "    line: $line_no"
-              elif [[ "$line" =~ TODO[:[:space:]]*(.+)$ ]]; then
-                local task_text id escaped
-                task_text="${BASH_REMATCH[1]:-}"
-                id="readme-${repo_name}-${line_no}"
-                escaped="$(yaml_escape "$task_text")"
-                echo "  - id: $id"
-                echo "    title: \"$escaped\""
-                echo "    source: readme"
-                echo "    repo: $repo"
-                echo "    path: \"$(yaml_escape "$readme_file")\""
-                echo "    line: $line_no"
-              fi
-            done < "$readme_file"
-          else
-            pai_lite_warn "README not found for $repo"
-          fi
-        else
-          pai_lite_warn "repo not found locally for README parsing: $repo_dir"
-        fi
-      fi
     done < <(pai_lite_projects_list)
+
+    # Scan watch paths for checkboxes and TODOs
+    # Only paths from rules with action "tasks sync" are scanned
+    while IFS='|' read -r rule_action rule_paths_csv; do
+      [[ "$rule_action" == "tasks sync" ]] || continue
+      IFS=',' read -ra watch_paths <<< "$rule_paths_csv"
+      for watch_path in "${watch_paths[@]}"; do
+        [[ -n "$watch_path" ]] || continue
+        local expanded_path="${watch_path/#\~/$HOME}"
+        if [[ ! -f "$expanded_path" ]]; then
+          pai_lite_warn "watch path not found: $watch_path"
+          continue
+        fi
+        local path_id
+        path_id="$(sanitize_path_for_id "$expanded_path")"
+        local line_no=0
+        while IFS= read -r line || [[ -n "$line" ]]; do
+          line_no=$((line_no + 1))
+          if [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]*\[[[:space:]]\][[:space:]]*(.+)$ ]]; then
+            local task_text id escaped
+            task_text="${BASH_REMATCH[1]:-}"
+            id="watch-${path_id}-${line_no}"
+            escaped="$(yaml_escape "$task_text")"
+            echo "  - id: $id"
+            echo "    title: \"$escaped\""
+            echo "    source: watch"
+            echo "    path: \"$(yaml_escape "$expanded_path")\""
+            echo "    line: $line_no"
+          elif [[ "$line" =~ TODO[:[:space:]]*(.+)$ ]]; then
+            local task_text id escaped
+            task_text="${BASH_REMATCH[1]:-}"
+            id="watch-${path_id}-${line_no}"
+            escaped="$(yaml_escape "$task_text")"
+            echo "  - id: $id"
+            echo "    title: \"$escaped\""
+            echo "    source: watch"
+            echo "    path: \"$(yaml_escape "$expanded_path")\""
+            echo "    line: $line_no"
+          fi
+        done < "$expanded_path"
+      done
+    done < <(trigger_get_watch_rules)
   } > "$tmp"
 
   mv "$tmp" "$file"

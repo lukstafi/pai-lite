@@ -15,12 +15,10 @@ slots:
 projects:
   - name: my-project
     repo: your-username/my-project
-    readme_todos: true    # Parse unchecked TODOs from README
     issues: true          # Include GitHub issues as tasks
 
   - name: personal
     repo: your-username/private-repo
-    readme_todos: false
     issues: true          # Chores, reminders, etc.
 
 # Adapter settings
@@ -123,11 +121,17 @@ triggers:
     interval: 14400           # 4 hours in seconds
     action: mayor health-check
 
-  # Watch for repo changes (WatchPaths)
+  # Watch for file changes (WatchPaths / PathModified)
+  # List of rules — each rule has paths to watch and an action to run.
+  # Files from "tasks sync" rules are also scanned for checkboxes/TODOs.
   watch:
-    enabled: false
-    paths: []                 # List of paths to watch
-    action: tasks sync
+    # - paths:
+    #     - ~/repos/my-project/README.md
+    #     - ~/repos/my-project/ROADMAP.md
+    #   action: tasks sync
+    # - paths:
+    #     - ~/private-state/harness/tasks
+    #   action: mayor health-check
 
   # Federation heartbeat (multi-machine only)
   federation:

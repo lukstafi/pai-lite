@@ -40,8 +40,16 @@ trigger_get() {
   ' "$config"
 }
 
-# Get watch paths array from config
-trigger_get_watch_paths() {
+# Get watch rules from config (list format)
+# Each rule has paths and an action.
+# Output: one line per rule, format: action|path1,path2,...
+# Config format:
+#   triggers:
+#     watch:
+#       - paths:
+#           - ~/repos/project/README.md
+#         action: tasks sync
+trigger_get_watch_rules() {
   local config
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
@@ -52,18 +60,58 @@ trigger_get_watch_paths() {
       sub(/[[:space:]]+$/, "", s)
       return s
     }
+    function emit_rule() {
+      if (action != "" && paths != "") {
+        sub(/,$/, "", paths)
+        print action "|" paths
+      }
+      action=""
+      paths=""
+    }
     /^[[:space:]]*triggers:/ { in_triggers=1; next }
     in_triggers && /^[[:space:]]*watch:/ { in_watch=1; next }
-    in_triggers && in_watch && /^[[:space:]]*paths:/ { in_paths=1; next }
-    in_triggers && in_watch && in_paths && /^[[:space:]]*-[[:space:]]*/ {
-      path=$0
-      sub(/^[[:space:]]*-[[:space:]]*/, "", path)
-      print trim(path)
+    # New rule entry (- paths: or - action:)
+    in_triggers && in_watch && /^[[:space:]]*-[[:space:]]+(paths:|action:)/ {
+      emit_rule()
+      in_rule=1
+      in_paths=0
+      if ($0 ~ /action:/) {
+        a=$0; sub(/^.*action:[[:space:]]*/, "", a)
+        action=trim(a)
+      }
+      if ($0 ~ /paths:/) { in_paths=1 }
+      next
     }
-    in_triggers && in_watch && in_paths && /^[[:space:]]{4}[^[:space:]-]/ { in_paths=0 }
-    in_triggers && in_watch && /^[[:space:]]{2}[^[:space:]]/ && $0 !~ /paths:/ { in_watch=0 }
-    in_triggers && /^[^[:space:]]/ { in_triggers=0 }
+    # Subsequent fields within a rule
+    in_triggers && in_watch && in_rule && /^[[:space:]]+paths:/ { in_paths=1; next }
+    in_triggers && in_watch && in_rule && /^[[:space:]]+action:/ {
+      a=$0; sub(/^.*action:[[:space:]]*/, "", a)
+      action=trim(a)
+      in_paths=0
+      next
+    }
+    # Path entries within a rule
+    in_triggers && in_watch && in_rule && in_paths && /^[[:space:]]*-[[:space:]]/ {
+      p=$0; sub(/^[[:space:]]*-[[:space:]]*/, "", p)
+      paths = paths trim(p) ","
+      next
+    }
+    # End of paths list (non-dash line at path indent level)
+    in_triggers && in_watch && in_rule && in_paths && /^[[:space:]]+[^[:space:]-]/ {
+      in_paths=0
+    }
+    # End of watch section (next trigger at same indent)
+    in_triggers && in_watch && /^[[:space:]]{2}[a-zA-Z]/ { emit_rule(); in_watch=0; in_rule=0 }
+    # End of triggers section
+    in_triggers && /^[^[:space:]]/ { emit_rule(); in_triggers=0; in_watch=0; in_rule=0 }
+    END { emit_rule() }
   ' "$config"
+}
+
+# Sanitize an action string for use in plist/service names
+sanitize_action() {
+  local action="$1"
+  echo "$action" | tr ' ' '-' | tr -cd 'a-zA-Z0-9_-'
 }
 
 command_from_action() {
@@ -83,7 +131,7 @@ PLIST_STARTUP="com.pai-lite.startup"
 PLIST_SYNC="com.pai-lite.sync"
 PLIST_MORNING="com.pai-lite.morning"
 PLIST_HEALTH="com.pai-lite.health"
-PLIST_WATCH="com.pai-lite.watch"
+PLIST_WATCH_PREFIX="com.pai-lite.watch"
 PLIST_FEDERATION="com.pai-lite.federation"
 PLIST_MAYOR="com.pai-lite.mayor"
 
@@ -124,12 +172,11 @@ triggers_install_macos() {
   bin_path="$(pai_lite_root)/bin/pai-lite"
   mkdir -p "$HOME/Library/LaunchAgents"
 
-  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled federation_enabled
+  local startup_enabled sync_enabled morning_enabled health_enabled federation_enabled
   startup_enabled="$(trigger_get startup enabled)"
   sync_enabled="$(trigger_get sync enabled)"
   morning_enabled="$(trigger_get morning enabled)"
   health_enabled="$(trigger_get health enabled)"
-  watch_enabled="$(trigger_get watch enabled)"
   federation_enabled="$(trigger_get federation enabled)"
 
   # Startup trigger (RunAtLoad)
@@ -249,17 +296,20 @@ PLIST
     echo "Installed launchd trigger: health (every $((interval / 3600))h)"
   fi
 
-  # Watch trigger (WatchPaths)
-  if [[ "$watch_enabled" == "true" ]]; then
-    local action plist
-    action="$(command_from_action "$(trigger_get watch action)")"
-    plist="$HOME/Library/LaunchAgents/${PLIST_WATCH}.plist"
+  # Watch triggers (WatchPaths) — one plist per rule
+  while IFS='|' read -r rule_action rule_paths_csv; do
+    [[ -n "$rule_action" ]] || continue
+    local sanitized_action
+    sanitized_action="$(sanitize_action "$rule_action")"
+    local label="${PLIST_WATCH_PREFIX}-${sanitized_action}"
+    local plist="$HOME/Library/LaunchAgents/${label}.plist"
 
-    # Get watch paths
+    # Split comma-separated paths
     local paths=()
-    while IFS= read -r path; do
-      [[ -n "$path" ]] && paths+=("$path")
-    done < <(trigger_get_watch_paths)
+    IFS=',' read -ra path_array <<< "$rule_paths_csv"
+    for p in "${path_array[@]}"; do
+      [[ -n "$p" ]] && paths+=("$p")
+    done
 
     if [[ ${#paths[@]} -gt 0 ]]; then
       cat > "$plist" <<PLIST
@@ -268,30 +318,29 @@ PLIST
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${PLIST_WATCH}</string>
+  <string>${label}</string>
   <key>WatchPaths</key>
   <array>
 PLIST
       for path in "${paths[@]}"; do
-        # Expand ~ to HOME
         local expanded_path="${path/#\~/$HOME}"
         echo "    <string>$expanded_path</string>" >> "$plist"
       done
       echo "  </array>" >> "$plist"
 
+      local action_cmd
+      action_cmd="$(command_from_action "$rule_action")"
       # shellcheck disable=SC2086
-      _plist_write_args "$plist" "$bin_path" $action
-      _plist_write_logs "$plist" "watch"
+      _plist_write_args "$plist" "$bin_path" $action_cmd
+      _plist_write_logs "$plist" "watch-${sanitized_action}"
       echo "</dict>" >> "$plist"
       echo "</plist>" >> "$plist"
 
       launchctl unload "$plist" >/dev/null 2>&1 || true
       launchctl load "$plist" >/dev/null 2>&1 || true
-      echo "Installed launchd trigger: watch (${#paths[@]} paths)"
-    else
-      pai_lite_warn "watch trigger enabled but no paths configured"
+      echo "Installed launchd trigger: watch-${sanitized_action} (${#paths[@]} paths)"
     fi
-  fi
+  done < <(trigger_get_watch_rules)
 
   # Federation trigger (StartInterval - for multi-machine Mayor coordination)
   if [[ "$federation_enabled" == "true" ]]; then
@@ -365,12 +414,11 @@ triggers_install_linux() {
   bin_path="$(pai_lite_root)/bin/pai-lite"
   mkdir -p "$HOME/.config/systemd/user"
 
-  local startup_enabled sync_enabled morning_enabled health_enabled watch_enabled federation_enabled
+  local startup_enabled sync_enabled morning_enabled health_enabled federation_enabled
   startup_enabled="$(trigger_get startup enabled)"
   sync_enabled="$(trigger_get sync enabled)"
   morning_enabled="$(trigger_get morning enabled)"
   health_enabled="$(trigger_get health enabled)"
-  watch_enabled="$(trigger_get watch enabled)"
   federation_enabled="$(trigger_get federation enabled)"
 
   # Startup trigger
@@ -492,55 +540,56 @@ TIMER
     echo "Installed systemd trigger: health (every $((interval / 3600))h)"
   fi
 
-  # Watch trigger (path unit)
-  if [[ "$watch_enabled" == "true" ]]; then
-    local action
-    action="$(command_from_action "$(trigger_get watch action)")"
+  # Watch triggers (path units) — one service+path per rule
+  while IFS='|' read -r rule_action rule_paths_csv; do
+    [[ -n "$rule_action" ]] || continue
+    local sanitized_action
+    sanitized_action="$(sanitize_action "$rule_action")"
+    local unit_name="pai-lite-watch-${sanitized_action}"
+    local service_file="$HOME/.config/systemd/user/${unit_name}.service"
+    local path_file="$HOME/.config/systemd/user/${unit_name}.path"
 
-    # Get watch paths
+    # Split comma-separated paths
     local paths=()
-    while IFS= read -r path; do
-      [[ -n "$path" ]] && paths+=("$path")
-    done < <(trigger_get_watch_paths)
+    IFS=',' read -ra path_array <<< "$rule_paths_csv"
+    for p in "${path_array[@]}"; do
+      [[ -n "$p" ]] && paths+=("$p")
+    done
 
     if [[ ${#paths[@]} -gt 0 ]]; then
-      local service_file path_file
-      service_file="$HOME/.config/systemd/user/pai-lite-watch.service"
-      path_file="$HOME/.config/systemd/user/pai-lite-watch.path"
+      local action_cmd
+      action_cmd="$(command_from_action "$rule_action")"
 
       cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite watch trigger
+Description=pai-lite watch trigger (${rule_action})
 
 [Service]
 Type=oneshot
-ExecStart=$bin_path $action
+ExecStart=$bin_path $action_cmd
 SERVICE
 
       cat > "$path_file" <<PATH
 [Unit]
-Description=pai-lite watch for file changes
+Description=pai-lite watch for file changes (${rule_action})
 
 [Path]
 PATH
       for path in "${paths[@]}"; do
-        # Expand ~ to HOME
         local expanded_path="${path/#\~/$HOME}"
         echo "PathModified=$expanded_path" >> "$path_file"
       done
       cat >> "$path_file" <<PATH
-Unit=pai-lite-watch.service
+Unit=${unit_name}.service
 
 [Install]
 WantedBy=default.target
 PATH
       systemctl --user daemon-reload
-      systemctl --user enable --now pai-lite-watch.path
-      echo "Installed systemd trigger: watch (${#paths[@]} paths)"
-    else
-      pai_lite_warn "watch trigger enabled but no paths configured"
+      systemctl --user enable --now "${unit_name}.path"
+      echo "Installed systemd trigger: watch-${sanitized_action} (${#paths[@]} paths)"
     fi
-  fi
+  done < <(trigger_get_watch_rules)
 
   # Federation trigger (periodic timer - for multi-machine Mayor coordination)
   if [[ "$federation_enabled" == "true" ]]; then
@@ -633,7 +682,7 @@ triggers_install() {
 
 triggers_uninstall_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
 
   for label in "${plists[@]}"; do
     local plist="$agents_dir/${label}.plist"
@@ -644,11 +693,21 @@ triggers_uninstall_macos() {
     fi
   done
 
+  # Uninstall all watch-* plists (one per rule)
+  for plist in "$agents_dir/${PLIST_WATCH_PREFIX}"-*.plist; do
+    [[ -f "$plist" ]] || continue
+    local label
+    label="$(basename "$plist" .plist)"
+    launchctl unload "$plist" >/dev/null 2>&1 || true
+    rm -f "$plist"
+    echo "Uninstalled launchd trigger: ${label#com.pai-lite.}"
+  done
+
   echo "All pai-lite launchd triggers uninstalled"
 }
 
 triggers_uninstall_linux() {
-  local services=("startup" "sync" "morning" "health" "watch" "federation" "mayor")
+  local services=("startup" "sync" "morning" "health" "federation" "mayor")
 
   for name in "${services[@]}"; do
     local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
@@ -670,6 +729,23 @@ triggers_uninstall_linux() {
       rm -f "$service_file"
       echo "Uninstalled systemd trigger: $name"
     fi
+  done
+
+  # Uninstall all watch-* units (one per rule)
+  local systemd_dir="$HOME/.config/systemd/user"
+  for service_file in "$systemd_dir"/pai-lite-watch-*.service; do
+    [[ -f "$service_file" ]] || continue
+    local unit_name
+    unit_name="$(basename "$service_file" .service)"
+    local path_file="$systemd_dir/${unit_name}.path"
+
+    if [[ -f "$path_file" ]]; then
+      systemctl --user disable --now "${unit_name}.path" 2>/dev/null || true
+      rm -f "$path_file"
+    fi
+    systemctl --user disable --now "${unit_name}.service" 2>/dev/null || true
+    rm -f "$service_file"
+    echo "Uninstalled systemd trigger: ${unit_name#pai-lite-}"
   done
 
   systemctl --user daemon-reload
@@ -696,43 +772,58 @@ triggers_uninstall() {
   esac
 }
 
+_status_macos_plist() {
+  local label="$1" agents_dir="$2"
+  local plist="$agents_dir/${label}.plist"
+  local name="${label#com.pai-lite.}"
+
+  [[ -f "$plist" ]] || return 1
+
+  local status
+  if launchctl list "$label" >/dev/null 2>&1; then
+    status="loaded"
+    local pid
+    pid=$(launchctl list "$label" 2>/dev/null | awk 'NR==2 {print $1}')
+    if [[ -n "$pid" && "$pid" != "-" ]]; then
+      status="running (PID: $pid)"
+    fi
+  else
+    status="not loaded"
+  fi
+  printf "  %-20s %s\n" "$name:" "$status"
+
+  local log="$HOME/Library/Logs/pai-lite-${name}.log"
+  if [[ -f "$log" ]]; then
+    local last_line
+    last_line=$(tail -n 1 "$log" 2>/dev/null)
+    if [[ -n "$last_line" ]]; then
+      printf "                       last output: %s\n" "${last_line:0:60}"
+    fi
+  fi
+  return 0
+}
+
 triggers_status_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_WATCH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
   local found_any=false
 
   echo "pai-lite launchd triggers:"
   echo ""
 
   for label in "${plists[@]}"; do
-    local plist="$agents_dir/${label}.plist"
-    local name="${label#com.pai-lite.}"
-
-    if [[ -f "$plist" ]]; then
+    if _status_macos_plist "$label" "$agents_dir"; then
       found_any=true
-      local status
-      if launchctl list "$label" >/dev/null 2>&1; then
-        status="loaded"
-        # Check if running
-        local pid
-        pid=$(launchctl list "$label" 2>/dev/null | awk 'NR==2 {print $1}')
-        if [[ -n "$pid" && "$pid" != "-" ]]; then
-          status="running (PID: $pid)"
-        fi
-      else
-        status="not loaded"
-      fi
-      printf "  %-10s %s\n" "$name:" "$status"
+    fi
+  done
 
-      # Show last run from log
-      local log="$HOME/Library/Logs/pai-lite-${name}.log"
-      if [[ -f "$log" ]]; then
-        local last_line
-        last_line=$(tail -n 1 "$log" 2>/dev/null)
-        if [[ -n "$last_line" ]]; then
-          printf "             last output: %s\n" "${last_line:0:60}"
-        fi
-      fi
+  # Discover watch-* plists
+  for plist in "$agents_dir/${PLIST_WATCH_PREFIX}"-*.plist; do
+    [[ -f "$plist" ]] || continue
+    local label
+    label="$(basename "$plist" .plist)"
+    if _status_macos_plist "$label" "$agents_dir"; then
+      found_any=true
     fi
   done
 
@@ -744,44 +835,59 @@ triggers_status_macos() {
   echo "Log files: $HOME/Library/Logs/pai-lite-*.log"
 }
 
+_status_linux_unit() {
+  local name="$1"
+  local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
+  local timer_file="$HOME/.config/systemd/user/pai-lite-${name}.timer"
+  local path_file="$HOME/.config/systemd/user/pai-lite-${name}.path"
+
+  [[ -f "$service_file" ]] || return 1
+
+  local status
+
+  if [[ -f "$timer_file" ]]; then
+    status=$(systemctl --user is-active "pai-lite-${name}.timer" 2>/dev/null || echo "inactive")
+    local next=""
+    if next=$(systemctl --user list-timers "pai-lite-${name}.timer" --no-legend 2>/dev/null); then
+      next=$(echo "$next" | awk '{print $1, $2}')
+    fi
+    if [[ -n "$next" ]]; then
+      printf "  %-20s %s (next: %s)\n" "$name:" "$status" "$next"
+    else
+      printf "  %-20s %s\n" "$name:" "$status"
+    fi
+  elif [[ -f "$path_file" ]]; then
+    status=$(systemctl --user is-active "pai-lite-${name}.path" 2>/dev/null || echo "inactive")
+    printf "  %-20s %s (watching paths)\n" "$name:" "$status"
+  else
+    status=$(systemctl --user is-active "pai-lite-${name}.service" 2>/dev/null || echo "inactive")
+    printf "  %-20s %s\n" "$name:" "$status"
+  fi
+  return 0
+}
+
 triggers_status_linux() {
-  local services=("startup" "sync" "morning" "health" "watch" "federation" "mayor")
+  local services=("startup" "sync" "morning" "health" "federation" "mayor")
   local found_any=false
 
   echo "pai-lite systemd triggers:"
   echo ""
 
   for name in "${services[@]}"; do
-    local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
-    local timer_file="$HOME/.config/systemd/user/pai-lite-${name}.timer"
-    local path_file="$HOME/.config/systemd/user/pai-lite-${name}.path"
-
-    if [[ -f "$service_file" ]]; then
+    if _status_linux_unit "$name"; then
       found_any=true
-      local status unit_type
+    fi
+  done
 
-      if [[ -f "$timer_file" ]]; then
-        unit_type="timer"
-        status=$(systemctl --user is-active "pai-lite-${name}.timer" 2>/dev/null || echo "inactive")
-        # Get next trigger time (may fail if no user bus)
-        local next=""
-        if next=$(systemctl --user list-timers "pai-lite-${name}.timer" --no-legend 2>/dev/null); then
-          next=$(echo "$next" | awk '{print $1, $2}')
-        fi
-        if [[ -n "$next" ]]; then
-          printf "  %-10s %s (next: %s)\n" "$name:" "$status" "$next"
-        else
-          printf "  %-10s %s\n" "$name:" "$status"
-        fi
-      elif [[ -f "$path_file" ]]; then
-        unit_type="path"
-        status=$(systemctl --user is-active "pai-lite-${name}.path" 2>/dev/null || echo "inactive")
-        printf "  %-10s %s (watching paths)\n" "$name:" "$status"
-      else
-        unit_type="service"
-        status=$(systemctl --user is-active "pai-lite-${name}.service" 2>/dev/null || echo "inactive")
-        printf "  %-10s %s\n" "$name:" "$status"
-      fi
+  # Discover watch-* units
+  local systemd_dir="$HOME/.config/systemd/user"
+  for service_file in "$systemd_dir"/pai-lite-watch-*.service; do
+    [[ -f "$service_file" ]] || continue
+    local unit_name
+    unit_name="$(basename "$service_file" .service)"
+    local name="${unit_name#pai-lite-}"
+    if _status_linux_unit "$name"; then
+      found_any=true
     fi
   done
 

@@ -9,7 +9,6 @@ slots:
 projects:
   - name: ocannl
     repo: lukstafi/ocannl
-    readme_todos: true
     issues: true
 
   - name: ppx-minidebug
@@ -103,9 +102,9 @@ triggers:
     action: mayor health-check
 
   watch:
-    enabled: false
-    paths: []
-    action: tasks sync
+    - paths:
+        - ~/repos/ocannl/README.md
+      action: tasks sync
 
   # Federation heartbeat (for multi-machine Mayor setup)
   federation:

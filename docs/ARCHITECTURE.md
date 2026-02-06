@@ -44,7 +44,7 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 │  Trigger System (launchd):                                 │
 │    • 08:00 → invoke Mayor for briefing                     │
 │    • Every 4h → slot health check                          │
-│    • WatchPaths → repo changed, sync tasks                 │
+│    • WatchPaths → file changed, sync tasks / health check   │
 │                                                            │
 │  Adapter Monitors (Bash polling):                          │
 │    • Read .peer-sync/ → update slot state                  │
@@ -574,8 +574,12 @@ Events that fire automation:
 |---------|-----------|----------------|
 | Morning | launchd `StartCalendarInterval` | Invoke Mayor for briefing |
 | Periodic | launchd `StartInterval` | Health check, flow analysis |
-| Repo change | launchd `WatchPaths` | Sync tasks, analyze issues |
+| File change | launchd `WatchPaths` | Sync tasks, health check, etc. |
 | Manual | CLI command | User-initiated |
+
+**Watch rules**: The `triggers:watch` config is a list of rules, each with `paths` (files to monitor) and `action` (command to run on change). Rules with `action: tasks sync` also have their paths scanned for unchecked checkboxes (`- [ ]`) and `TODO:` lines. Each rule gets its own launchd plist / systemd path unit.
+
+**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<line>` ensure no duplicates), and `tasks convert` skips existing task files to preserve user edits.
 
 ## Implementation: Pure Bash + CLI Tools
 
@@ -769,7 +773,6 @@ state_path: harness
 projects:
   - name: ocannl
     repo: lukstafi/ocannl
-    readme_todos: true
     issues: true
 
   - name: ppx-minidebug
@@ -813,7 +816,7 @@ mayor:
   schedule:
     briefing: "08:00"
     health_check: "every 4h"
-    analyze_repos: "on_change"   # WatchPaths trigger
+    analyze_repos: "on_change"   # Via watch rules
 
 notifications:
   provider: ntfy
@@ -851,6 +854,10 @@ triggers:
   sync:
     interval: 3600  # seconds
     action: tasks sync
+  watch:
+    - paths:
+        - ~/repos/ocannl/README.md
+      action: tasks sync
 ```
 
 ## CLI Interface
@@ -1235,9 +1242,8 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
 
 ```
 07:00 - Automation syncs repos (if on always-on machine)
-  launchd WatchPaths detects changes
-  Bash: git pull ocannl, ppx_minidebug
-  Bash: parse new issues → new-issues.json
+  launchd watch rules detect file changes
+  Bash: tasks sync → fetch issues, scan watched files for TODOs
 
 07:05 - Mayor analyzes new issues
   Automation: tmux send-keys -t pai-mayor "/analyze new-issues.json"
