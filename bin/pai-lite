@@ -563,6 +563,10 @@ case "$cmd" in
           echo "No pending requests in queue"
         fi
         ;;
+      queue-pop)
+        # Pop next request and output skill command (used by stop hook)
+        mayor_queue_pop
+        ;;
       "")
         # No subcommand - show status
         mayor_status

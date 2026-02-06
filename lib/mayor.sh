@@ -98,9 +98,13 @@ mayor_start() {
 
   # Check if session already exists
   if mayor_is_running; then
-    pai_lite_warn "Mayor session '$MAYOR_SESSION_NAME' is already running"
-    echo "Attach with: tmux attach -t $MAYOR_SESSION_NAME"
-    echo "Or view status with: pai-lite mayor status"
+    # Keepalive path: session exists, check if queue needs processing
+    local skill_cmd
+    skill_cmd="$(mayor_queue_pop)"
+    if [[ -n "$skill_cmd" ]]; then
+      pai_lite_info "Mayor running, sending queued request: $skill_cmd"
+      tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd" C-m
+    fi
     return 0
   fi
 
@@ -380,6 +384,65 @@ mayor_signal() {
   local epoch
   epoch=$(date +%s)
   echo "${status}|${epoch}|${message}" > "$status_file"
+}
+
+#------------------------------------------------------------------------------
+# Mayor queue-pop: Pop next request from queue and output skill command
+# Outputs the skill command to stdout; nothing if queue is empty.
+# Used by both the keepalive path and the stop hook.
+#------------------------------------------------------------------------------
+
+mayor_queue_pop() {
+  local queue_file
+  queue_file="$(pai_lite_queue_file)"
+
+  # Exit silently if no queue or empty
+  [[ -f "$queue_file" ]] || return 0
+  [[ -s "$queue_file" ]] || return 0
+
+  # Read first request
+  local request action request_id
+  request=$(head -n 1 "$queue_file")
+  action=$(echo "$request" | jq -r '.action' 2>/dev/null)
+  request_id=$(echo "$request" | jq -r '.id' 2>/dev/null)
+
+  # Bail if parsing failed
+  if [[ -z "$action" || "$action" == "null" ]]; then
+    echo "mayor queue-pop: invalid request in queue (no action), leaving in queue" >&2
+    return 0
+  fi
+
+  # Remove from queue atomically
+  local tmp="${queue_file}.tmp"
+  tail -n +2 "$queue_file" > "$tmp" && mv "$tmp" "$queue_file"
+
+  # Export request info for skills to use
+  export PAI_LITE_REQUEST_ID="$request_id"
+  export PAI_LITE_STATE_PATH="$(pai_lite_state_harness_dir)"
+  export PAI_LITE_RESULTS_DIR="$(pai_lite_results_dir)"
+  mkdir -p "$PAI_LITE_RESULTS_DIR"
+
+  # Map action to skill command
+  case "$action" in
+    briefing)       echo "/pai-briefing" ;;
+    suggest)        echo "/pai-suggest" ;;
+    analyze-issue)
+      local issue
+      issue=$(echo "$request" | jq -r '.issue' 2>/dev/null)
+      echo "/pai-analyze-issue $issue" ;;
+    elaborate)
+      local task
+      task=$(echo "$request" | jq -r '.task' 2>/dev/null)
+      echo "/pai-elaborate $task" ;;
+    health-check)   echo "/pai-health-check" ;;
+    learn)          echo "/pai-learn" ;;
+    sync-learnings) echo "/pai-sync-learnings" ;;
+    techdebt)       echo "/pai-techdebt" ;;
+    context-sync)   echo "/pai-context-sync" ;;
+    *)
+      echo "mayor queue-pop: unknown queue action: $action" >&2
+      ;;
+  esac
 }
 
 #------------------------------------------------------------------------------
