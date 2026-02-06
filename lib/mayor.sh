@@ -148,7 +148,12 @@ EOF
       pai_lite_info "Starting ttyd on port $ttyd_port..."
       # Start ttyd in background, connecting to the Mayor tmux session
       # -W enables writable mode (readonly by default)
-      nohup ttyd -W -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" >/dev/null 2>&1 &
+      # Use disown to detach from shell so launchd/systemd doesn't kill it
+      local ttyd_log="$HOME/Library/Logs/pai-lite-ttyd.log"
+      [[ -d "$HOME/Library/Logs" ]] || ttyd_log="/tmp/pai-lite-ttyd.log"
+      nohup ttyd -W -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" \
+        >>"$ttyd_log" 2>&1 &
+      disown
       echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
     else
       pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
