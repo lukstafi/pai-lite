@@ -99,7 +99,8 @@ Commands:
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing
-  init                         Initialize config + harness
+  init [--no-hooks] [--no-triggers]
+                               Initialize config, harness, hooks, and triggers
   triggers install             Install launchd/systemd triggers
   triggers status              Show trigger status
   triggers uninstall           Remove all triggers
@@ -194,9 +195,21 @@ case "$cmd" in
       fi
     fi
 
-    # Install skills and hooks if --hooks flag is provided
-    install_hooks="${2:-}"
-    if [[ "$install_hooks" == "--hooks" ]]; then
+    # Parse init flags (hooks and triggers installed by default)
+    local install_hooks=true install_triggers=true
+    shift  # consume 'init'
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --no-hooks)    install_hooks=false ;;
+        --no-triggers) install_triggers=false ;;
+        --hooks)       install_hooks=true ;;    # legacy flag, now default
+        *) ;;
+      esac
+      shift
+    done
+
+    # Install skills and hooks (default: yes, skip with --no-hooks)
+    if [[ "$install_hooks" == "true" ]]; then
       echo ""
       echo "=== Installing Skills and Hooks ==="
 
@@ -264,7 +277,17 @@ case "$cmd" in
       done
     else
       echo ""
-      echo "To install Mayor skills and hooks, run: pai-lite init --hooks"
+      echo "Skipped hooks installation (use init without --no-hooks to install)"
+    fi
+
+    # Install triggers (default: yes, skip with --no-triggers)
+    if [[ "$install_triggers" == "true" ]]; then
+      echo ""
+      echo "=== Installing Triggers ==="
+      triggers_install
+    else
+      echo ""
+      echo "Skipped triggers installation (use init without --no-triggers to install)"
     fi
     ;;
   slots)
@@ -935,12 +958,12 @@ case "$cmd" in
         echo "  [ok] skills: $pai_lite_skills pai-lite skills installed in $claude_skills"
       else
         echo "  [warn] skills: no pai-lite skills found in $claude_skills"
-        echo "    Run: pai-lite init --hooks"
+        echo "    Run: pai-lite init"
         warnings=$((warnings + 1))
       fi
     else
       echo "  [warn] skills: state harness .claude/commands does not exist"
-      echo "    Run: pai-lite init --hooks"
+      echo "    Run: pai-lite init"
       warnings=$((warnings + 1))
     fi
 
@@ -950,7 +973,7 @@ case "$cmd" in
       echo "  [ok] hook script: $hook_script"
     else
       echo "  [warn] hook script: not found at $hook_script"
-      echo "    Run: pai-lite init --hooks"
+      echo "    Run: pai-lite init"
       warnings=$((warnings + 1))
     fi
 
@@ -961,7 +984,7 @@ case "$cmd" in
         echo "  [ok] hook config: pai-lite hook configured in settings.json"
       else
         echo "  [warn] hook config: pai-lite hook not in settings.json"
-        echo "    Run: pai-lite init --hooks (or add manually)"
+        echo "    Run: pai-lite init (or add manually)"
         warnings=$((warnings + 1))
       fi
     else

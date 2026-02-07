@@ -139,6 +139,18 @@ PLIST_MAYOR="com.pai-lite.mayor"
 # macOS launchd triggers
 #------------------------------------------------------------------------------
 
+# Helper to write PATH environment so launchd finds Homebrew's Bash 4+
+_plist_write_env() {
+  local plist="$1"
+  cat >> "$plist" <<PLIST
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$HOME/.local/bin</string>
+  </dict>
+PLIST
+}
+
 # Helper to write program arguments to plist
 _plist_write_args() {
   local plist="$1"
@@ -194,6 +206,7 @@ triggers_install_macos() {
   <key>RunAtLoad</key>
   <true/>
 PLIST
+    _plist_write_env "$plist"
     # shellcheck disable=SC2086
     _plist_write_args "$plist" "$bin_path" $action
     _plist_write_logs "$plist" "startup"
@@ -222,6 +235,7 @@ PLIST
   <key>StartInterval</key>
   <integer>$interval</integer>
 PLIST
+    _plist_write_env "$plist"
     # shellcheck disable=SC2086
     _plist_write_args "$plist" "$bin_path" $action
     _plist_write_logs "$plist" "sync"
@@ -257,6 +271,7 @@ PLIST
     <integer>$minute</integer>
   </dict>
 PLIST
+    _plist_write_env "$plist"
     # shellcheck disable=SC2086
     _plist_write_args "$plist" "$bin_path" $action
     _plist_write_logs "$plist" "morning"
@@ -285,6 +300,7 @@ PLIST
   <key>StartInterval</key>
   <integer>$interval</integer>
 PLIST
+    _plist_write_env "$plist"
     # shellcheck disable=SC2086
     _plist_write_args "$plist" "$bin_path" $action
     _plist_write_logs "$plist" "health"
@@ -327,6 +343,7 @@ PLIST
         echo "    <string>$expanded_path</string>" >> "$plist"
       done
       echo "  </array>" >> "$plist"
+      _plist_write_env "$plist"
 
       local action_cmd
       action_cmd="$(command_from_action "$rule_action")"
@@ -359,6 +376,7 @@ PLIST
   <key>StartInterval</key>
   <integer>$interval</integer>
 PLIST
+    _plist_write_env "$plist"
     # shellcheck disable=SC2086
     _plist_write_args "$plist" "$bin_path" $action
     _plist_write_logs "$plist" "federation"
@@ -388,12 +406,8 @@ PLIST
   <true/>
   <key>StartInterval</key>
   <integer>$mayor_interval</integer>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$HOME/.local/bin</string>
-  </dict>
 PLIST
+    _plist_write_env "$plist"
     _plist_write_args "$plist" "$bin_path" "mayor" "start"
     _plist_write_logs "$plist" "mayor"
     echo "</dict>" >> "$plist"
