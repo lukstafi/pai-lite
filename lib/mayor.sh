@@ -49,6 +49,43 @@ mayor_is_running() {
 }
 
 #------------------------------------------------------------------------------
+# Helper: Ensure ttyd is running for the Mayor session
+# Spawns ttyd under the tmux server's process tree so launchd can't kill it.
+#------------------------------------------------------------------------------
+
+mayor_ensure_ttyd() {
+  if ! command -v ttyd >/dev/null 2>&1; then
+    pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
+    return 0
+  fi
+
+  # Check if ttyd is already running for this session
+  if pgrep -f "ttyd.*$MAYOR_SESSION_NAME" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local ttyd_port
+  ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null)
+  ttyd_port="${ttyd_port:-$MAYOR_DEFAULT_PORT}"
+
+  local ttyd_log="$HOME/Library/Logs/pai-lite-ttyd.log"
+  [[ -d "$HOME/Library/Logs" ]] || ttyd_log="/tmp/pai-lite-ttyd.log"
+
+  local ttyd_bin
+  ttyd_bin="$(command -v ttyd)"
+
+  pai_lite_info "Starting ttyd on port $ttyd_port..."
+
+  # Spawn ttyd via tmux run-shell so it lives under the tmux server's process
+  # tree, not the caller's.  This prevents launchd/systemd from killing it
+  # when the one-shot job exits.
+  tmux run-shell -b -t "$MAYOR_SESSION_NAME" \
+    "$ttyd_bin -W -p $ttyd_port tmux attach -t $MAYOR_SESSION_NAME >>$ttyd_log 2>&1"
+
+  echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
+}
+
+#------------------------------------------------------------------------------
 # Mayor start: Create/restart the Mayor tmux session
 #------------------------------------------------------------------------------
 
@@ -98,7 +135,10 @@ mayor_start() {
 
   # Check if session already exists
   if mayor_is_running; then
-    # Keepalive path: session exists, check if queue needs processing
+    # Keepalive path: session exists, ensure ttyd is alive and check queue
+    if [[ "$use_ttyd" == "true" ]]; then
+      mayor_ensure_ttyd
+    fi
     local skill_cmd
     skill_cmd="$(mayor_queue_pop)"
     if [[ -n "$skill_cmd" ]]; then
@@ -145,23 +185,7 @@ EOF
 
   # Start ttyd by default unless --no-ttyd was passed
   if [[ "$use_ttyd" == "true" ]]; then
-    if command -v ttyd >/dev/null 2>&1; then
-      local ttyd_port
-      ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null)
-      ttyd_port="${ttyd_port:-$MAYOR_DEFAULT_PORT}"
-      pai_lite_info "Starting ttyd on port $ttyd_port..."
-      # Start ttyd in background, connecting to the Mayor tmux session
-      # -W enables writable mode (readonly by default)
-      # Use disown to detach from shell so launchd/systemd doesn't kill it
-      local ttyd_log="$HOME/Library/Logs/pai-lite-ttyd.log"
-      [[ -d "$HOME/Library/Logs" ]] || ttyd_log="/tmp/pai-lite-ttyd.log"
-      nohup ttyd -W -p "$ttyd_port" tmux attach -t "$MAYOR_SESSION_NAME" \
-        >>"$ttyd_log" 2>&1 &
-      disown
-      echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
-    else
-      pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
-    fi
+    mayor_ensure_ttyd
   fi
 
   return 0
