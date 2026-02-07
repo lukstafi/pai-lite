@@ -44,10 +44,10 @@ Commands:
   slot <n> stop                Stop agent session (adapter)
   slot <n> note "text"         Add runtime note to slot n
 
-  tasks sync                   Aggregate tasks from sources
+  tasks sync                   Aggregate tasks and convert to task files
   tasks list                   Show unified task list
   tasks show <id>              Show task details
-  tasks convert                Convert tasks.yaml to individual task files
+  tasks convert                Convert tasks.yaml to individual task files (also run by sync)
   tasks create <title>         Create a new task manually
   tasks files                  List individual task files
   tasks samples                Create sample tasks for testing

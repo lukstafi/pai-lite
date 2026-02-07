@@ -560,7 +560,7 @@ Events that fire automation:
 
 **Watch rules**: The `triggers:watch` config is a list of rules, each with `paths` (files to monitor) and `action` (command to run on change). Rules with `action: tasks sync` also have their paths scanned for unchecked checkboxes (`- [ ]`) and `TODO:` lines. Each rule gets its own launchd plist / systemd path unit.
 
-**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<line>` ensure no duplicates), and `tasks convert` skips existing task files to preserve user edits.
+**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<line>` ensure no duplicates), then automatically runs `tasks convert` which skips existing task files to preserve user edits.
 
 ## Implementation: Pure Bash + CLI Tools
 
@@ -845,7 +845,7 @@ triggers:
 
 ```bash
 # Task management
-pai-lite tasks sync              # Aggregate tasks from all sources
+pai-lite tasks sync              # Aggregate tasks and convert to task files
 pai-lite tasks list              # Show all tasks
 pai-lite tasks show <id>         # Show task details
 
@@ -1224,7 +1224,7 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
 ```
 07:00 - Automation syncs repos (if on always-on machine)
   launchd watch rules detect file changes
-  Bash: tasks sync → fetch issues, scan watched files for TODOs
+  Bash: tasks sync → fetch issues, scan watched files for TODOs, convert to task files
 
 07:05 - Mayor analyzes new issues
   Automation: tmux send-keys -t pai-mayor "/analyze new-issues.json"

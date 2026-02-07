@@ -158,6 +158,9 @@ tasks_sync() {
 
   mv "$tmp" "$file"
   echo "Wrote tasks to $file"
+
+  # Automatically convert to individual task files for the flow engine
+  tasks_convert
 }
 
 tasks_list() {

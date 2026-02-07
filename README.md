@@ -98,19 +98,9 @@ triggers:
 pai-lite tasks sync
 ```
 
-This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`.
+This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, then automatically converts them to individual `.md` task files in `harness/tasks/` with YAML frontmatter for priority, dependencies, status, etc. The flow engine reads these task files.
 
-### Step 4: Convert to individual task files
-
-For the flow engine to work, convert the aggregated tasks to individual files:
-
-```bash
-pai-lite tasks convert
-```
-
-This creates one `.md` file per task in `harness/tasks/`, with YAML frontmatter for priority, dependencies, status, etc.
-
-### Step 5: Install triggers
+### Step 4: Install triggers
 
 Triggers automate Mayor startup and periodic tasks via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, this also installs a keepalive that starts the Mayor at login and checks every 15 minutes:
 
@@ -124,7 +114,7 @@ Verify with:
 pai-lite triggers status
 ```
 
-### Step 6: Get an overview
+### Step 5: Get an overview
 
 ```bash
 # Quick status
@@ -195,10 +185,10 @@ notifications:
 ### Task management
 
 ```bash
-pai-lite tasks sync              # Aggregate tasks from sources
+pai-lite tasks sync              # Aggregate tasks and convert to task files
 pai-lite tasks list              # Show unified task list
 pai-lite tasks show <id>         # Show task details
-pai-lite tasks convert           # Convert to individual task files
+pai-lite tasks convert           # Convert tasks.yaml to task files (also run by sync)
 pai-lite tasks create <title>    # Create a new task manually
 pai-lite tasks files             # List individual task files
 ```
