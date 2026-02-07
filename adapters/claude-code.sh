@@ -301,7 +301,8 @@ EOF
 
   # Optionally start Claude Code CLI if available
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$session_name" "claude" C-m
+    tmux send-keys -t "$session_name" "claude"
+    tmux send-keys -t "$session_name" C-m
   fi
 
   echo "Claude Code session started. Attach with: tmux attach -t $session_name"
@@ -473,7 +474,8 @@ adapter_claude_code_restart() {
 
   # Optionally start Claude Code CLI if available
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$session_name" "claude" C-m
+    tmux send-keys -t "$session_name" "claude"
+    tmux send-keys -t "$session_name" C-m
   fi
 
   echo "Session restarted. Attach with: tmux attach -t $session_name"

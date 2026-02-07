@@ -112,7 +112,8 @@ tmux kill-session -t name
 tmux ls
 
 # Send commands
-tmux send-keys -t session "command" C-m
+tmux send-keys -t session "command"
+tmux send-keys -t session C-m
 
 # Capture output
 tmux capture-pane -t session -p -S -100

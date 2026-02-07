@@ -143,7 +143,8 @@ mayor_start() {
     skill_cmd="$(mayor_queue_pop)"
     if [[ -n "$skill_cmd" ]]; then
       pai_lite_info "Mayor running, sending queued request: $skill_cmd"
-      tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd" C-m
+      tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd"
+      tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
     fi
     return 0
   fi
@@ -175,7 +176,8 @@ EOF
 
   # Start Claude Code CLI if available (with -c to continue previous session, fallback to new)
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c || claude" C-m
+    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c || claude"
+    tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
     pai_lite_info "Started Claude Code in Mayor session"
   else
     pai_lite_warn "claude CLI not found; session started without Claude Code"
@@ -195,7 +197,8 @@ EOF
     # Give Claude Code a moment to initialize before sending the command
     sleep 5
     pai_lite_info "Mayor fresh start, sending queued request: $skill_cmd"
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd" C-m
+    tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd"
+    tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
   fi
 
   return 0
@@ -490,7 +493,8 @@ mayor_send() {
     pai_lite_die "Mayor session is not running. Start with: pai-lite mayor start"
   fi
 
-  tmux send-keys -t "$MAYOR_SESSION_NAME" "$command" C-m
+  tmux send-keys -t "$MAYOR_SESSION_NAME" "$command"
+  tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
   pai_lite_info "Sent command to Mayor: $command"
 }
 

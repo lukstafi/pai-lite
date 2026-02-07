@@ -354,7 +354,8 @@ EOF
     adapter_codex_signal "$session_name" "working" "session started"
 
     # Could potentially start a Codex CLI here if one exists
-    # tmux send-keys -t "$session_name" "codex" C-m
+    # tmux send-keys -t "$session_name" "codex"
+    # tmux send-keys -t "$session_name" C-m
 
     echo "Codex session started. Attach with: tmux attach -t $session_name"
     return 0
@@ -697,7 +698,8 @@ adapter_codex_restart() {
 
   # Optionally start Codex CLI if available
   if command -v codex >/dev/null 2>&1; then
-    tmux send-keys -t "$session_name" "codex" C-m
+    tmux send-keys -t "$session_name" "codex"
+    tmux send-keys -t "$session_name" C-m
   fi
 
   # Restart ttyd if it was running before

@@ -108,16 +108,19 @@ The Mayor's skills (defined in the framework) can embed delegation patterns, e.g
 **How automation invokes the Mayor:**
 ```bash
 # Trigger at 08:00 (launchd)
-tmux send-keys -t pai-mayor "/pai-briefing" C-m
+tmux send-keys -t pai-mayor "/pai-briefing"
+tmux send-keys -t pai-mayor C-m
 # Mayor writes to briefing.md
 # Automation reads and notifies
 
 # New issue detected
-tmux send-keys -t pai-mayor "/pai-analyze-issue ocannl 127" C-m
+tmux send-keys -t pai-mayor "/pai-analyze-issue ocannl 127"
+tmux send-keys -t pai-mayor C-m
 # Mayor creates task-143.md with inferred dependencies
 
 # User asks for suggestions
-tmux send-keys -t pai-mayor "/pai-suggest" C-m
+tmux send-keys -t pai-mayor "/pai-suggest"
+tmux send-keys -t pai-mayor C-m
 # Mayor analyzes flow state, writes suggestions
 ```
 
@@ -490,7 +493,7 @@ Adapters are simple Bash scripts that:
 pai-lite uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
 
 **The Problem with send-keys:**
-- `tmux send-keys -t pai-mayor "/pai-briefing" C-m` assumes Claude is at a prompt
+- `tmux send-keys -t pai-mayor "/pai-briefing"; tmux send-keys -t pai-mayor C-m` assumes Claude is at a prompt
 - If Claude is mid-turn, the command gets injected into its response
 - No acknowledgment that the command was received
 - Overwhelming when queueing multiple requests
