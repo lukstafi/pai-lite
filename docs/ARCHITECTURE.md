@@ -526,38 +526,16 @@ echo '{"action": "briefing", "timestamp": "2026-02-01T08:00:00Z"}' >> \
   "$STATE_PATH/tasks/queue.jsonl"
 ```
 
-Mayor's stop hook (`~/.claude/hooks/on-stop.sh`) reads and processes queued requests:
+Mayor's stop hook (`pai-lite-on-stop`) delegates to `pai-lite mayor queue-pop`, which reads and processes queued requests:
 
 ```bash
 #!/bin/bash
-QUEUE="$STATE_PATH/tasks/queue.jsonl"
-RESULTS="$STATE_PATH/tasks/results"
-
-if [ -f "$QUEUE" ] && [ -s "$QUEUE" ]; then
-    # Read first line
-    request=$(head -n 1 "$QUEUE")
-
-    # Remove it from queue
-    tail -n +2 "$QUEUE" > "$QUEUE.tmp" && mv "$QUEUE.tmp" "$QUEUE"
-
-    # Process request
-    action=$(echo "$request" | jq -r '.action')
-
-    # Hook stdout becomes the next user prompt for Claude Code
-    case "$action" in
-        briefing)
-            echo "/pai-briefing"
-            ;;
-        analyze-issue)
-            issue=$(echo "$request" | jq -r '.issue')
-            echo "/pai-analyze-issue $issue"
-            ;;
-        health-check)
-            echo "/pai-health-check"
-            ;;
-    esac
-fi
+# Stop hook (installed by pai-lite init --hooks)
+# Delegates to the CLI so action mapping lives in one place
+exec pai-lite mayor queue-pop
 ```
+
+`mayor_queue_pop()` in `lib/mayor.sh` pops the first request from the queue and maps its action to a skill command (e.g. `briefing` → `/pai-briefing`, `analyze-issue` → `/pai-analyze-issue $issue`). The hook's stdout becomes the next user prompt for Claude Code.
 
 **Benefits:**
 - ✅ **Robust**: Works regardless of Claude's state

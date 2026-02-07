@@ -92,9 +92,9 @@ This document tracks implementation tasks based on the architecture described in
 
 ### 3.3 Stop Hook
 
-- [x] `templates/hooks/on-stop.sh` - Template for Claude Code stop hook
-- [ ] `pai-lite init` should offer to install the stop hook to `~/.claude/hooks/on-stop.sh`
-- [ ] Add `PAI_LITE_STATE_PATH` detection/configuration in stop hook
+- [x] `templates/hooks/pai-lite-on-stop.sh` - Template for Claude Code stop hook
+- [x] `pai-lite init` installs the stop hook to `~/.local/bin/pai-lite-on-stop`
+- [x] Stop hook delegates to `pai-lite mayor queue-pop` for action mapping
 
 ### 3.4 Mayor Skills (Claude Code skill files)
 
@@ -190,7 +190,7 @@ Architecture describes a separate terminal grid view:
 
 ### 6.2 Missing Init Features
 
-- [ ] Offer to install stop hook to `~/.claude/hooks/on-stop.sh`
+- [x] Install stop hook via `pai-lite init --hooks`
 - [ ] Offer to install Mayor skills to `~/.claude/skills/`
 - [ ] Create Mayor memory directory structure in harness
 - [ ] Copy dashboard files to state repo's `dashboard/` directory
