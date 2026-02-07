@@ -18,26 +18,9 @@ trigger_get() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || pai_lite_die "config not found: $config"
 
-  awk -v trigger="$trigger" -v key="$key" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*triggers:/ { in_triggers=1; next }
-    in_triggers && $0 ~ /^[[:space:]]{2}[a-zA-Z0-9_-]+:/ {
-      current=$0
-      sub(/^[[:space:]]*/, "", current)
-      sub(/:.*/, "", current)
-    }
-    in_triggers && current==trigger && $0 ~ "^[[:space:]]*" key ":" {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_triggers && $0 !~ /^[[:space:]]/ { in_triggers=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".triggers.${trigger}.${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get watch rules from config (list format)
@@ -54,58 +37,19 @@ trigger_get_watch_rules() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    function emit_rule() {
-      if (action != "" && paths != "") {
-        sub(/,$/, "", paths)
-        print action "|" paths
-      }
-      action=""
-      paths=""
-    }
-    /^[[:space:]]*triggers:/ { in_triggers=1; next }
-    in_triggers && /^[[:space:]]*watch:/ { in_watch=1; next }
-    # New rule entry (- paths: or - action:)
-    in_triggers && in_watch && /^[[:space:]]*-[[:space:]]+(paths:|action:)/ {
-      emit_rule()
-      in_rule=1
-      in_paths=0
-      if ($0 ~ /action:/) {
-        a=$0; sub(/^.*action:[[:space:]]*/, "", a)
-        action=trim(a)
-      }
-      if ($0 ~ /paths:/) { in_paths=1 }
-      next
-    }
-    # Subsequent fields within a rule
-    in_triggers && in_watch && in_rule && /^[[:space:]]+paths:/ { in_paths=1; next }
-    in_triggers && in_watch && in_rule && /^[[:space:]]+action:/ {
-      a=$0; sub(/^.*action:[[:space:]]*/, "", a)
-      action=trim(a)
-      in_paths=0
-      next
-    }
-    # Path entries within a rule
-    in_triggers && in_watch && in_rule && in_paths && /^[[:space:]]*-[[:space:]]/ {
-      p=$0; sub(/^[[:space:]]*-[[:space:]]*/, "", p)
-      paths = paths trim(p) ","
-      next
-    }
-    # End of paths list (non-dash line at path indent level)
-    in_triggers && in_watch && in_rule && in_paths && /^[[:space:]]+[^[:space:]-]/ {
-      in_paths=0
-    }
-    # End of watch section (next trigger at same indent)
-    in_triggers && in_watch && /^[[:space:]]{2}[a-zA-Z]/ { emit_rule(); in_watch=0; in_rule=0 }
-    # End of triggers section
-    in_triggers && /^[^[:space:]]/ { emit_rule(); in_triggers=0; in_watch=0; in_rule=0 }
-    END { emit_rule() }
-  ' "$config"
+  local count
+  count=$(yq eval '.triggers.watch | length' "$config" 2>/dev/null)
+  [[ -n "$count" && "$count" -gt 0 ]] 2>/dev/null || return 0
+
+  local i
+  for ((i = 0; i < count; i++)); do
+    local action paths_csv
+    action=$(yq eval ".triggers.watch[$i].action" "$config" 2>/dev/null)
+    [[ "$action" != "null" && -n "$action" ]] || continue
+    paths_csv=$(yq eval ".triggers.watch[$i].paths | join(\",\")" "$config" 2>/dev/null)
+    [[ "$paths_csv" != "null" && -n "$paths_csv" ]] || continue
+    echo "${action}|${paths_csv}"
+  done
 }
 
 # Sanitize an action string for use in plist/service names

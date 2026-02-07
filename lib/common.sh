@@ -40,8 +40,10 @@ pai_lite_config_path() {
 
   # Read state_repo and state_path from pointer config
   local state_repo state_path repo_name
-  state_repo=$(awk '/^state_repo:/ { sub(/^[^:]+:[[:space:]]*/, ""); print; exit }' "$pointer_config")
-  state_path=$(awk '/^state_path:/ { sub(/^[^:]+:[[:space:]]*/, ""); print; exit }' "$pointer_config")
+  state_repo=$(yq eval '.state_repo' "$pointer_config" 2>/dev/null)
+  [[ "$state_repo" == "null" ]] && state_repo=""
+  state_path=$(yq eval '.state_path' "$pointer_config" 2>/dev/null)
+  [[ "$state_path" == "null" ]] && state_path=""
 
   # Default state_path to "harness" if not specified
   [[ -n "$state_path" ]] || state_path="harness"
@@ -72,30 +74,18 @@ pai_lite_config_get() {
   local config
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || pai_lite_die "config not found: $config"
-  awk -v key="$key" -F: '
-    $0 ~ "^[[:space:]]*" key ":" {
-      sub(/^[^:]+:[[:space:]]*/, "", $0)
-      sub(/[[:space:]]+$/, "", $0)
-      print $0
-      exit
-    }
-  ' "$config"
+  local result
+  result=$(yq eval ".${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 pai_lite_config_slots_count() {
   local config
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || pai_lite_die "config not found: $config"
-  awk '
-    $0 ~ /^[[:space:]]*slots:/ { in_slots=1; next }
-    in_slots && $0 ~ /^[[:space:]]*count:/ {
-      sub(/^[^:]+:[[:space:]]*/, "", $0)
-      sub(/[[:space:]]+$/, "", $0)
-      print $0
-      exit
-    }
-    in_slots && $0 !~ /^[[:space:]]/ { in_slots=0 }
-  ' "$config"
+  local result
+  result=$(yq eval '.slots.count' "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get nested config value (e.g., "mayor.ttyd_port")
@@ -106,18 +96,9 @@ pai_lite_config_get_nested() {
   local config
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
-  awk -v section="$section" -v key="$key" '
-    $0 ~ "^" section ":" { in_section=1; next }
-    in_section && $0 ~ "^[[:space:]]+" key ":" {
-      sub(/^[^:]+:[[:space:]]*/, "", $0)
-      sub(/[[:space:]]+$/, "", $0)
-      # Remove quotes if present
-      gsub(/^["'"'"']|["'"'"']$/, "", $0)
-      print $0
-      exit
-    }
-    in_section && $0 !~ /^[[:space:]]/ && $0 !~ /^#/ && $0 !~ /^$/ { in_section=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".${section}.${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 #------------------------------------------------------------------------------
@@ -133,21 +114,9 @@ pai_lite_config_mayor_get() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk -v key="$key" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*mayor:/ { in_mayor=1; next }
-    in_mayor && $0 ~ "^[[:space:]]*" key ":" {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_mayor && /^[^[:space:]]/ { in_mayor=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".mayor.${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get a nested value from mayor config (e.g., autonomy_level.analyze_issues)
@@ -159,23 +128,9 @@ pai_lite_config_mayor_nested_get() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk -v section="$section" -v key="$key" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*mayor:/ { in_mayor=1; next }
-    in_mayor && $0 ~ "^[[:space:]]{2}" section ":" { in_section=1; next }
-    in_mayor && in_section && $0 ~ "^[[:space:]]{4}" key ":" {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_mayor && in_section && /^[[:space:]]{2}[^[:space:]]/ { in_section=0 }
-    in_mayor && /^[^[:space:]]/ { in_mayor=0; in_section=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".mayor.${section}.${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get mayor schedule config
@@ -205,21 +160,9 @@ pai_lite_config_notifications_get() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk -v key="$key" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*notifications:/ { in_notif=1; next }
-    in_notif && $0 ~ "^[[:space:]]*" key ":" && $0 !~ /^[[:space:]]{4}/ {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_notif && /^[^[:space:]]/ { in_notif=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".notifications.${key}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get a notification topic
@@ -231,23 +174,9 @@ pai_lite_config_notifications_topic() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk -v tier="$tier" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*notifications:/ { in_notif=1; next }
-    in_notif && /^[[:space:]]*topics:/ { in_topics=1; next }
-    in_notif && in_topics && $0 ~ "^[[:space:]]*" tier ":" {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_notif && /^[^[:space:]]/ { in_notif=0 }
-    in_topics && /^[[:space:]]{2}[^[:space:]]/ && $0 !~ /^[[:space:]]*(pai|agents|public):/ { in_topics=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".notifications.topics.${tier}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Get a notification priority
@@ -259,24 +188,9 @@ pai_lite_config_notifications_priority() {
   config="$(pai_lite_config_path)"
   [[ -f "$config" ]] || return 1
 
-  awk -v event="$event" '
-    function trim(s) {
-      sub(/^[[:space:]]+/, "", s)
-      sub(/[[:space:]]+$/, "", s)
-      return s
-    }
-    /^[[:space:]]*notifications:/ { in_notif=1; next }
-    in_notif && /^[[:space:]]*priorities:/ { in_prio=1; next }
-    in_notif && in_prio && $0 ~ "^[[:space:]]*" event ":" {
-      value=$0
-      sub(/^[^:]+:[[:space:]]*/, "", value)
-      print trim(value)
-      exit
-    }
-    in_notif && /^[^[:space:]]/ { in_notif=0 }
-    # Exit priorities section when we see a new section at 2-space indent (not a priority key)
-    in_prio && /^[[:space:]]{2}[a-z_]+:/ && $0 !~ /^[[:space:]]*[a-z_]+:[[:space:]]*[0-9]+/ { in_prio=0 }
-  ' "$config"
+  local result
+  result=$(yq eval ".notifications.priorities.${event}" "$config" 2>/dev/null)
+  if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
 # Check if an event type should be auto-published
@@ -289,22 +203,8 @@ pai_lite_config_notifications_auto_publish() {
   [[ -f "$config" ]] || return 1
 
   local result
-  result=$(awk -v event="$event" '
-    /^[[:space:]]*notifications:/ { in_notif=1; next }
-    in_notif && /^[[:space:]]*public_filter:/ { in_filter=1; next }
-    in_notif && in_filter && /^[[:space:]]*auto_publish:/ { in_auto=1; next }
-    in_notif && in_filter && in_auto && /^[[:space:]]*-[[:space:]]*/ {
-      item=$0
-      sub(/^[[:space:]]*-[[:space:]]*/, "", item)
-      gsub(/[[:space:]]+$/, "", item)
-      if (item == event) { print "yes"; exit }
-    }
-    in_notif && in_filter && in_auto && /^[[:space:]]{4}[^[:space:]-]/ { in_auto=0 }
-    in_notif && in_filter && /^[[:space:]]{2}[^[:space:]]/ { in_filter=0 }
-    in_notif && /^[^[:space:]]/ { in_notif=0 }
-  ' "$config")
-
-  [[ "$result" == "yes" ]]
+  result=$(yq eval ".notifications.public_filter.auto_publish[] | select(. == \"${event}\")" "$config" 2>/dev/null)
+  [[ "$result" == "$event" ]]
 }
 
 
@@ -322,8 +222,7 @@ pai_lite_state_repo_dir() {
 pai_lite_state_path() {
   local path
   path="$(pai_lite_config_get "state_path")"
-  [[ -n "$path" ]] || echo "harness"
-  [[ -n "$path" ]] && echo "$path"
+  if [[ -n "$path" ]]; then echo "$path"; else echo "harness"; fi
 }
 
 pai_lite_state_harness_dir() {
