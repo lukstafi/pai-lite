@@ -176,7 +176,7 @@ EOF
 
   # Start Claude Code CLI if available (with -c to continue previous session, fallback to new)
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c || claude"
+    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions"
     tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
     pai_lite_info "Started Claude Code in Mayor session"
   else
