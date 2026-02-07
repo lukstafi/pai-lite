@@ -100,7 +100,7 @@ triggers:
   # Run at system login
   startup:
     enabled: false
-    action: briefing
+    action: mayor briefing
 
   # Periodic sync (e.g., every hour)
   sync:

@@ -117,7 +117,7 @@ sanitize_action() {
 command_from_action() {
   local action="$1"
   if [[ -z "$action" ]]; then
-    echo "briefing"
+    echo "mayor briefing"
   else
     echo "$action"
   fi

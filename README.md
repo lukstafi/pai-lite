@@ -172,7 +172,7 @@ adapters:
 triggers:
   startup:
     enabled: true
-    action: briefing
+    action: mayor briefing
   sync:
     enabled: true
     interval: 3600

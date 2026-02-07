@@ -850,7 +850,7 @@ notifications:
 triggers:
   startup:
     enabled: true
-    action: briefing
+    action: mayor briefing
   sync:
     interval: 3600  # seconds
     action: tasks sync
