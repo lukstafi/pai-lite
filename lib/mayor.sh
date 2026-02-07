@@ -188,6 +188,16 @@ EOF
     mayor_ensure_ttyd
   fi
 
+  # Drain any queued requests (e.g. briefing queued at startup before Mayor was up)
+  local skill_cmd
+  skill_cmd="$(mayor_queue_pop)"
+  if [[ -n "$skill_cmd" ]]; then
+    # Give Claude Code a moment to initialize before sending the command
+    sleep 5
+    pai_lite_info "Mayor fresh start, sending queued request: $skill_cmd"
+    tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd" C-m
+  fi
+
   return 0
 }
 
