@@ -826,7 +826,6 @@ case "$cmd" in
     if command -v tailscale >/dev/null 2>&1; then
       echo "  [ok] tailscale: available"
       if tailscale status >/dev/null 2>&1; then
-        local ts_hostname
         ts_hostname=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName // empty' 2>/dev/null | sed 's/\.$//')
         if [[ -n "$ts_hostname" ]]; then
           echo "    -> connected as: $ts_hostname"

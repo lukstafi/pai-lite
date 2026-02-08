@@ -9,7 +9,7 @@ set -euo pipefail
 _ADAPTER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -f "$_ADAPTER_DIR/helpers.sh" ]]; then
-  # shellcheck source=helpers.sh
+  # shellcheck disable=SC1091 source=helpers.sh
   source "$_ADAPTER_DIR/helpers.sh"
 fi
 
@@ -55,6 +55,7 @@ adapter_agent_duo_read_session_state() {
   [[ -d "$sync_dir" ]] || return 1
 
   # Read basic state
+  # shellcheck disable=SC2034 # mode is set via eval of adapter_read_basic_state
   local phase="" round="" session="" mode=""
   eval "$(adapter_read_basic_state "$sync_dir")"
 
@@ -67,6 +68,7 @@ adapter_agent_duo_read_session_state() {
     echo "**Agents:**"
 
     if [[ -f "$sync_dir/claude.status" ]]; then
+      # shellcheck disable=SC2034 # claude_timestamp set via eval
       local claude_status="" claude_timestamp="" claude_message=""
       eval "$(adapter_read_agent_status "$sync_dir/claude.status" "claude")"
       local formatted
@@ -75,6 +77,7 @@ adapter_agent_duo_read_session_state() {
     fi
 
     if [[ -f "$sync_dir/codex.status" ]]; then
+      # shellcheck disable=SC2034 # codex_timestamp set via eval
       local codex_status="" codex_timestamp="" codex_message=""
       eval "$(adapter_read_agent_status "$sync_dir/codex.status" "codex")"
       local formatted

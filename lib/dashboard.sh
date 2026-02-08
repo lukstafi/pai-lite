@@ -318,6 +318,7 @@ dashboard_generate_mayor() {
   local results_dir="$harness_dir/tasks/results"
   if [[ -d "$results_dir" ]]; then
     local latest_result
+    # shellcheck disable=SC2012 # ls -t for mtime sort; find has no native sort
     latest_result=$(ls -t "$results_dir"/*.json 2>/dev/null | head -n 1 || echo "")
     if [[ -n "$latest_result" && -f "$latest_result" ]]; then
       local result_time

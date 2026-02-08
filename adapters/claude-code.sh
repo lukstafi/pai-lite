@@ -391,7 +391,7 @@ adapter_claude_code_doctor() {
   # Count active sessions
   if command -v tmux >/dev/null 2>&1; then
     local session_count
-    session_count=$(tmux ls 2>/dev/null | grep -i 'claude' | wc -l | tr -d ' ')
+    session_count=$(tmux ls 2>/dev/null | grep -ci 'claude')
     echo "Active Claude sessions: $session_count"
 
     if [[ $session_count -gt 0 ]]; then

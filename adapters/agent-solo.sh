@@ -10,7 +10,7 @@ set -euo pipefail
 _ADAPTER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -f "$_ADAPTER_DIR/helpers.sh" ]]; then
-  # shellcheck source=helpers.sh
+  # shellcheck disable=SC1091 source=helpers.sh
   source "$_ADAPTER_DIR/helpers.sh"
 fi
 
@@ -65,6 +65,7 @@ adapter_agent_solo_read_session_state() {
     echo "**Roles:**"
 
     if [[ -f "$sync_dir/coder.status" ]]; then
+      # shellcheck disable=SC2034 # coder_timestamp set via eval
       local coder_status="" coder_timestamp="" coder_message=""
       eval "$(adapter_read_agent_status "$sync_dir/coder.status" "coder")"
       local formatted
@@ -73,6 +74,7 @@ adapter_agent_solo_read_session_state() {
     fi
 
     if [[ -f "$sync_dir/reviewer.status" ]]; then
+      # shellcheck disable=SC2034 # reviewer_timestamp set via eval
       local reviewer_status="" reviewer_timestamp="" reviewer_message=""
       eval "$(adapter_read_agent_status "$sync_dir/reviewer.status" "reviewer")"
       local formatted
@@ -287,11 +289,13 @@ adapter_agent_solo_watch_phase() {
       round=$(adapter_read_state_file "$peer_sync_path/round")
 
       if [[ -f "$peer_sync_path/coder.status" ]]; then
+        # shellcheck disable=SC2034 # coder_ts, coder_msg set via eval
         local coder_st="" coder_ts="" coder_msg=""
         eval "$(adapter_read_agent_status "$peer_sync_path/coder.status" "coder")"
         coder_status="$coder_st"
       fi
       if [[ -f "$peer_sync_path/reviewer.status" ]]; then
+        # shellcheck disable=SC2034 # reviewer_ts, reviewer_msg set via eval
         local reviewer_st="" reviewer_ts="" reviewer_msg=""
         eval "$(adapter_read_agent_status "$peer_sync_path/reviewer.status" "reviewer")"
         reviewer_status="$reviewer_st"

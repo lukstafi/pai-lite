@@ -260,6 +260,7 @@ adapter_manual_list() {
   echo "=== Archived Work ==="
   local archive_dir="$state_dir/archive"
   if [[ -d "$archive_dir" ]]; then
+    # shellcheck disable=SC2012 # ls -t for mtime sort; find has no native sort
     ls -1t "$archive_dir"/*.md 2>/dev/null | head -10 | while read -r f; do
       basename "$f"
     done

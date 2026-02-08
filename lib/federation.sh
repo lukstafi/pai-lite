@@ -9,7 +9,6 @@ set -euo pipefail
 # Constants
 #------------------------------------------------------------------------------
 
-HEARTBEAT_INTERVAL="${PAI_LITE_HEARTBEAT_INTERVAL:-300}"  # 5 minutes default
 HEARTBEAT_TIMEOUT="${PAI_LITE_HEARTBEAT_TIMEOUT:-900}"    # 15 minutes = stale
 
 #------------------------------------------------------------------------------

@@ -434,9 +434,11 @@ pai_lite_state_push() {
   local harness_dir
   harness_dir="$(pai_lite_state_harness_dir)"
 
-  git -C "$harness_dir" push >/dev/null 2>&1 && \
-    pai_lite_info "pushed to remote" || \
+  if git -C "$harness_dir" push >/dev/null 2>&1; then
+    pai_lite_info "pushed to remote"
+  else
     pai_lite_warn "push failed (will retry later)"
+  fi
 }
 
 # Commit and push state repo

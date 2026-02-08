@@ -752,6 +752,7 @@ slot_merge_adapter_state() {
     # Check if we've hit a new section header
     if [[ "$line" =~ ^\*\* ]]; then
       skip_until_next=0
+      # shellcheck disable=SC2034 # tracks current section for debugging
       in_section=""
     fi
 

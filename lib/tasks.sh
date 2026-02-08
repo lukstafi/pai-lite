@@ -128,6 +128,7 @@ tasks_sync() {
         local path_id
         path_id="$(sanitize_path_for_id "$expanded_path")"
         local line_no=0
+        # shellcheck disable=SC2094 # expanded_path is read as input, echoed as a string — not written
         while IFS= read -r line || [[ -n "$line" ]]; do
           line_no=$((line_no + 1))
           if [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]*\[[[:space:]]\][[:space:]]*(.+)$ ]]; then

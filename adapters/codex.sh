@@ -615,7 +615,7 @@ adapter_codex_doctor() {
   # Count active sessions
   if command -v tmux >/dev/null 2>&1; then
     local session_count
-    session_count=$(tmux ls 2>/dev/null | grep -i 'codex' | wc -l | tr -d ' ')
+    session_count=$(tmux ls 2>/dev/null | grep -ci 'codex')
     echo "Active Codex sessions: $session_count"
 
     if [[ $session_count -gt 0 ]]; then

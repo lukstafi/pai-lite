@@ -404,8 +404,7 @@ mayor_logs() {
     results_dir="$(pai_lite_results_dir)"
     if [[ -d "$results_dir" ]]; then
       echo "Recent results:"
-      find "$results_dir" -name "*.json" -type f -mtime -1 | \
-        xargs -I {} sh -c 'echo "---"; cat "{}"' 2>/dev/null | head -n 50
+      find "$results_dir" -name "*.json" -type f -mtime -1 -exec sh -c 'echo "---"; cat "$1"' _ {} \; 2>/dev/null | head -n 50
     fi
     return 0
   fi
@@ -468,8 +467,10 @@ mayor_queue_pop() {
 
   # Export request info for skills to use
   export PAI_LITE_REQUEST_ID="$request_id"
-  export PAI_LITE_STATE_PATH="$(pai_lite_state_harness_dir)"
-  export PAI_LITE_RESULTS_DIR="$(pai_lite_results_dir)"
+  PAI_LITE_STATE_PATH="$(pai_lite_state_harness_dir)"
+  export PAI_LITE_STATE_PATH
+  PAI_LITE_RESULTS_DIR="$(pai_lite_results_dir)"
+  export PAI_LITE_RESULTS_DIR
   mkdir -p "$PAI_LITE_RESULTS_DIR"
 
   # Map action to skill command
@@ -644,8 +645,6 @@ mayor_briefing() {
 
     # Send notification
     if command -v notify_pai >/dev/null 2>&1; then
-      local summary
-      summary=$(echo "$result" | jq -r '.output // ""' 2>/dev/null | head -n 5)
       notify_pai "Briefing ready" 3 "pai-lite briefing"
     fi
 

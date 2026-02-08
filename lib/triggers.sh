@@ -101,13 +101,15 @@ _plist_write_args() {
   local bin_path="$2"
   shift 2
 
-  echo "  <key>ProgramArguments</key>" >> "$plist"
-  echo "  <array>" >> "$plist"
-  echo "    <string>$bin_path</string>" >> "$plist"
-  for arg in "$@"; do
-    echo "    <string>$arg</string>" >> "$plist"
-  done
-  echo "  </array>" >> "$plist"
+  {
+    echo "  <key>ProgramArguments</key>"
+    echo "  <array>"
+    echo "    <string>$bin_path</string>"
+    for arg in "$@"; do
+      echo "    <string>$arg</string>"
+    done
+    echo "  </array>"
+  } >> "$plist"
 }
 
 # Helper to write log paths to plist
