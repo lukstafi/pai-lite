@@ -3,22 +3,17 @@
 # Installed by: pai-lite init --hooks
 #
 # This hook fires when Claude Code finishes a turn. It reads the Stop event
-# JSON from stdin, checks stop_hook_active to prevent loops, pops the next
-# queued request, and outputs a JSON decision to continue Claude with the
-# skill command.
+# JSON from stdin, pops the next queued request, and outputs a JSON decision
+# to continue Claude with the skill command.
+#
+# Loop prevention: when the queue is empty, mayor_queue_pop outputs nothing
+# (exit 0), so Claude stops naturally. No stop_hook_active guard needed.
 
 # Ensure Bash 4+ and tools like jq/yq are available (macOS system bash is v3)
 export PATH="/opt/homebrew/bin:$PATH"
 
 # Read Stop event input from stdin
 input=$(cat)
-
-# Prevent infinite loops: if Claude is already continuing from a stop hook,
-# don't pop another request.
-stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active // false' 2>/dev/null)
-if [[ "$stop_hook_active" == "true" ]]; then
-  exit 0
-fi
 
 # Extract cwd so mayor queue-pop can verify this is the Mayor session
 cwd=$(echo "$input" | jq -r '.cwd // ""' 2>/dev/null)
