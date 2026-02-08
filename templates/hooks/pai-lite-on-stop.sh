@@ -7,6 +7,9 @@
 # queued request, and outputs a JSON decision to continue Claude with the
 # skill command.
 
+# Ensure Bash 4+ and tools like jq/yq are available (macOS system bash is v3)
+export PATH="/opt/homebrew/bin:$PATH"
+
 # Read Stop event input from stdin
 input=$(cat)
 
