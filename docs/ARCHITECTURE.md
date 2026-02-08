@@ -107,20 +107,20 @@ The Mayor's skills (defined in the framework) can embed delegation patterns, e.g
 
 **How automation invokes the Mayor:**
 ```bash
+# trigger_skill sends the slash command with a brief sleep
+# so the console processes the prompt instead of a raw newline.
+
 # Trigger at 08:00 (launchd)
-tmux send-keys -t pai-mayor "/pai-briefing"
-tmux send-keys -t pai-mayor C-m
+trigger_skill pai-mayor "/pai-briefing"
 # Mayor writes to briefing.md
 # Automation reads and notifies
 
 # New issue detected
-tmux send-keys -t pai-mayor "/pai-analyze-issue ocannl 127"
-tmux send-keys -t pai-mayor C-m
+trigger_skill pai-mayor "/pai-analyze-issue ocannl 127"
 # Mayor creates task-143.md with inferred dependencies
 
 # User asks for suggestions
-tmux send-keys -t pai-mayor "/pai-suggest"
-tmux send-keys -t pai-mayor C-m
+trigger_skill pai-mayor "/pai-suggest"
 # Mayor analyzes flow state, writes suggestions
 ```
 

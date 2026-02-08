@@ -12,6 +12,21 @@ MAYOR_SESSION_NAME="${PAI_LITE_MAYOR_SESSION:-pai-mayor}"
 MAYOR_DEFAULT_PORT="${PAI_LITE_MAYOR_PORT:-7679}"
 
 #------------------------------------------------------------------------------
+# Helper: Send a skill command (slash command) to a tmux session
+# The sleep is needed because the console would still input a newline
+# instead of processing the prompt without it.
+#------------------------------------------------------------------------------
+
+trigger_skill() {
+  local session="$1"
+  local skill_cmd="$2"
+
+  tmux send-keys -t "$session" -l "$skill_cmd"
+  sleep 0.5
+  tmux send-keys -t "$session" Enter
+}
+
+#------------------------------------------------------------------------------
 # Helper: Get Mayor state directory
 #------------------------------------------------------------------------------
 
@@ -146,8 +161,7 @@ mayor_start() {
     skill_cmd="$(mayor_queue_pop)"
     if [[ -n "$skill_cmd" ]]; then
       pai_lite_info "Mayor running, sending queued request: $skill_cmd"
-      tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd"
-      tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
+      trigger_skill "$MAYOR_SESSION_NAME" "$skill_cmd"
     fi
     return 0
   fi
@@ -200,8 +214,7 @@ EOF
     # Give Claude Code a moment to initialize before sending the command
     sleep 5
     pai_lite_info "Mayor fresh start, sending queued request: $skill_cmd"
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "$skill_cmd"
-    tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
+    trigger_skill "$MAYOR_SESSION_NAME" "$skill_cmd"
   fi
 
   return 0
@@ -496,8 +509,7 @@ mayor_send() {
     pai_lite_die "Mayor session is not running. Start with: pai-lite mayor start"
   fi
 
-  tmux send-keys -t "$MAYOR_SESSION_NAME" "$command"
-  tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
+  trigger_skill "$MAYOR_SESSION_NAME" "$command"
   pai_lite_info "Sent command to Mayor: $command"
 }
 
