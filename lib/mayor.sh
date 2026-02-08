@@ -155,7 +155,7 @@ mayor_start() {
       mayor_ensure_ttyd
     fi
     local skill_cmd
-    skill_cmd="$(mayor_queue_pop)"
+    skill_cmd="$(mayor_queue_pop_skill)"
     if [[ -n "$skill_cmd" ]]; then
       pai_lite_info "Mayor running, sending queued request: $skill_cmd"
       trigger_skill "$MAYOR_SESSION_NAME" "$skill_cmd"
@@ -206,7 +206,7 @@ EOF
 
   # Drain any queued requests (e.g. briefing queued at startup before Mayor was up)
   local skill_cmd
-  skill_cmd="$(mayor_queue_pop)"
+  skill_cmd="$(mayor_queue_pop_skill)"
   if [[ -n "$skill_cmd" ]]; then
     # Give Claude Code a moment to initialize before sending the command
     sleep 5
@@ -436,12 +436,12 @@ mayor_signal() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor queue-pop: Pop next request from queue and output skill command
-# Outputs the skill command to stdout; nothing if queue is empty.
-# Used by both the keepalive path and the stop hook.
+# Mayor queue-pop-skill: Pop next request from queue and output skill command
+# Outputs the plain skill command to stdout; nothing if queue is empty.
+# Used by the keepalive path and mayor start to send commands via tmux.
 #------------------------------------------------------------------------------
 
-mayor_queue_pop() {
+mayor_queue_pop_skill() {
   local queue_file
   queue_file="$(pai_lite_queue_file)"
 
@@ -474,26 +474,46 @@ mayor_queue_pop() {
   mkdir -p "$PAI_LITE_RESULTS_DIR"
 
   # Map action to skill command
+  local skill_command=""
   case "$action" in
-    briefing)       echo "/pai-briefing" ;;
-    suggest)        echo "/pai-suggest" ;;
+    briefing)       skill_command="/pai-briefing" ;;
+    suggest)        skill_command="/pai-suggest" ;;
     analyze-issue)
       local issue
       issue=$(echo "$request" | jq -r '.issue' 2>/dev/null)
-      echo "/pai-analyze-issue $issue" ;;
+      skill_command="/pai-analyze-issue $issue" ;;
     elaborate)
       local task
       task=$(echo "$request" | jq -r '.task' 2>/dev/null)
-      echo "/pai-elaborate $task" ;;
-    health-check)   echo "/pai-health-check" ;;
-    learn)          echo "/pai-learn" ;;
-    sync-learnings) echo "/pai-sync-learnings" ;;
-    techdebt)       echo "/pai-techdebt" ;;
-    context-sync)   echo "/pai-context-sync" ;;
+      skill_command="/pai-elaborate $task" ;;
+    health-check)   skill_command="/pai-health-check" ;;
+    learn)          skill_command="/pai-learn" ;;
+    sync-learnings) skill_command="/pai-sync-learnings" ;;
+    techdebt)       skill_command="/pai-techdebt" ;;
+    context-sync)   skill_command="/pai-context-sync" ;;
     *)
       echo "mayor queue-pop: unknown queue action: $action" >&2
+      return 0
       ;;
   esac
+
+  echo "$skill_command"
+}
+
+#------------------------------------------------------------------------------
+# Mayor queue-pop: Pop next request and output Stop hook JSON
+# Used by the Claude Code Stop hook (pai-lite-on-stop).
+# Returns JSON with decision:"block" and the skill command as reason,
+# which tells Claude Code to continue with that command as its instruction.
+#------------------------------------------------------------------------------
+
+mayor_queue_pop() {
+  local skill_command
+  skill_command="$(mayor_queue_pop_skill)"
+
+  if [[ -n "$skill_command" ]]; then
+    jq -n --arg reason "$skill_command" '{"decision": "block", "reason": $reason}'
+  fi
 }
 
 #------------------------------------------------------------------------------

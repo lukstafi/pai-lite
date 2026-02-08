@@ -535,7 +535,7 @@ Mayor's stop hook (`pai-lite-on-stop`) delegates to `pai-lite mayor queue-pop`, 
 exec pai-lite mayor queue-pop
 ```
 
-`mayor_queue_pop()` in `lib/mayor.sh` pops the first request from the queue and maps its action to a skill command (e.g. `briefing` → `/pai-briefing`, `analyze-issue` → `/pai-analyze-issue $issue`). The hook's stdout becomes the next user prompt for Claude Code.
+`mayor_queue_pop()` in `lib/mayor.sh` pops the first request from the queue, maps its action to a skill command (e.g. `briefing` → `/pai-briefing`), and outputs Stop hook JSON (`{"decision": "block", "reason": "/pai-briefing"}`) that tells Claude Code to continue with that skill command.
 
 **Benefits:**
 - ✅ **Robust**: Works regardless of Claude's state
