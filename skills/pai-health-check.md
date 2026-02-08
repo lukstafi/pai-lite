@@ -34,13 +34,9 @@ This skill is invoked when:
    - Read `tasks/queue.jsonl`
    - Flag if requests have been pending > 1h
 
-5. **Check task elaboration**:
-   - Run `pai-lite tasks needs-elaboration` to find unprocessed tasks
-   - For each unprocessed task that is ready (not blocked), enqueue elaboration:
-     ```bash
-     pai-lite mayor elaborate <task-id>
-     ```
-   - This queues `/pai-elaborate` requests for Mayor to process, avoiding starvation of other requests
+5. **Report task elaboration status**:
+   - Run `pai-lite tasks needs-elaboration` to count unprocessed tasks
+   - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `mayor_start()` — no need to enqueue here
 
 6. **Generate report**:
    - Categorize issues by severity
@@ -73,9 +69,8 @@ This skill is invoked when:
 - Queue pending: 0
 - Tasks needing elaboration: 5
 
-## Queued Elaborations
-- Queued `/pai-elaborate task-101` (ready, unelaborated)
-- Queued `/pai-elaborate task-042` (deadline approaching, unelaborated)
+## Elaboration Status
+- 2 tasks awaiting elaboration (queued automatically by mayor keepalive)
 
 ## Recommendations
 1. Prioritize task-042 - deadline is imminent

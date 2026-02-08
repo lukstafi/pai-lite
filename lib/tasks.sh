@@ -691,6 +691,55 @@ tasks_needs_elaboration() {
   done
 }
 
+#------------------------------------------------------------------------------
+# Queue elaboration requests for unprocessed ready tasks
+# Deterministic: checks queue to avoid duplicates, then queues each task
+#------------------------------------------------------------------------------
+
+tasks_queue_elaborations() {
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+  [[ -d "$tasks_dir" ]] || return 0
+
+  # Get list of tasks needing elaboration
+  local needs_elab
+  needs_elab="$(tasks_needs_elaboration)"
+  [[ -n "$needs_elab" ]] || return 0
+
+  # Read current queue to avoid duplicate requests
+  local queue_file already_queued=""
+  queue_file="$(pai_lite_queue_file)"
+  if [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]; then
+    already_queued="$(grep '"action":"elaborate"' "$queue_file" 2>/dev/null || true)"
+  fi
+
+  local count=0
+  while IFS= read -r task_id; do
+    [[ -n "$task_id" ]] || continue
+
+    # Only queue ready tasks (not blocked, not in-progress, not done)
+    local file="$tasks_dir/${task_id}.md"
+    [[ -f "$file" ]] || continue
+    local status
+    status=$(awk '/^status:/ { print $2; exit }' "$file")
+    if [[ "$status" != "ready" ]]; then
+      continue
+    fi
+
+    # Skip if already in queue
+    if [[ -n "$already_queued" ]] && echo "$already_queued" | grep -q "\"task\":\"$task_id\""; then
+      continue
+    fi
+
+    pai_lite_queue_request "elaborate" "\"task\":\"$task_id\"" >/dev/null
+    count=$((count + 1))
+  done <<< "$needs_elab"
+
+  if [[ $count -gt 0 ]]; then
+    pai_lite_info "Queued $count task(s) for elaboration"
+  fi
+}
+
 # Check if a specific task needs elaboration
 tasks_check_elaboration() {
   local task_id="$1"

@@ -133,6 +133,9 @@ mayor_start() {
     fi
   fi
 
+  # Queue elaboration for any unprocessed ready tasks (deterministic, no LLM needed)
+  tasks_queue_elaborations
+
   # Check if session already exists
   if mayor_is_running; then
     # Keepalive path: session exists, ensure ttyd is alive and check queue
