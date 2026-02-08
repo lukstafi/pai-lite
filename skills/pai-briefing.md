@@ -16,6 +16,15 @@ This skill is invoked by the pai-lite automation when:
 
 ## Process
 
+0. **Check for same-day briefing**:
+   - Read the existing `$PAI_LITE_STATE_PATH/briefing.md` and extract the date from its `# Briefing - YYYY-MM-DD` title
+   - If today's date matches the existing briefing date, **amend** rather than regenerate:
+     - Skim current state for anything that changed (slot activity, task status, new tasks)
+     - Apply light-touch updates to the affected sections only
+     - Do not re-elaborate tasks or redo the full analysis
+     - Skip to step 5 (Write result) after amending
+   - If the dates differ or no briefing exists, proceed with the full process below
+
 1. **Gather context**:
    - Read `slots.md` to understand active work
    - Read `tasks/*.md` to understand task inventory
