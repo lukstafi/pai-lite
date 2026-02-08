@@ -52,6 +52,10 @@ This skill is invoked by the pai-lite automation when:
    - Write briefing to `$PAI_LITE_STATE_PATH/briefing.md`
    - Write result JSON to `$PAI_LITE_RESULTS_DIR/$PAI_LITE_REQUEST_ID.json`
 
+6. **Commit and push state**:
+   - Run `pai-lite sync` to commit the briefing to the state repo and push to remote
+   - This archives the briefing via git history and propagates it to the remote
+
 ## Output Format
 
 ### briefing.md
