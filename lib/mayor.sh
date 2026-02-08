@@ -508,6 +508,17 @@ mayor_queue_pop_skill() {
 #------------------------------------------------------------------------------
 
 mayor_queue_pop() {
+  local cwd="${1:-}"
+
+  # Only process queue for the Mayor session (cwd must be inside the harness dir)
+  if [[ -n "$cwd" ]]; then
+    local harness_dir
+    harness_dir="$(pai_lite_state_harness_dir)"
+    if [[ "$cwd" != "$harness_dir"* ]]; then
+      return 0
+    fi
+  fi
+
   local skill_command
   skill_command="$(mayor_queue_pop_skill)"
 

@@ -17,15 +17,18 @@ if [[ "$stop_hook_active" == "true" ]]; then
   exit 0
 fi
 
+# Extract cwd so mayor queue-pop can verify this is the Mayor session
+cwd=$(echo "$input" | jq -r '.cwd // ""' 2>/dev/null)
+
 # Find pai-lite binary and run queue-pop
 if command -v pai-lite >/dev/null 2>&1; then
-  exec pai-lite mayor queue-pop
+  exec pai-lite mayor queue-pop "$cwd"
 fi
 
 # Fallback: check common install locations
 for bin in "$HOME/.local/bin/pai-lite" "$HOME/.local/pai-lite/bin/pai-lite"; do
   if [[ -x "$bin" ]]; then
-    exec "$bin" mayor queue-pop
+    exec "$bin" mayor queue-pop "$cwd"
   fi
 done
 

@@ -591,8 +591,9 @@ case "$cmd" in
         fi
         ;;
       queue-pop)
-        # Pop next request and output skill command (used by stop hook)
-        mayor_queue_pop
+        # Pop next request and output Stop hook JSON (used by stop hook)
+        # Optional arg: cwd of the calling session (to verify it's the Mayor)
+        mayor_queue_pop "${3:-}"
         ;;
       "")
         # No subcommand - show status
