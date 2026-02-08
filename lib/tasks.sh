@@ -161,6 +161,9 @@ tasks_sync() {
 
   # Automatically convert to individual task files for the flow engine
   tasks_convert
+
+  # Queue elaboration for any new ready tasks (deterministic, deduplicates)
+  tasks_queue_elaborations
 }
 
 tasks_list() {

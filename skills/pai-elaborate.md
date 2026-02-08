@@ -4,9 +4,10 @@ Elaborate a high-level task into a detailed specification.
 
 ## Trigger
 
-This skill is invoked when:
-- The user runs `pai-lite mayor elaborate <task_id>`
+This skill is invoked:
+- When the user runs `pai-lite mayor elaborate <task_id>`
 - Before assigning a task to a slot
+- For freshly generated tasks from the `pai-lite tasks sync` automation
 
 ## Arguments
 

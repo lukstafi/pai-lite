@@ -36,7 +36,7 @@ This skill is invoked when:
 
 5. **Report task elaboration status**:
    - Run `pai-lite tasks needs-elaboration` to count unprocessed tasks
-   - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `mayor_start()` — no need to enqueue here
+   - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `tasks_sync()` — no need to enqueue here
 
 6. **Generate report**:
    - Categorize issues by severity
