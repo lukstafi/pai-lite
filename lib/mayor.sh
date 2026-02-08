@@ -150,16 +150,13 @@ mayor_start() {
 
   # Check if session already exists
   if mayor_is_running; then
-    # Keepalive path: session exists, ensure ttyd is alive and check queue
+    # Keepalive path: session exists, ensure ttyd is alive
     if [[ "$use_ttyd" == "true" ]]; then
       mayor_ensure_ttyd
     fi
-    local skill_cmd
-    skill_cmd="$(mayor_queue_pop_skill)"
-    if [[ -n "$skill_cmd" ]]; then
-      pai_lite_info "Mayor running, sending queued request: $skill_cmd"
-      trigger_skill "$MAYOR_SESSION_NAME" "$skill_cmd"
-    fi
+    # Queue is drained by the Stop hook when Mayor finishes a turn.
+    # If Mayor gets stuck, consider sending a nudge ("Continue (periodic checkup).")
+    # or interrupting the session to unstick the Stop hook cycle.
     return 0
   fi
 
