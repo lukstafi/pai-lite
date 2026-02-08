@@ -20,7 +20,15 @@ cd pai-lite
 ./bin/pai-lite init
 ```
 
-This installs pai-lite to `~/.local/pai-lite/` with a symlink at `~/.local/bin/pai-lite`, creates a pointer config at `~/.config/pai-lite/config.yaml`, and initializes the harness in your state repo.
+`init` performs a comprehensive installation (or update):
+
+1. **Binary** — copies `bin/`, `lib/`, `adapters/`, `templates/`, `skills/` to `~/.local/pai-lite/` and symlinks `~/.local/bin/pai-lite`
+2. **State repo** — clones your private state repo (if not yet cloned), creates the harness directory with initial config, slots file, and Mayor memory structure
+3. **Skills** — installs all skill files (e.g. `/pai-briefing`, `/pai-elaborate`) to your harness's `.claude/commands/` so Mayor and direct Claude Code sessions can use them
+4. **Hooks** — installs the `pai-lite-on-stop` hook script and configures Claude Code's `settings.json` to call it on session stop (this is how Mayor drains its queue)
+5. **Triggers** — installs launchd agents (macOS) or systemd units (Linux) for startup, periodic sync, and Mayor keepalive
+
+Use `--no-hooks` or `--no-triggers` to skip those steps. To update pai-lite later, pull the latest changes and run `./bin/pai-lite init` again — it's safe to re-run.
 
 If `~/.local/bin` isn't in your PATH, add it to your shell profile:
 
@@ -30,21 +38,19 @@ export PATH="$PATH:$HOME/.local/bin"
 
 ### Dependencies
 
-pai-lite requires a few CLI tools for the flow engine:
-
 ```bash
 # macOS
-brew install yq jq
+brew install yq jq tmux
 
 # Ubuntu/Debian
-sudo apt install yq jq
+sudo apt install yq jq tmux
 ```
 
-- `yq` - YAML parsing (mikefarah/yq)
-- `jq` - JSON filtering
-- `gh` - GitHub CLI (for cloning state repo and fetching issues)
-
-To update pai-lite later, pull the latest changes and run `./bin/pai-lite init` again.
+- `yq` — YAML parsing (mikefarah/yq)
+- `jq` — JSON filtering
+- `gh` — GitHub CLI (for cloning state repo and fetching issues)
+- `tmux` — terminal multiplexer (Mayor runs in a tmux session)
+- `ttyd` — optional, for web access to Mayor's terminal
 
 ## Quickstart Tutorial
 
@@ -100,18 +106,20 @@ pai-lite tasks sync
 
 This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, then automatically converts them to individual `.md` task files in `harness/tasks/` with YAML frontmatter for priority, dependencies, status, etc. The flow engine reads these task files.
 
-### Step 4: Install triggers
+### Step 4: Verify triggers
 
-Triggers automate Mayor startup and periodic tasks via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, this also installs a keepalive that starts the Mayor at login and checks every 15 minutes:
-
-```bash
-pai-lite triggers install
-```
+Triggers were already installed by `pai-lite init`. They automate Mayor startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, a keepalive trigger also starts the Mayor at login and checks every 15 minutes.
 
 Verify with:
 
 ```bash
 pai-lite triggers status
+```
+
+To reinstall or update triggers separately:
+
+```bash
+pai-lite triggers install
 ```
 
 ### Step 5: Get an overview
@@ -245,8 +253,9 @@ You don't need Mayor to use pai-lite skills. Clone your harness repository and r
 ```bash
 pai-lite status                  # Overview of slots + tasks
 pai-lite briefing                # Morning briefing
-pai-lite init                    # Initialize config + harness
-pai-lite triggers install        # Install launchd/systemd triggers
+pai-lite init                    # Full install/update: binary, skills, hooks, triggers
+pai-lite triggers install        # Reinstall launchd/systemd triggers only
+pai-lite doctor                  # Check environment and dependencies
 pai-lite help                    # Show help
 ```
 
