@@ -488,6 +488,7 @@ mayor_queue_pop_skill() {
     sync-learnings) skill_command="/pai-sync-learnings" ;;
     techdebt)       skill_command="/pai-techdebt" ;;
     context-sync)   skill_command="/pai-context-sync" ;;
+    message)        skill_command="/pai-read-inbox" ;;
     *)
       echo "mayor queue-pop: unknown queue action: $action" >&2
       return 0

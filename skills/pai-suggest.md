@@ -15,6 +15,9 @@ This skill is invoked when:
 
 ## Process
 
+0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
+   Factor any messages into task suggestions and priority reasoning.
+
 1. **Analyze flow state**:
    ```bash
    pai-lite flow ready      # Get ready tasks

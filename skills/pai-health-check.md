@@ -15,6 +15,9 @@ This skill is invoked when:
 
 ## Process
 
+0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
+   Factor any messages into the health check assessment.
+
 1. **Check for stalled tasks**:
    - Find tasks with `status: in-progress`
    - Calculate time since `started` date

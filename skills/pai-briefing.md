@@ -16,23 +16,27 @@ This skill is invoked by the pai-lite automation when:
 
 ## Process
 
-0. **Check for same-day briefing**:
+0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
+   If there are messages, treat them as high-priority context that should influence
+   the briefing content, suggestions, and priority assessments below.
+
+1. **Check for same-day briefing**:
    - Read the existing `$PAI_LITE_STATE_PATH/briefing.md` and extract the date from its `# Briefing - YYYY-MM-DD` title
    - If today's date matches the existing briefing date, **amend** rather than regenerate:
      - Skim current state for anything that changed (slot activity, task status, new tasks)
      - Apply light-touch updates to the affected sections only
      - Do not re-elaborate tasks or redo the full analysis
-     - Skip to step 5 (Write result) after amending
+     - Skip to step 6 (Write result) after amending
    - If the dates differ or no briefing exists, proceed with the full process below
 
-1. **Gather context**:
+2. **Gather context**:
    - Read `slots.md` to understand active work
    - Read `tasks/*.md` to understand task inventory
    - Use flow engine to compute ready queue: `pai-lite flow ready`
    - Check for critical items: `pai-lite flow critical`
    - Read recent journal entries: `journal/*.md`
 
-2. **Elaborate unprocessed tasks** (before analysis):
+3. **Elaborate unprocessed tasks** (before analysis):
    - Run `pai-lite tasks needs-elaboration` to find unprocessed tasks
    - For tasks that might appear in the briefing (ready, high-priority, or deadline soon):
      - Use the Task tool to invoke `/pai-elaborate <task-id>` inline
@@ -43,13 +47,13 @@ This skill is invoked by the pai-lite automation when:
      Task tool: /pai-elaborate task-042
      ```
 
-3. **Analyze state**:
+4. **Analyze state**:
    - Identify high-priority ready tasks (A-priority, empty blocked_by)
    - Detect approaching deadlines (within 7 days)
    - Identify stalled work (in-progress > 7 days without updates)
    - Check slot utilization (X/6 slots active)
 
-4. **Generate briefing**:
+5. **Generate briefing**:
    Write a strategic briefing covering:
    - **Current state**: Active slots, ongoing work
    - **Ready tasks**: Priority-sorted list of what can start
@@ -57,11 +61,11 @@ This skill is invoked by the pai-lite automation when:
    - **Suggestions**: What to work on today and why
    - **Context switches**: Note if changing context is expensive
 
-5. **Write result**:
+6. **Write result**:
    - Write briefing to `$PAI_LITE_STATE_PATH/briefing.md`
    - Write result JSON to `$PAI_LITE_RESULTS_DIR/$PAI_LITE_REQUEST_ID.json`
 
-6. **Commit and push state**:
+7. **Commit and push state**:
    - Run `pai-lite sync` to commit the briefing to the state repo and push to remote
    - This archives the briefing via git history and propagates it to the remote
 

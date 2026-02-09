@@ -353,6 +353,111 @@ pai_lite_queue_pending() {
 }
 
 #------------------------------------------------------------------------------
+# Mayor Inbox Functions
+# Async message channel: humans drop messages, Mayor consumes them.
+# inbox.md is free-form text (no required structure).
+# past-messages.md is the structured archive with date-stamped sections.
+#------------------------------------------------------------------------------
+
+pai_lite_inbox_file() {
+  echo "$(pai_lite_state_harness_dir)/mayor/inbox.md"
+}
+
+pai_lite_past_messages_file() {
+  echo "$(pai_lite_state_harness_dir)/mayor/past-messages.md"
+}
+
+# Write a message to the inbox (free-form text, appended as-is)
+# Usage: pai_lite_inbox_append <message>
+pai_lite_inbox_append() {
+  local message="$1"
+  local inbox_file
+  inbox_file="$(pai_lite_inbox_file)"
+
+  # Ensure mayor directory exists
+  mkdir -p "$(dirname "$inbox_file")"
+
+  # Append message followed by a blank line for readability
+  printf '%s\n\n' "$message" >> "$inbox_file"
+}
+
+# Check if inbox has content (non-empty, non-whitespace)
+# Returns 0 if there are messages, 1 if empty
+pai_lite_inbox_has_messages() {
+  local inbox_file
+  inbox_file="$(pai_lite_inbox_file)"
+
+  [[ -f "$inbox_file" ]] || return 1
+
+  # Check for any non-whitespace content
+  if grep -q '[^[:space:]]' "$inbox_file" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+# Consume inbox: pull remote, print messages, archive to past-messages.md,
+# clear inbox. Output goes to stdout for Mayor to see.
+# Usage: pai_lite_inbox_consume
+pai_lite_inbox_consume() {
+  local inbox_file past_file
+  inbox_file="$(pai_lite_inbox_file)"
+  past_file="$(pai_lite_past_messages_file)"
+
+  # Pull latest from remote to pick up messages sent from other machines
+  if ! pai_lite_state_pull 2>/dev/null; then
+    # Check for merge conflicts
+    local repo_dir
+    repo_dir="$(pai_lite_state_repo_dir)"
+    if git -C "$repo_dir" diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
+      echo "ERROR: Merge conflicts detected in state repo."
+      echo "Please resolve conflicts in $repo_dir and run 'pai-lite mayor inbox' again."
+      return 1
+    fi
+    pai_lite_warn "pull failed but no conflicts detected; continuing with local state"
+  fi
+
+  # Ensure directory exists
+  mkdir -p "$(dirname "$inbox_file")"
+  if [[ ! -f "$past_file" ]]; then
+    echo "# Past Messages" > "$past_file"
+  fi
+
+  # Check for messages
+  if ! pai_lite_inbox_has_messages; then
+    echo "No pending messages."
+    return 0
+  fi
+
+  # Print current inbox for Mayor to see
+  echo "=== Pending Messages ==="
+  cat "$inbox_file"
+  echo ""
+
+  # Compute the line number where this message will start in past-messages
+  local past_lines
+  past_lines=$(wc -l < "$past_file" | tr -d ' ')
+  # The new content starts after current lines + 1 (blank line) + 1 (header)
+  local start_line=$((past_lines + 3))
+
+  # Archive: append inbox contents to past-messages with timestamp header
+  local archive_timestamp
+  archive_timestamp="$(date +"%Y-%m-%d %H:%M")"
+  {
+    echo ""
+    echo "## Message consumed $archive_timestamp"
+    echo ""
+    cat "$inbox_file"
+  } >> "$past_file"
+
+  # Clear inbox
+  : > "$inbox_file"
+
+  echo "The current message starts at past-messages.md line $start_line."
+  echo "To revisit past messages, read mayor/past-messages.md."
+}
+
+#------------------------------------------------------------------------------
 # State Repository Pull Functions
 #------------------------------------------------------------------------------
 
