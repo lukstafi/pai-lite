@@ -395,6 +395,50 @@ dashboard_get_mayor_ttyd_port() {
 }
 
 #------------------------------------------------------------------------------
+# Generate briefing.json
+# Reads briefing.md from the harness directory and converts to JSON
+# Schema:
+# {
+#   "date": "2026-02-09",
+#   "content": "# Briefing - 2026-02-09\n...",
+#   "exists": true
+# }
+#------------------------------------------------------------------------------
+dashboard_generate_briefing() {
+  dashboard_require_tools
+
+  local harness_dir briefing_file
+  harness_dir="$(pai_lite_state_harness_dir)"
+  briefing_file="$harness_dir/briefing.md"
+
+  if [[ ! -f "$briefing_file" ]]; then
+    jq -n '{ date: null, html: "", exists: false }'
+    return
+  fi
+
+  local date_line=""
+  local first_line
+  first_line=$(head -n 1 "$briefing_file")
+  if [[ "$first_line" =~ ^#[[:space:]]+Briefing[[:space:]]+-[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2}) ]]; then
+    date_line="${BASH_REMATCH[1]}"
+  fi
+
+  local content
+  content=$(cat "$briefing_file")
+
+  # Convert markdown to simple HTML using jq for JSON escaping
+  # We pass raw markdown; the browser will render it via JS
+  jq -n \
+    --arg date "$date_line" \
+    --arg content "$content" \
+    '{
+      date: (if $date == "" then null else $date end),
+      content: $content,
+      exists: true
+    }'
+}
+
+#------------------------------------------------------------------------------
 # Generate all dashboard data files
 #------------------------------------------------------------------------------
 dashboard_generate() {
@@ -415,6 +459,9 @@ dashboard_generate() {
 
   dashboard_generate_mayor > "$data_dir/mayor.json"
   pai_lite_info "  mayor.json"
+
+  dashboard_generate_briefing > "$data_dir/briefing.json"
+  pai_lite_info "  briefing.json"
 
   pai_lite_info "dashboard data generated in $data_dir"
 }
