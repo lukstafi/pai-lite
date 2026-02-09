@@ -34,7 +34,7 @@ This skill is invoked when:
    - Check for orphaned sessions (tmux sessions without slot assignment)
 
 4. **Check queue health**:
-   - Read `tasks/queue.jsonl`
+   - Read `mayor/queue.jsonl`
    - Flag if requests have been pending > 1h
 
 5. **Report task elaboration status**:

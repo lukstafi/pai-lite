@@ -271,7 +271,7 @@ dashboard_generate_mayor() {
 
   local harness_dir queue_file
   harness_dir="$(pai_lite_state_harness_dir)"
-  queue_file="$harness_dir/tasks/queue.jsonl"
+  queue_file="$harness_dir/mayor/queue.jsonl"
 
   # Count pending requests
   local pending=0
@@ -315,7 +315,7 @@ dashboard_generate_mayor() {
   fi
 
   # Check results directory for latest activity
-  local results_dir="$harness_dir/tasks/results"
+  local results_dir="$harness_dir/mayor/results"
   if [[ -d "$results_dir" ]]; then
     local latest_result
     # shellcheck disable=SC2012 # ls -t for mtime sort; find has no native sort

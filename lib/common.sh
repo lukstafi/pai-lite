@@ -256,11 +256,11 @@ pai_lite_ensure_state_dir() {
 #------------------------------------------------------------------------------
 
 pai_lite_queue_file() {
-  echo "$(pai_lite_state_harness_dir)/tasks/queue.jsonl"
+  echo "$(pai_lite_state_harness_dir)/mayor/queue.jsonl"
 }
 
 pai_lite_results_dir() {
-  echo "$(pai_lite_state_harness_dir)/tasks/results"
+  echo "$(pai_lite_state_harness_dir)/mayor/results"
 }
 
 # Queue a request for the Mayor
@@ -272,10 +272,10 @@ pai_lite_queue_request() {
   local queue_file
   queue_file="$(pai_lite_queue_file)"
 
-  # Ensure tasks directory exists
-  local tasks_dir
-  tasks_dir="$(dirname "$queue_file")"
-  mkdir -p "$tasks_dir"
+  # Ensure mayor directory exists
+  local mayor_dir
+  mayor_dir="$(dirname "$queue_file")"
+  mkdir -p "$mayor_dir"
 
   local timestamp request_id
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

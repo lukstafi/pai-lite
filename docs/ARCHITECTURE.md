@@ -506,7 +506,7 @@ Automation Layer                      Mayor (Claude Code)
      │ 1. Writes request                    │
      ├──────────────────────────────────────>
      │    to queue file                     │
-     │    (tasks/queue.jsonl)               │
+     │    (mayor/queue.jsonl)               │
      │                                      │
      │                                      │ 2. Stop hook fires
      │                                      │    when Claude ready
@@ -514,7 +514,7 @@ Automation Layer                      Mayor (Claude Code)
      │                                      │ 3. Reads queue
      │ 4. Reads result                      │    Processes requests
      <──────────────────────────────────────┤    Writes results
-     │    (tasks/results/)                  │
+     │    (mayor/results/)                  │
 ```
 
 **Implementation:**
@@ -523,7 +523,7 @@ Automation writes requests to the queue file:
 
 ```bash
 echo '{"action": "briefing", "timestamp": "2026-02-01T08:00:00Z"}' >> \
-  "$STATE_PATH/tasks/queue.jsonl"
+  "$STATE_PATH/mayor/queue.jsonl"
 ```
 
 Mayor's stop hook (`pai-lite-on-stop`) delegates to `pai-lite mayor queue-pop`, which reads and processes queued requests:
@@ -616,7 +616,7 @@ case "$1" in
     briefing)
         # Queue request for Mayor (processed by stop hook)
         echo '{"action": "briefing", "timestamp": "'"$(date -Iseconds)"'"}' >> \
-          "$STATE_PATH/tasks/queue.jsonl"
+          "$STATE_PATH/mayor/queue.jsonl"
         # Wait for result file
         wait_for_file "$STATE_PATH/briefing.md"
         cat "$STATE_PATH/briefing.md"
@@ -673,6 +673,10 @@ your-private-repo/
     │   └── notifications.jsonl    # Notification history (for dashboard)
     └── mayor/                     # Mayor's persistent state
         ├── context.md             # Current understanding
+        ├── queue.jsonl            # Request queue (async communication)
+        ├── results/               # Request result files
+        ├── inbox.md               # Async messages from humans
+        ├── past-messages.md       # Archived messages
         └── memory/                # Long-term patterns
             └── user-preferences.md
 ```
@@ -1364,7 +1368,7 @@ poll_ci_failures() {
 
             # Queue analysis request
             echo "{\"action\": \"analyze-ci-failure\", \"repo\": \"$repo\", \"run_id\": \"$run_id\", \"branch\": \"$branch\"}" \
-              >> "$STATE_PATH/tasks/queue.jsonl"
+              >> "$STATE_PATH/mayor/queue.jsonl"
 
             # Mark as seen
             echo "$run_id" >> "$seen_file"

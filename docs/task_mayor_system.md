@@ -43,7 +43,7 @@ Implement the Mayor lifecycle, queue handling integration, skills scaffolding, a
 - Manual sanity check:
   - `pai-lite mayor start`
   - `pai-lite mayor briefing` queues and stop hook emits `/pai-briefing`.
-  - Results written to `tasks/results/<id>.json`.
+  - Results written to `mayor/results/<id>.json`.
 
 ## Out of Scope
 - Dashboard generation.

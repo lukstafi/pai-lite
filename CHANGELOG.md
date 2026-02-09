@@ -10,7 +10,7 @@ First release of pai-lite: a lightweight personal AI infrastructure for humans w
 - **Task generation from sources** — GitHub issues (via `gh`), Markdown checkboxes, and watch rules on file changes all aggregate into `tasks.yaml` and convert to individual `task-*.md` files with YAML frontmatter.
 - **Briefings** — Morning briefing generation gathers slot state, ready queue, critical items, stalled work, and approaching deadlines into a Markdown report. Same-day briefings are amended rather than regenerated. Auto-committed to the state repo.
 - **Elaboration** — High-level tasks are expanded into detailed specs with subtasks, file references, edge cases, and test suggestions. Proactive elaboration queues unprocessed ready tasks automatically.
-- **Autonomous Mayor operation** — A persistent Claude Code session in tmux with queue-based communication. Automation writes requests to `tasks/queue.jsonl`; the stop hook drains the queue when Claude goes idle. Skills are invoked via tmux send-keys. ttyd provides web access.
+- **Autonomous Mayor operation** — A persistent Claude Code session in tmux with queue-based communication. Automation writes requests to `mayor/queue.jsonl`; the stop hook drains the queue when Claude goes idle. Skills are invoked via tmux send-keys. ttyd provides web access.
 
 ### What's included but not yet battle-tested
 
