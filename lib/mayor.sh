@@ -155,8 +155,13 @@ mayor_start() {
       mayor_ensure_ttyd
     fi
     # Queue is drained by the Stop hook when Mayor finishes a turn.
-    # If Mayor gets stuck, consider sending a nudge ("Continue (periodic checkup).")
-    # or interrupting the session to unstick the Stop hook cycle.
+    # If Mayor is idle and items were queued after its last turn, nudge it
+    # so the Stop hook fires and picks them up.
+    local queue_file
+    queue_file="$(pai_lite_queue_file)"
+    if [[ -s "$queue_file" ]]; then
+      trigger_skill "$MAYOR_SESSION_NAME" "Continue. (pai-lite automatic message)"
+    fi
     return 0
   fi
 
