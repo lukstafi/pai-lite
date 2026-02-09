@@ -6,8 +6,8 @@
  *
  * To use:
  * 1. Run: pai-lite dashboard generate (creates dashboard/data/*.json)
- * 2. Serve: cd dashboard && python3 -m http.server 8080
- * 3. Open: http://localhost:8080
+ * 2. Serve: pai-lite dashboard serve
+ * 3. Open: http://localhost:7678
  */
 
 // Configuration
@@ -26,6 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('pai-lite dashboard initializing...');
     fetchAllData();
     setInterval(fetchAllData, CONFIG.refreshInterval);
+});
+
+// Refresh immediately when tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        fetchAllData();
+    }
 });
 
 // Fetch all dashboard data

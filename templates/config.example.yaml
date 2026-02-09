@@ -63,6 +63,11 @@ mayor:
     health_check: "every 4h"    # Periodic health check interval
     analyze_repos: "on_change"  # Triggered by WatchPaths
 
+# Dashboard settings
+dashboard:
+  port: 7678                    # HTTP server port (default: 7678)
+  ttl: 5                        # Data regeneration TTL in seconds (default: 5)
+
 # Three-tier notification system via ntfy.sh
 notifications:
   provider: ntfy              # Currently only ntfy.sh supported
@@ -120,6 +125,11 @@ triggers:
     enabled: false
     interval: 14400           # 4 hours in seconds
     action: mayor health-check
+
+  # Dashboard server (long-running, KeepAlive/Restart)
+  dashboard:
+    enabled: false
+    port: 7678                  # Override dashboard.port for this trigger
 
   # Watch for file changes (WatchPaths / PathModified)
   # List of rules — each rule has paths to watch and an action to run.

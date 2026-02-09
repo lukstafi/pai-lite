@@ -83,7 +83,7 @@ Commands:
   notify recent [n]            Show recent notifications
 
   dashboard generate           Generate JSON data for dashboard
-  dashboard serve [port]       Serve dashboard (default: 8080)
+  dashboard serve [port]       Serve dashboard (default: 7678)
   dashboard install            Install dashboard to state repo
 
   sync                         Pull + push state repo (full sync)
@@ -102,8 +102,8 @@ Commands:
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing
-  init [--no-hooks] [--no-triggers]
-                               Initialize config, harness, hooks, and triggers
+  init [--no-hooks] [--no-dashboard] [--no-triggers]
+                               Initialize config, harness, hooks, dashboard, and triggers
   triggers install             Install launchd/systemd triggers
   triggers status              Show trigger status
   triggers uninstall           Remove all triggers
@@ -198,14 +198,15 @@ case "$cmd" in
       fi
     fi
 
-    # Parse init flags (hooks and triggers installed by default)
-    install_hooks=true install_triggers=true
+    # Parse init flags (hooks, dashboard, triggers installed by default)
+    install_hooks=true install_dashboard=true install_triggers=true
     shift  # consume 'init'
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --no-hooks)    install_hooks=false ;;
-        --no-triggers) install_triggers=false ;;
-        --hooks)       install_hooks=true ;;    # legacy flag, now default
+        --no-hooks)      install_hooks=false ;;
+        --no-dashboard)  install_dashboard=false ;;
+        --no-triggers)   install_triggers=false ;;
+        --hooks)         install_hooks=true ;;    # legacy flag, now default
         *) ;;
       esac
       shift
@@ -281,6 +282,16 @@ case "$cmd" in
     else
       echo ""
       echo "Skipped hooks installation (use init without --no-hooks to install)"
+    fi
+
+    # Install dashboard (default: yes, skip with --no-dashboard)
+    if [[ "$install_dashboard" == "true" ]]; then
+      echo ""
+      echo "=== Installing Dashboard ==="
+      dashboard_install
+    else
+      echo ""
+      echo "Skipped dashboard installation (use init without --no-dashboard to install)"
     fi
 
     # Install triggers (default: yes, skip with --no-triggers)

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  pai-lite Dashboard server agent
+
+  Runs the dashboard HTTP server as a long-running process:
+  - Starts on login (RunAtLoad)
+  - Restarts automatically if it exits (KeepAlive)
+  - Serves lazily-regenerated JSON data
+
+  Installation:
+    1. Copy to ~/Library/LaunchAgents/
+    2. Edit the path to pai-lite and the port
+    3. Run: launchctl load ~/Library/LaunchAgents/pai-lite-dashboard.plist
+
+  Or use: pai-lite triggers install (with triggers.dashboard.enabled: true)
+-->
+<dict>
+  <key>Label</key>
+  <string>com.pai-lite.dashboard</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/pai-lite</string>
+    <string>dashboard</string>
+    <string>serve</string>
+    <string>7678</string>
+  </array>
+
+  <!-- Start on login -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Restart if the server exits -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Environment -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <!-- Logging -->
+  <key>StandardOutPath</key>
+  <string>/tmp/pai-lite-dashboard.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/pai-lite-dashboard.err.log</string>
+</dict>
+</plist>

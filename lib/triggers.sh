@@ -78,6 +78,7 @@ PLIST_HEALTH="com.pai-lite.health"
 PLIST_WATCH_PREFIX="com.pai-lite.watch"
 PLIST_FEDERATION="com.pai-lite.federation"
 PLIST_MAYOR="com.pai-lite.mayor"
+PLIST_DASHBOARD="com.pai-lite.dashboard"
 
 #------------------------------------------------------------------------------
 # macOS launchd triggers
@@ -363,6 +364,42 @@ PLIST
     launchctl load "$plist" >/dev/null 2>&1 || true
     echo "Installed launchd trigger: mayor (keepalive every 15m)"
   fi
+
+  # Dashboard server trigger (KeepAlive)
+  local dashboard_enabled
+  dashboard_enabled="$(trigger_get dashboard enabled)"
+  if [[ "$dashboard_enabled" == "true" ]]; then
+    local dash_port plist
+    dash_port="$(trigger_get dashboard port)"
+    if [[ -z "$dash_port" ]]; then
+      dash_port=$(pai_lite_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
+    fi
+    if [[ -z "$dash_port" ]]; then
+      dash_port=7678
+    fi
+    plist="$HOME/Library/LaunchAgents/${PLIST_DASHBOARD}.plist"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${PLIST_DASHBOARD}</string>
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+PLIST
+    _plist_write_env "$plist"
+    _plist_write_args "$plist" "$bin_path" "dashboard" "serve" "$dash_port"
+    _plist_write_logs "$plist" "dashboard"
+    echo "</dict>" >> "$plist"
+    echo "</plist>" >> "$plist"
+
+    launchctl unload "$plist" >/dev/null 2>&1 || true
+    launchctl load "$plist" >/dev/null 2>&1 || true
+    echo "Installed launchd trigger: dashboard (port $dash_port, KeepAlive)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -615,6 +652,36 @@ TIMER
     systemctl --user enable --now pai-lite-mayor.timer
     echo "Installed systemd trigger: mayor (keepalive every 15m)"
   fi
+
+  # Dashboard server trigger (long-running service)
+  local dashboard_enabled
+  dashboard_enabled="$(trigger_get dashboard enabled)"
+  if [[ "$dashboard_enabled" == "true" ]]; then
+    local dash_port service_file
+    dash_port="$(trigger_get dashboard port)"
+    if [[ -z "$dash_port" ]]; then
+      dash_port=$(pai_lite_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
+    fi
+    if [[ -z "$dash_port" ]]; then
+      dash_port=7678
+    fi
+    service_file="$HOME/.config/systemd/user/pai-lite-dashboard.service"
+    cat > "$service_file" <<SERVICE
+[Unit]
+Description=pai-lite dashboard server
+
+[Service]
+Type=simple
+ExecStart=$bin_path dashboard serve $dash_port
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+SERVICE
+    systemctl --user daemon-reload
+    systemctl --user enable --now pai-lite-dashboard.service
+    echo "Installed systemd trigger: dashboard (port $dash_port)"
+  fi
 }
 
 #------------------------------------------------------------------------------
@@ -642,7 +709,7 @@ triggers_install() {
 
 triggers_uninstall_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR" "$PLIST_DASHBOARD")
 
   for label in "${plists[@]}"; do
     local plist="$agents_dir/${label}.plist"
@@ -667,7 +734,7 @@ triggers_uninstall_macos() {
 }
 
 triggers_uninstall_linux() {
-  local services=("startup" "sync" "morning" "health" "federation" "mayor")
+  local services=("startup" "sync" "morning" "health" "federation" "mayor" "dashboard")
 
   for name in "${services[@]}"; do
     local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
@@ -765,7 +832,7 @@ _status_macos_plist() {
 
 triggers_status_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR" "$PLIST_DASHBOARD")
   local found_any=false
 
   echo "pai-lite launchd triggers:"
@@ -827,7 +894,7 @@ _status_linux_unit() {
 }
 
 triggers_status_linux() {
-  local services=("startup" "sync" "morning" "health" "federation" "mayor")
+  local services=("startup" "sync" "morning" "health" "federation" "mayor" "dashboard")
   local found_any=false
 
   echo "pai-lite systemd triggers:"

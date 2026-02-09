@@ -361,6 +361,21 @@ dashboard_get_mayor_session() {
   ' "$config"
 }
 
+# Get a dashboard config value
+# Usage: dashboard_get_config <key>
+dashboard_get_config() {
+  local key="$1"
+  local config
+  config="$(pai_lite_config_path)"
+  if [[ -f "$config" ]]; then
+    local result
+    result=$(yq eval ".dashboard.${key}" "$config" 2>/dev/null)
+    if [[ "$result" != "null" && -n "$result" ]]; then
+      echo "$result"
+    fi
+  fi
+}
+
 # Get Mayor ttyd port from config
 dashboard_get_mayor_ttyd_port() {
   local config
@@ -408,7 +423,7 @@ dashboard_generate() {
 # Serve dashboard via Python HTTP server
 #------------------------------------------------------------------------------
 dashboard_serve() {
-  local port="${1:-8080}"
+  local port="${1:-7678}"
   local dashboard_dir
   dashboard_dir="$(pai_lite_state_harness_dir)/dashboard"
 
@@ -416,11 +431,31 @@ dashboard_serve() {
     pai_lite_die "dashboard not installed. Run: pai-lite dashboard install"
   fi
 
+  local server_script
+  server_script="$(pai_lite_root)/lib/dashboard_server.py"
+
+  if [[ ! -f "$server_script" ]]; then
+    pai_lite_die "dashboard server script not found: $server_script"
+  fi
+
+  local bin_path
+  bin_path="$(pai_lite_root)/bin/pai-lite"
+
+  # Read TTL from config (default: 5 seconds)
+  local ttl
+  ttl="$(dashboard_get_config "ttl")"
+  if [[ -z "$ttl" ]]; then
+    ttl=5
+  fi
+
+  # Generate initial data so first page load is fast
+  dashboard_generate
+
   pai_lite_info "serving dashboard at $(pai_lite_get_url "$port")"
+  pai_lite_info "data regenerates lazily (TTL: ${ttl}s)"
   pai_lite_info "press Ctrl+C to stop"
 
-  cd "$dashboard_dir"
-  python3 -m http.server "$port"
+  python3 "$server_script" "$port" "$dashboard_dir" "$bin_path" "$ttl"
 }
 
 #------------------------------------------------------------------------------
@@ -461,7 +496,14 @@ dashboard_main() {
       dashboard_generate
       ;;
     serve)
-      dashboard_serve "${1:-8080}"
+      local port="${1:-}"
+      if [[ -z "$port" ]]; then
+        port="$(dashboard_get_config "port")"
+      fi
+      if [[ -z "$port" ]]; then
+        port=7678
+      fi
+      dashboard_serve "$port"
       ;;
     install)
       dashboard_install
