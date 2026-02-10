@@ -31,7 +31,7 @@ This skill is invoked when:
 3. **Check slot health**:
    - Read `slots.md`
    - Identify slots that have been active > 24h without status update
-   - Check for orphaned sessions (tmux sessions without slot assignment)
+   - Check for orphaned sessions (from `sessions.json`: sessions with no slot)
 
 4. **Check queue health**:
    - Read `mayor/queue.jsonl`

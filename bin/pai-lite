@@ -17,6 +17,8 @@ source "$root_dir/lib/common.sh"
 source "$root_dir/lib/slots.sh"
 # shellcheck source=lib/tasks.sh
 source "$root_dir/lib/tasks.sh"
+# shellcheck source=lib/sessions.sh
+source "$root_dir/lib/sessions.sh"
 # shellcheck source=lib/triggers.sh
 source "$root_dir/lib/triggers.sh"
 # shellcheck source=lib/flow.sh
@@ -35,8 +37,11 @@ Usage: pai-lite <command>
 Commands:
   slots                        Show all slots
   slots refresh                Refresh slot state from adapters
+  sessions                     List discovered sessions
+  sessions refresh             Refresh sessions discovery
+  sessions show                Show raw sessions JSON
   slot <n>                     Show slot n
-  slot <n> assign <task|desc> [-a adapter] [-s session]
+  slot <n> assign <task|desc> [-a adapter] [-s session] [-p path]
                                Assign a task to slot n
   slot <n> clear [done|abandoned]
                                Clear slot n (optionally mark task done/abandoned)
@@ -319,6 +324,24 @@ case "$cmd" in
         ;;
     esac
     ;;
+  sessions)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      refresh)
+        sessions_refresh
+        ;;
+      show)
+        sessions_show
+        ;;
+      "")
+        sessions_list
+        ;;
+      *)
+        pai_lite_die "unknown sessions subcommand: $sub (use: refresh, show, or omit for list)"
+        ;;
+    esac
+    ;;
   slot)
     require_config
     slot_num="${2:-}"
@@ -333,6 +356,7 @@ case "$cmd" in
         # Parse flags and task description
         adapter="manual"
         session=""
+        slot_path=""
         task_or_desc=""
         while [[ $# -gt 0 ]]; do
           case "$1" in
@@ -342,6 +366,10 @@ case "$cmd" in
               ;;
             --session|-s)
               session="${2:-}"
+              shift 2
+              ;;
+            --path|-p)
+              slot_path="${2:-}"
               shift 2
               ;;
             *)
@@ -356,7 +384,7 @@ case "$cmd" in
           esac
         done
         [[ -n "$task_or_desc" ]] || pai_lite_die "task or description required"
-        slot_assign "$slot_num" "$task_or_desc" "$adapter" "$session"
+        slot_assign "$slot_num" "$task_or_desc" "$adapter" "$session" "$slot_path"
         ;;
       clear)
         final_status="${4:-ready}"

@@ -6,6 +6,7 @@
 **Task:** task-042
 **Mode:** agent-duo
 **Session:** concat-einsum
+**Path:** null
 **Started:** 2026-01-29T14:00Z
 
 **Terminals:**
@@ -30,6 +31,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -46,6 +48,7 @@
 **Task:** task-089
 **Mode:** claude-code
 **Session:** minidebug
+**Path:** null
 **Started:** 2026-01-29T10:00Z
 
 **Terminals:**
@@ -66,6 +69,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -82,6 +86,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -98,6 +103,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**

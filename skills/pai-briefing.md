@@ -32,6 +32,7 @@ This skill is invoked by the pai-lite automation when:
 2. **Gather context**:
    - Read `slots.md` to understand active work
    - Read `tasks/*.md` to understand task inventory
+   - Read `sessions.json` (if present) to spot unassigned sessions
    - Use flow engine to compute ready queue: `pai-lite flow ready`
    - Check for critical items: `pai-lite flow critical`
    - Read recent journal entries: `journal/*.md`
@@ -56,6 +57,7 @@ This skill is invoked by the pai-lite automation when:
 5. **Generate briefing**:
    Write a strategic briefing covering:
    - **Current state**: Active slots, ongoing work
+   - **Unassigned sessions**: Any active sessions not mapped to slots (from `sessions.json`)
    - **Ready tasks**: Priority-sorted list of what can start
    - **Urgent items**: Deadlines, stalled work, blockers
    - **Suggestions**: What to work on today and why
