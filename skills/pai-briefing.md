@@ -14,142 +14,93 @@ This skill is invoked by the pai-lite automation when:
 - `$PAI_LITE_REQUEST_ID`: Request ID for writing results
 - `$PAI_LITE_RESULTS_DIR`: Directory for writing result JSON
 
+## Pre-computed Context
+
+All data gathering (slots refresh, session discovery, flow computations, inbox,
+journal, same-day check) has been done by bash before this skill runs.
+
+Read the context file:
+```
+cat $PAI_LITE_STATE_PATH/mayor/briefing-context.md
+```
+
+If the file is missing, run `pai-lite mayor context` to generate it.
+If that also fails, escalate to the user.
+
+The context file contains these sections:
+- **Same-Day Status**: `new` (full briefing) or `amend` (light-touch update)
+- **Inbox Messages**: Pre-consumed messages (treat as high-priority context)
+- **Slots State**: Current slot assignments after adapter refresh
+- **Sessions Report**: All discovered agent sessions with classification
+- **Flow: Ready Queue**: Priority-sorted ready tasks
+- **Flow: Critical Items**: Deadlines, stalled work, high-priority ready
+- **Tasks Needing Elaboration**: Task IDs that lack elaboration
+- **Recent Journal**: Last 20 journal entries
+
+Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
+
 ## Process
 
-0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
-   If there are messages, treat them as high-priority context that should influence
-   the briefing content, suggestions, and priority assessments below.
+1. **Read context**: Read `$PAI_LITE_STATE_PATH/mayor/briefing-context.md`
 
-1. **Check for same-day briefing**:
-   - Read the existing `$PAI_LITE_STATE_PATH/briefing.md` and extract the date from its `# Briefing - YYYY-MM-DD` title
-   - If today's date matches the existing briefing date, **amend** rather than regenerate:
-     - Skim current state for anything that changed (slot activity, task status, new tasks)
-     - Apply light-touch updates to the affected sections only
+2. **Check same-day status**: Look at the `## Same-Day Status` section.
+   - If `Status: amend`: do a light-touch update only:
+     - Skim the context for changes since the last briefing
+     - Update affected sections of `$PAI_LITE_STATE_PATH/briefing.md` only
+     - Run a lightweight slot reassignment (only newly-empty slots
+       or newly-ready high-priority tasks)
      - Do not re-elaborate tasks or redo the full analysis
-     - Run a lightweight version of step 6 ((Re)Assign slots): only process
-       newly-empty slots or newly-ready high-priority tasks — do not re-evaluate
-       existing assignments
-     - Skip to step 8 (Write result) after amending
-   - If the dates differ or no briefing exists, proceed with the full process below
+     - Skip to step 6 (Write result)
+   - If `Status: new`: proceed with the full process below
 
-2. **Gather context**:
-   - Run `pai-lite sessions report` to discover all active agent sessions and generate
-     the sessions report (`sessions.md`). This scans Codex (`~/.codex/sessions/`),
-     Claude Code (`~/.claude/projects/`), and tmux for sessions started by any tool.
-   - Read `sessions.md` — pay special attention to **Unclassified Sessions** that
-     couldn't be matched to any slot. These may need slot assignment or investigation.
-   - Read `slots.md` to understand active work
-   - Read `tasks/*.md` to understand task inventory
-   - Use flow engine to compute ready queue: `pai-lite flow ready`
-   - Check for critical items: `pai-lite flow critical`
-   - Read recent journal entries: `journal/*.md`
+3. **Elaborate unprocessed tasks**:
+   - Check the `## Tasks Needing Elaboration` section
+   - For tasks that appear in the ready queue or are high-priority:
+     - Use the Task tool to invoke `/pai-elaborate <task-id>` (parallel)
 
-3. **Elaborate unprocessed tasks** (before analysis):
-   - Run `pai-lite tasks needs-elaboration` to find unprocessed tasks
-   - For tasks that might appear in the briefing (ready, high-priority, or deadline soon):
-     - Use the Task tool to invoke `/pai-elaborate <task-id>` inline
-     - This ensures the briefing has detailed task information
-   - Example (parallel elaboration of candidates):
-     ```
-     Task tool: /pai-elaborate task-101
-     Task tool: /pai-elaborate task-042
-     ```
+4. **Analyze and split work**:
+   - Identify high-priority ready tasks, approaching deadlines (7 days),
+     stalled work (in-progress > 7 days), slot utilization
+   - Factor in inbox messages as high-priority context
+   - Check whether tasks or projects should be split into finer-grained units:
+     - Multiple git worktrees under the same repo → separate sub-projects
+       (exception: worktrees from the same agent-duo feature are one unit)
+     - Large tasks with independent acceptance criteria → sub-tasks
+   - Mechanical outcomes:
+     - Sub-projects: `pai-lite slot N assign "<project>" -a <adapter> -p <path>`
+     - Sub-tasks: `pai-lite tasks create "<title>" <project> <priority>` or
+       `/pai-elaborate <task-id>` to break into children
 
-4. **Analyze state**:
-   - Identify high-priority ready tasks (A-priority, empty blocked_by)
-   - Detect approaching deadlines (within 7 days)
-   - Identify stalled work (in-progress > 7 days without updates)
-   - Check slot utilization (X/6 slots active)
+5. **(Re)Assign slots**:
 
-5. **Split work** (refine task/project granularity):
+   Slot states: **Empty** (available), **Project-reserved** (path+mode, no task),
+   **Task-assigned** (active work).
 
-   Before assigning slots, check whether any tasks or projects should be split into
-   finer-grained units. Signals that a split is warranted:
+   **Identify opportunities:**
+   - Empty slots (candidates for filling)
+   - Stalled/completed slots (candidates for clearing)
+   - Cross-reference with ready queue and unclassified sessions
 
-   - **Git worktrees and sub-paths**: multiple worktrees under the same repo indicate independent
-     strands of work that could each occupy a slot. For example, `~/repos/ocannl/`
-     and `~/repos/ocannl-einsum/` suggest splitting into sub-projects.
-     If a session's cwd is a subdirectory or a
-     path like `<repo>-<feature>/`, that feature strand could also be its own sub-project.
-     **Exception**: worktrees that belong to the same agent-duo feature (the adapter
-     creates a worktree for its working branch) should NOT be split — they are one
-     unit of work.
-   - **Large tasks with independent acceptance criteria**: a task with multiple
-     unrelated checklist items may be better served as separate sub-tasks.
+   **Build assignment plan:**
+   - For empty slots: pick highest-priority ready task, prefer context affinity
+   - If an unclassified session is running on a project path, reserve the slot
+   - When all slots occupied: weigh eviction cost vs. new task priority
+   - Commands:
+     - Project reservation: `pai-lite slot N assign "<project> development" -a <adapter> -p <path>`
+     - Task assignment: `pai-lite slot N assign <task-id> -a <adapter> -p <path>`
 
-   Mechanical outcomes:
-   - **Sub-projects**: create project-reserved slots with the narrower path
-     (e.g., `pai-lite slot N assign "ocannl-einsum" -a claude-code -p ~/repos/ocannl-einsum`)
-   - **Sub-tasks**: use `pai-lite tasks create "<title>" <project> <priority>` or
-     invoke `/pai-elaborate <task-id>` to break a task into children
+   **Execute or suggest (autonomy-dependent):**
+   - Check: `yq eval '.mayor.autonomy_level.assign_to_slots' "$PAI_LITE_STATE_PATH/config.yaml"`
+   - **auto**: execute via Bash (`pai-lite slot N clear ready`, `pai-lite slot N assign ...`)
+   - **suggest**: include ready-to-run commands in the briefing
+   - **manual**: include observations only
 
-   This step feeds into the next — the refined inventory gives (Re)Assign slots
-   more precise units to work with.
-
-6. **(Re)Assign slots**:
-
-   A slot can be in one of three states:
-   - **Empty**: Process=(empty), Task=null — available for assignment
-   - **Project-reserved**: has a Path and Mode but Task=null — reserved for a project's
-     context without a specific task (e.g., "ocannl development")
-   - **Task-assigned**: has a Task ID, Path, Mode — actively working on a task
-
-   **Phase A — Identify opportunities:**
-   - List empty slots (candidates for filling)
-   - List slots with stalled work (in-progress >7 days without updates) or tasks that
-     appear completed but still occupy a slot — candidates for clearing
-   - Cross-reference with the ready queue from step 4 and unclassified sessions from step 2
-
-   **Phase B — Build assignment plan:**
-   - For each empty slot: pick the highest-priority ready task, considering context
-     affinity (prefer tasks whose `context` matches neighboring active slots to minimize
-     context switching cost). If no ready task fits but an unclassified session is running
-     on a project path, reserve the slot for that project.
-   - When all slots are occupied and a high-priority ready task needs attention: weigh
-     the value of starting it against the cost of evicting the current occupant. Consider:
-     priority differential, staleness of the occupant, deadline proximity of the new task.
-     Evicted tasks return to `status: ready` — they are not cancelled, just removed from
-     the active attention set.
-   - For project-only reservations (no specific task):
-     `pai-lite slot N assign "<project> development" -a <adapter> -p <path>`
-     This sets Task=null because the description doesn't match task-*/gh-*/readme-* patterns.
-   - For task assignments:
-     `pai-lite slot N assign <task-id> -a <adapter> -p <path>`
-
-   **Phase C — Execute or suggest (autonomy-dependent):**
-   - Check the autonomy level by reading the config file:
-     `yq eval '.mayor.autonomy_level.assign_to_slots' "$PAI_LITE_STATE_PATH/config.yaml"`
-   - If **auto**: execute commands directly via the Bash tool:
-     - To clear: `pai-lite slot N clear ready`
-     - To assign: `pai-lite slot N assign <task-or-description> -a <adapter> -p <path>`
-     - For reassignment: clear first, then assign (two sequential commands)
-   - If **suggest**: include the ready-to-run commands in the briefing as copy-paste suggestions
-   - If **manual**: include observations only (e.g., "Slot 2 is stalled, task-101 is ready")
-
-   **Phase D — Record in briefing:**
-   - Add a `## Slot Assignments` section to the briefing documenting what was
-     assigned/suggested/observed and the reasoning behind each decision
-
-7. **Generate briefing**:
-   Write a strategic briefing covering:
-   - **Current state**: Active slots, ongoing work
-   - **Discovered sessions**: Summary of all agent sessions found on the system.
-     If there are unclassified sessions, list them and suggest slot assignments
-     (or note that slots need initialization). Sessions are matched to slots by
-     longest-prefix cwd matching — if a session's cwd starts with a slot's path,
-     it belongs to that slot.
-   - **Ready tasks**: Priority-sorted list of what can start
-   - **Urgent items**: Deadlines, stalled work, blockers
-   - **Suggestions**: What to work on today and why
-   - **Context switches**: Note if changing context is expensive
-
-8. **Write result**:
+6. **Write result**:
    - Write briefing to `$PAI_LITE_STATE_PATH/briefing.md`
    - Write result JSON to `$PAI_LITE_RESULTS_DIR/$PAI_LITE_REQUEST_ID.json`
 
-9. **Commit and push state**:
-   - Run `pai-lite sync` to commit the briefing to the state repo and push to remote
-   - This archives the briefing via git history and propagates it to the remote
+7. **Commit and push state**:
+   - Run `pai-lite sync` to commit and push to remote
 
 ## Output Format
 
@@ -164,9 +115,9 @@ This skill is invoked by the pai-lite automation when:
 - ...
 
 ## Slot Assignments
-- Slot 2: ← task-101 "Implement tensor concatenation" (A-priority, unblocks 2 tasks)
-- Slot 4: ← ocannl project (unclassified claude-code session on ~/repos/ocannl/)
-- Slot 5: cleared task-089 (stalled 12 days) ← task-067 "Update CHANGES.md" (release blocker)
+- Slot 2: <- task-101 "Implement tensor concatenation" (A-priority, unblocks 2 tasks)
+- Slot 4: <- ocannl project (unclassified claude-code session on ~/repos/ocannl/)
+- Slot 5: cleared task-089 (stalled 12 days) <- task-067 "Update CHANGES.md" (release blocker)
 - [If autonomy=suggest, include ready-to-run commands:]
   `pai-lite slot 2 assign task-101 -a agent-duo -p ~/repos/ocannl`
 
@@ -201,10 +152,10 @@ Current context focus: [einsum/ocannl] - switching to [other] would incur contex
 
 ## Delegation Strategy
 
-- **CLI tools** for ready queue computation (yq, jq, tsort)
-- **CLI tools** for slot operations (`pai-lite slot N assign`, `pai-lite slot N clear`)
+- **Pre-computed data** in `briefing-context.md` (no CLI commands needed for data gathering)
 - **Task tool** to invoke `/pai-elaborate` for unprocessed tasks (parallel)
-- **Direct Opus analysis** for strategic slot assignment trade-offs and suggestions
+- **CLI tools** for slot operations (`pai-lite slot N assign`, `pai-lite slot N clear`)
+- **Direct analysis** for strategic reasoning, slot assignment trade-offs, suggestions
 
 ## Error Handling
 

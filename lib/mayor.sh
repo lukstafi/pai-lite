@@ -478,7 +478,10 @@ mayor_queue_pop_skill() {
   # Map action to skill command
   local skill_command=""
   case "$action" in
-    briefing)       skill_command="/pai-briefing" ;;
+    briefing)
+      briefing_precompute_context
+      skill_command="/pai-briefing"
+      ;;
     suggest)        skill_command="/pai-suggest" ;;
     analyze-issue)
       local issue
@@ -686,4 +689,118 @@ mayor_briefing() {
     pai_lite_warn "Timeout waiting for briefing result"
     return 1
   fi
+}
+
+#------------------------------------------------------------------------------
+# Pre-compute briefing context: gather all data into briefing-context.md
+# so the /pai-briefing skill can focus on strategic reasoning.
+#------------------------------------------------------------------------------
+
+briefing_precompute_context() {
+  local harness_dir
+  harness_dir="$(pai_lite_state_harness_dir)"
+  local context_file="$harness_dir/mayor/briefing-context.md"
+  local timestamp
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  mkdir -p "$harness_dir/mayor"
+
+  # 1. Slots refresh (also triggers session discovery via sessions_discover_and_report)
+  pai_lite_info "briefing pre-compute: refreshing slots and sessions..."
+  slots_refresh 2>/dev/null || true
+
+  # 2. Capture slots list
+  local slots_output
+  slots_output="$(slots_list 2>/dev/null)" || slots_output="(unavailable)"
+
+  # 3. Read sessions report (written by slots_refresh -> sessions_discover_and_report)
+  local sessions_content
+  local sessions_file="$harness_dir/sessions.md"
+  if [[ -f "$sessions_file" ]]; then
+    sessions_content="$(cat "$sessions_file")"
+  else
+    sessions_content="(no sessions report available)"
+  fi
+
+  # 4. Flow computations
+  local flow_ready_output flow_critical_output
+  flow_ready_output="$(flow_ready 2>/dev/null)" || flow_ready_output="(unavailable)"
+  flow_critical_output="$(flow_critical 2>/dev/null)" || flow_critical_output="(unavailable)"
+
+  # 5. Tasks needing elaboration
+  local needs_elab_output
+  needs_elab_output="$(tasks_needs_elaboration 2>/dev/null)" || needs_elab_output=""
+  if [[ -z "$needs_elab_output" ]]; then
+    needs_elab_output="None"
+  fi
+
+  # 6. Inbox (consume: pull remote, print, archive, clear)
+  local inbox_output
+  inbox_output="$(pai_lite_inbox_consume 2>/dev/null)" || inbox_output=""
+  if [[ -z "$inbox_output" ]]; then
+    inbox_output="No pending messages."
+  fi
+
+  # 7. Recent journal
+  local journal_output
+  journal_output="$(pai_lite_journal_recent 20 2>/dev/null)" || journal_output="(no journal entries)"
+
+  # 8. Same-day check: compare existing briefing date with today
+  local sameday_status="new" existing_date="none"
+  local briefing_file="$harness_dir/briefing.md"
+  if [[ -f "$briefing_file" ]]; then
+    local first_heading
+    first_heading="$(head -n 5 "$briefing_file" | grep -oE '^# Briefing - [0-9]{4}-[0-9]{2}-[0-9]{2}' || true)"
+    if [[ -n "$first_heading" ]]; then
+      existing_date="${first_heading##*- }"
+      local today
+      today="$(date +%Y-%m-%d)"
+      if [[ "$existing_date" == "$today" ]]; then
+        sameday_status="amend"
+      fi
+    fi
+  fi
+
+  # 9. Write context file atomically
+  cat > "${context_file}.tmp" <<CONTEXT_EOF
+# Briefing Context
+
+Generated: $timestamp
+
+## Same-Day Status
+
+Status: $sameday_status
+Existing briefing date: $existing_date
+
+## Inbox Messages
+
+$inbox_output
+
+## Slots State
+
+$slots_output
+
+## Sessions Report
+
+$sessions_content
+
+## Flow: Ready Queue
+
+$flow_ready_output
+
+## Flow: Critical Items
+
+$flow_critical_output
+
+## Tasks Needing Elaboration
+
+$needs_elab_output
+
+## Recent Journal
+
+$journal_output
+CONTEXT_EOF
+  mv "${context_file}.tmp" "$context_file"
+
+  pai_lite_info "briefing context written to $context_file"
 }

@@ -78,6 +78,7 @@ Commands:
   mayor message "text"          Send async message to Mayor
   mayor inbox                  Show and consume pending messages
   mayor queue                  Show pending queue requests
+  mayor context                Pre-compute briefing context file
 
   notify pai <msg>             Send strategic notification
   notify agents <msg>          Send operational notification
@@ -480,33 +481,19 @@ case "$cmd" in
     echo "=== pai-lite briefing - $(date) ==="
     echo ""
 
-    # Quick status first
-    echo "Slots:"
-    slots_list || true
-    echo ""
-
     # Check if Mayor is running and queue a briefing
     if mayor_is_running; then
       echo "Requesting strategic briefing from Mayor..."
       echo ""
       mayor_briefing true 300
     else
-      # Fallback to basic briefing without Mayor
-      echo "Mayor not running - showing basic briefing"
+      # Fallback: pre-compute context and display it
+      echo "Mayor not running - generating context snapshot"
       echo "(Start Mayor with: pai-lite mayor start)"
       echo ""
-
-      if [[ -f "$(tasks_file_path)" ]]; then
-        echo "Tasks:"
-        tasks_list
-      else
-        echo "Tasks: (run 'pai-lite tasks sync')"
-      fi
-
-      # Show flow critical if available
+      briefing_precompute_context
       echo ""
-      echo "Critical items:"
-      flow_main critical 2>/dev/null || echo "  (flow engine not initialized)"
+      cat "$(pai_lite_state_harness_dir)/mayor/briefing-context.md"
     fi
     ;;
   sessions)
@@ -681,12 +668,17 @@ case "$cmd" in
         # Optional arg: cwd of the calling session (to verify it's the Mayor)
         mayor_queue_pop "${3:-}"
         ;;
+      context)
+        # Pre-compute briefing context (useful for debugging)
+        briefing_precompute_context
+        echo "Context written to $(pai_lite_state_harness_dir)/mayor/briefing-context.md"
+        ;;
       "")
         # No subcommand - show status
         mayor_status
         ;;
       *)
-        pai_lite_die "unknown mayor subcommand: $sub (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, learn, sync-learnings, techdebt, message, inbox, queue)"
+        pai_lite_die "unknown mayor subcommand: $sub (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, learn, sync-learnings, techdebt, message, inbox, queue, context)"
         ;;
     esac
     ;;
