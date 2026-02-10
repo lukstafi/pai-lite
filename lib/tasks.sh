@@ -829,8 +829,8 @@ tasks_check_elaboration() {
 
 #------------------------------------------------------------------------------
 # Migrate cross-references after fingerprint ID migration
-# Runs tasks sync, captures migration mappings, replaces old IDs in all task
-# files and harness markdown/yaml files
+# Handles after-the-fact cleanup when both old (numeric suffix) and new
+# (hex suffix) files already exist. Also cleans up orphan template files.
 #------------------------------------------------------------------------------
 
 tasks_migrate_refs() {
@@ -838,32 +838,90 @@ tasks_migrate_refs() {
   harness_dir="$(pai_lite_state_harness_dir)"
   local tasks_dir="$harness_dir/tasks"
 
-  # Run tasks sync and capture stderr for migration lines
-  local migration_log
-  migration_log="$(mktemp)"
-  tasks_sync 2> >(tee "$migration_log" >&2)
+  [[ -d "$tasks_dir" ]] || pai_lite_die "tasks dir not found: $tasks_dir"
 
-  # Parse migration lines: "pai-lite: migrated: old-id -> new-id"
+  local is_darwin=false
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    is_darwin=true
+  fi
+
+  # Phase 1: Rename old (numeric suffix) files to fingerprint-based IDs
+  # Computes fingerprint from the old file's title. If a new template file
+  # with that fingerprint exists, it's removed (old file has user edits).
   local mappings=()
-  while IFS= read -r logline; do
-    if [[ "$logline" =~ migrated:[[:space:]]*(.+)[[:space:]]*-\>[[:space:]]*(.+)$ ]]; then
-      local old_id="${BASH_REMATCH[1]}"
-      local new_id="${BASH_REMATCH[2]}"
-      old_id="${old_id%% }"
-      new_id="${new_id%% }"
-      mappings+=("$old_id|$new_id")
-    fi
-  done < "$migration_log"
-  rm -f "$migration_log"
+  for old_file in "$tasks_dir"/watch-*-*.md; do
+    [[ -f "$old_file" ]] || continue
+    local old_id
+    old_id="$(basename "$old_file" .md)"
 
-  if [[ ${#mappings[@]} -eq 0 ]]; then
-    echo "No migrations found — nothing to update"
+    local suffix="${old_id##*-}"
+    [[ "$suffix" =~ ^[0-9]+$ ]] || continue
+
+    local old_title
+    old_title="$(awk '/^title:/ { sub(/^title:[[:space:]]*"?/, ""); sub(/"?$/, ""); print; exit }' "$old_file")"
+    [[ -n "$old_title" ]] || continue
+
+    local fp new_id
+    fp="$(content_fingerprint "$old_title")"
+    local path_prefix="${old_id%-*}"
+    new_id="${path_prefix}-${fp}"
+
+    local new_file="$tasks_dir/${new_id}.md"
+
+    if [[ "$old_id" == "$new_id" ]]; then
+      continue
+    fi
+
+    # Remove template file if it exists (old file is authoritative)
+    if [[ -f "$new_file" ]]; then
+      rm "$new_file"
+      pai_lite_info "removed template: $new_id"
+    fi
+
+    mv "$old_file" "$new_file"
+    if $is_darwin; then
+      sed -i '' "s/^id: .*/id: $new_id/" "$new_file"
+    else
+      sed -i "s/^id: .*/id: $new_id/" "$new_file"
+    fi
+    pai_lite_info "migrated: $old_id -> $new_id"
+    mappings+=("$old_id|$new_id")
+  done
+
+  # Phase 2: Clean up orphan template files (hex-suffix files created today
+  # with TBD acceptance criteria that don't correspond to any old file)
+  local orphans_removed=0
+  for f in "$tasks_dir"/watch-*-*.md; do
+    [[ -f "$f" ]] || continue
+    local fid
+    fid="$(basename "$f" .md)"
+    local fsuffix="${fid##*-}"
+    [[ "$fsuffix" =~ ^[0-9a-f]{8}$ ]] || continue
+    # Only remove if it looks like an unedited template
+    if grep -q '^\- \[ \] TBD$' "$f" 2>/dev/null; then
+      rm "$f"
+      pai_lite_info "removed orphan template: $fid"
+      orphans_removed=$((orphans_removed + 1))
+    fi
+  done
+
+  if [[ ${#mappings[@]} -eq 0 && $orphans_removed -eq 0 ]]; then
+    echo "No migrations needed"
     return
   fi
 
-  echo "Found ${#mappings[@]} migration(s), updating cross-references..."
+  if [[ $orphans_removed -gt 0 ]]; then
+    echo "Removed $orphans_removed orphan template file(s)"
+  fi
 
-  # Collect all files to update: task files + harness-level md/yaml
+  if [[ ${#mappings[@]} -eq 0 ]]; then
+    echo "No ID migrations to apply"
+    return
+  fi
+
+  echo "Migrated ${#mappings[@]} file(s), updating cross-references..."
+
+  # Phase 3: Replace old IDs in all task files + harness-level md/yaml
   local files_to_update=()
   for f in "$tasks_dir"/*.md; do
     [[ -f "$f" ]] && files_to_update+=("$f")
@@ -871,11 +929,6 @@ tasks_migrate_refs() {
   for f in "$harness_dir"/*.md "$harness_dir"/*.yaml; do
     [[ -f "$f" ]] && files_to_update+=("$f")
   done
-
-  local is_darwin=false
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    is_darwin=true
-  fi
 
   local total_replacements=0
   for mapping in "${mappings[@]}"; do
@@ -895,7 +948,6 @@ tasks_migrate_refs() {
 
   echo "Updated $total_replacements file(s) with new IDs"
 
-  # Show the mapping for reference
   echo ""
   echo "Migration mapping:"
   for mapping in "${mappings[@]}"; do
