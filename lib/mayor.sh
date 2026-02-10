@@ -160,7 +160,7 @@ mayor_start() {
     local queue_file
     queue_file="$(pai_lite_queue_file)"
     if [[ -s "$queue_file" ]]; then
-      trigger_skill "$MAYOR_SESSION_NAME" "Continue. (pai-lite automatic message)"
+      trigger_skill "$MAYOR_SESSION_NAME" "Continue. (pai-lite automatic message, current time: $(date '+%Y-%m-%d %H:%M %Z'))"
     fi
     return 0
   fi
