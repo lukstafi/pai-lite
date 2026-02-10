@@ -1321,29 +1321,6 @@ Mayor:
 
 This keeps technical debt visible without interrupting active work.
 
-### `/pai-context-sync` Skill
-
-Pre-briefing aggregation of recent activity across sources:
-
-```
-/pai-context-sync
-
-Mayor:
-1. GitHub: fetch recent issue comments across watched repos (gh api)
-2. Git: recent commits since last sync (git log --since)
-3. Notifications: read journal/notifications.jsonl (recent alerts)
-4. Optionally: external sources (Slack via MCP, if configured)
-
-Output: context-sync.md with:
-- New issue comments requiring attention
-- Recent commits by project
-- Notification summary
-- Suggested follow-ups
-
-Used by: /pai-briefing skill can read context-sync.md for richer morning briefings
-```
-
-This aggregates scattered information into a single context document.
 
 ### CI Failure Adapter
 

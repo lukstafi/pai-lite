@@ -59,7 +59,6 @@ These components are implemented and may work, but have seen little to no real-w
 - `pai-health-check` — stalled work detection
 - `pai-learn` — record corrections to institutional memory
 - `pai-sync-learnings` — consolidate corrections into knowledge files
-- `pai-context-sync` — cross-machine context sharing
 - `pai-techdebt` — technical debt tracking
 
 #### Triggers

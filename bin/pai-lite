@@ -648,10 +648,6 @@ case "$cmd" in
         request_id=$(pai_lite_queue_request "techdebt")
         echo "Queued techdebt review: $request_id"
         ;;
-      context-sync)
-        request_id=$(pai_lite_queue_request "context-sync")
-        echo "Queued context-sync: $request_id"
-        ;;
       message)
         shift 2  # Remove 'mayor message'
         [[ -n "${*:-}" ]] || pai_lite_die "message text required"
@@ -690,7 +686,7 @@ case "$cmd" in
         mayor_status
         ;;
       *)
-        pai_lite_die "unknown mayor subcommand: $sub (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, learn, sync-learnings, techdebt, context-sync, message, inbox, queue)"
+        pai_lite_die "unknown mayor subcommand: $sub (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, learn, sync-learnings, techdebt, message, inbox, queue)"
         ;;
     esac
     ;;
@@ -1045,7 +1041,7 @@ case "$cmd" in
     if [[ -n "$harness_dir" && -d "$claude_skills" ]]; then
       skill_count=$(find "$claude_skills" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
       pai_lite_skills=0
-      for skill in pai-briefing pai-suggest pai-analyze-issue pai-elaborate pai-health-check pai-learn pai-sync-learnings pai-techdebt pai-context-sync; do
+      for skill in pai-briefing pai-suggest pai-analyze-issue pai-elaborate pai-health-check pai-learn pai-sync-learnings pai-techdebt; do
         [[ -f "$claude_skills/$skill.md" ]] && pai_lite_skills=$((pai_lite_skills + 1))
       done
       if [[ "$pai_lite_skills" -gt 0 ]]; then

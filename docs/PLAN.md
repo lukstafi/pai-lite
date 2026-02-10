@@ -108,7 +108,6 @@ Architecture describes these Mayor-invokable skills:
 - [ ] `/pai-learn` - Update institutional memory from corrections
 - [ ] `/pai-sync-learnings` - Consolidate scattered learnings into structured knowledge
 - [ ] `/pai-techdebt` - End-of-day/week technical debt review (ancillary)
-- [ ] `/pai-context-sync` - Pre-briefing aggregation of recent activity (ancillary)
 
 **Implementation approach:**
 Skills should be Markdown files in `skills/` directory that can be installed to `~/.claude/skills/` or used via a custom skills path. Format follows Claude Code skill specification.
@@ -353,7 +352,7 @@ Additional alignment tasks:
 
 ### Phase 5: Ancillary Features
 1. CI failure integration
-2. /pai-techdebt and /pai-context-sync skills
+2. /pai-techdebt skill
 3. Graph visualization + agenda generation
 4. Read-only slot mode
 5. Journal/audit trail
