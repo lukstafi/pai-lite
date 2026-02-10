@@ -826,3 +826,81 @@ tasks_check_elaboration() {
   echo "elaborated"
   return 0
 }
+
+#------------------------------------------------------------------------------
+# Migrate cross-references after fingerprint ID migration
+# Runs tasks sync, captures migration mappings, replaces old IDs in all task
+# files and harness markdown/yaml files
+#------------------------------------------------------------------------------
+
+tasks_migrate_refs() {
+  local harness_dir
+  harness_dir="$(pai_lite_state_harness_dir)"
+  local tasks_dir="$harness_dir/tasks"
+
+  # Run tasks sync and capture stderr for migration lines
+  local migration_log
+  migration_log="$(mktemp)"
+  tasks_sync 2> >(tee "$migration_log" >&2)
+
+  # Parse migration lines: "pai-lite: migrated: old-id -> new-id"
+  local mappings=()
+  while IFS= read -r logline; do
+    if [[ "$logline" =~ migrated:[[:space:]]*(.+)[[:space:]]*-\>[[:space:]]*(.+)$ ]]; then
+      local old_id="${BASH_REMATCH[1]}"
+      local new_id="${BASH_REMATCH[2]}"
+      old_id="${old_id%% }"
+      new_id="${new_id%% }"
+      mappings+=("$old_id|$new_id")
+    fi
+  done < "$migration_log"
+  rm -f "$migration_log"
+
+  if [[ ${#mappings[@]} -eq 0 ]]; then
+    echo "No migrations found — nothing to update"
+    return
+  fi
+
+  echo "Found ${#mappings[@]} migration(s), updating cross-references..."
+
+  # Collect all files to update: task files + harness-level md/yaml
+  local files_to_update=()
+  for f in "$tasks_dir"/*.md; do
+    [[ -f "$f" ]] && files_to_update+=("$f")
+  done
+  for f in "$harness_dir"/*.md "$harness_dir"/*.yaml; do
+    [[ -f "$f" ]] && files_to_update+=("$f")
+  done
+
+  local is_darwin=false
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    is_darwin=true
+  fi
+
+  local total_replacements=0
+  for mapping in "${mappings[@]}"; do
+    local old_id="${mapping%%|*}"
+    local new_id="${mapping##*|}"
+    for f in "${files_to_update[@]}"; do
+      if grep -q "$old_id" "$f" 2>/dev/null; then
+        if $is_darwin; then
+          sed -i '' "s|$old_id|$new_id|g" "$f"
+        else
+          sed -i "s|$old_id|$new_id|g" "$f"
+        fi
+        total_replacements=$((total_replacements + 1))
+      fi
+    done
+  done
+
+  echo "Updated $total_replacements file(s) with new IDs"
+
+  # Show the mapping for reference
+  echo ""
+  echo "Migration mapping:"
+  for mapping in "${mappings[@]}"; do
+    local old_id="${mapping%%|*}"
+    local new_id="${mapping##*|}"
+    echo "  $old_id -> $new_id"
+  done
+}

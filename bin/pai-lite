@@ -56,6 +56,7 @@ Commands:
   tasks needs-elaboration      List tasks needing elaboration
   tasks queue-elaborations     Queue elaboration for unprocessed ready tasks
   tasks check <id>             Check if task needs elaboration
+  tasks migrate-refs           Sync + update cross-references after ID migration
 
   flow ready                   Priority-sorted ready tasks
   flow blocked                 What's blocked and why
@@ -440,8 +441,11 @@ case "$cmd" in
         [[ -n "$task_id" ]] || pai_lite_die "task id required"
         tasks_check_elaboration "$task_id"
         ;;
+      migrate-refs)
+        tasks_migrate_refs
+        ;;
       *)
-        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples, needs-elaboration, queue-elaborations, check)"
+        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples, needs-elaboration, queue-elaborations, check, migrate-refs)"
         ;;
     esac
     ;;
