@@ -169,18 +169,18 @@ def extract_slots_paths(path):
         current_paths.append(raw)
 
     path_line_patterns = [
-        re.compile(r"^\\*\\*Path:\\*\\*\\s*(.+)$"),
-        re.compile(r"^\\*\\*Root:\\*\\*\\s*(.+)$"),
-        re.compile(r"^\\*\\*Base:\\*\\*\\s*(.+)$"),
-        re.compile(r"^-\\s*Working directory:\\s*(.+)$"),
-        re.compile(r"^-\\s*Base:\\s*(.+)$"),
+        re.compile(r"^\*\*Path:\*\*\s*(.+)$"),
+        re.compile(r"^\*\*Root:\*\*\s*(.+)$"),
+        re.compile(r"^\*\*Base:\*\*\s*(.+)$"),
+        re.compile(r"^-\s*Working directory:\s*(.+)$"),
+        re.compile(r"^-\s*Base:\s*(.+)$"),
     ]
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.rstrip("\n")
-                m = re.match(r"^##\\s+Slot\\s+([0-9]+)", line)
+                m = re.match(r"^##\s+Slot\s+([0-9]+)", line)
                 if m:
                     flush()
                     current_slot = int(m.group(1))
@@ -287,15 +287,15 @@ def ttyd_sessions(tmux_paths):
         port = None
         tmux_session = None
 
-        m = re.search(r"\\s-p\\s+(\\d+)", cmd)
+        m = re.search(r"\s-p\s+(\d+)", cmd)
         if m:
             port = m.group(1)
         else:
-            m = re.search(r"--port\\s+(\\d+)", cmd)
+            m = re.search(r"--port\s+(\d+)", cmd)
             if m:
                 port = m.group(1)
 
-        m = re.search(r"tmux\\s+attach(?:-session)?\\s+-t\\s+([^\\s]+)", cmd)
+        m = re.search(r"tmux\s+attach(?:-session)?\s+-t\s+([^\s]+)", cmd)
         if m:
             tmux_session = m.group(1)
 
