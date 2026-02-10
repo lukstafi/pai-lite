@@ -372,7 +372,7 @@ tasks_create() {
 
   # Generate task ID
   local count today id
-  count=$(find "$tasks_dir" -name "task-*.md" 2>/dev/null | wc -l | tr -d ' ')
+  count=$(find "$tasks_dir" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
   count=$((count + 1))
   today=$(date +%Y-%m-%d)
   id="task-$(printf '%03d' "$count")"

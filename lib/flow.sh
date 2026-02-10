@@ -31,7 +31,7 @@ flow_collect_tasks() {
   fi
 
   local tasks="[]"
-  for file in "$tasks_dir"/task-*.md; do
+  for file in "$tasks_dir"/*.md; do
     [[ -f "$file" ]] || continue
     # Extract YAML frontmatter (between --- markers)
     local frontmatter
