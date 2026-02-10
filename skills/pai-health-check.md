@@ -31,7 +31,8 @@ This skill is invoked when:
 3. **Check slot health**:
    - Read `slots.md`
    - Identify slots that have been active > 24h without status update
-   - Check for orphaned sessions (tmux sessions without slot assignment)
+   - Run `pai-lite sessions report` and check for orphaned/unclassified sessions
+     (sessions with no slot match in `sessions.md`)
 
 4. **Check queue health**:
    - Read `mayor/queue.jsonl`

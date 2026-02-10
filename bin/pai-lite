@@ -523,6 +523,7 @@ case "$cmd" in
         sessions_discover_tmux
         sessions_discover_ttyd
         sessions_deduplicate
+        sessions_enrich_peer_sync
         sessions_classify
         sessions_generate_report
         sessions_summary
@@ -535,6 +536,7 @@ case "$cmd" in
         sessions_discover_tmux
         sessions_discover_ttyd
         sessions_deduplicate
+        sessions_enrich_peer_sync
         sessions_classify
         sessions_summary
         echo ""

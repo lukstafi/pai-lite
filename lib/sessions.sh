@@ -27,12 +27,6 @@ CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 # Claude Code projects directory
 CLAUDE_PROJECTS_DIR="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}"
 
-# Check for jq availability — used for JSONL parsing
-_SESSIONS_HAS_JQ=false
-if command -v jq >/dev/null 2>&1; then
-  _SESSIONS_HAS_JQ=true
-fi
-
 #------------------------------------------------------------------------------
 # Session record format (tab-separated fields, one per line):
 #   agent_type \t cwd \t session_id \t source \t mtime_epoch \t extra_json
@@ -72,7 +66,6 @@ sessions_add_record() {
 sessions_discover_codex() {
   local sessions_dir="$CODEX_HOME/sessions"
   [[ -d "$sessions_dir" ]] || return 0
-  [[ "$_SESSIONS_HAS_JQ" == true ]] || return 0
 
   local now
   now=$(date +%s)
@@ -158,7 +151,6 @@ sessions_discover_codex() {
 
 sessions_discover_claude_code() {
   [[ -d "$CLAUDE_PROJECTS_DIR" ]] || return 0
-  [[ "$_SESSIONS_HAS_JQ" == true ]] || return 0
 
   local now
   now=$(date +%s)
@@ -276,25 +268,41 @@ _sessions_claude_from_jsonl() {
 sessions_discover_tmux() {
   command -v tmux >/dev/null 2>&1 || return 0
 
-  local tmux_output
-  tmux_output=$(tmux ls 2>/dev/null) || return 0
-  [[ -n "$tmux_output" ]] || return 0
+  # Use list-panes -a with pane_active flag for accurate cwd detection
+  # in multi-pane sessions (picks the active pane's path)
+  local pane_output
+  pane_output=$(tmux list-panes -a -F '#{session_name}|#{pane_active}|#{pane_current_path}' 2>/dev/null) || return 0
+  [[ -n "$pane_output" ]] || return 0
 
-  local mtime_epoch
-  mtime_epoch=$(date +%s)
+  local now
+  now=$(date +%s)
 
-  while IFS=: read -r session_name _rest; do
-    [[ -n "$session_name" ]] || continue
+  # Build session→cwd map, preferring active pane
+  declare -A _tmux_paths
+  while IFS='|' read -r name active path; do
+    [[ -n "$name" && -n "$path" ]] || continue
+    if [[ "$active" == "1" ]] || [[ -z "${_tmux_paths[$name]:-}" ]]; then
+      _tmux_paths[$name]="$path"
+    fi
+  done <<< "$pane_output"
 
-    local cwd
-    cwd=$(tmux display-message -t "$session_name" -p '#{pane_current_path}' 2>/dev/null) || continue
-    [[ -n "$cwd" ]] || continue
+  # Get last-attached timestamps
+  local session_output
+  session_output=$(tmux list-sessions -F '#{session_name}|#{session_last_attached}' 2>/dev/null) || true
 
+  declare -A _tmux_last
+  while IFS='|' read -r name last; do
+    [[ -n "$name" ]] || continue
+    _tmux_last[$name]="${last:-$now}"
+  done <<< "$session_output"
+
+  for name in "${!_tmux_paths[@]}"; do
+    local cwd="${_tmux_paths[$name]}"
+    local mtime="${_tmux_last[$name]:-$now}"
     local extra
-    extra=$(printf '{"tmux_session":"%s"}' "$session_name")
-
-    sessions_add_record "tmux" "$cwd" "tmux:$session_name" "cli" "$mtime_epoch" "$extra"
-  done <<< "$tmux_output"
+    extra=$(printf '{"tmux_session":"%s"}' "$name")
+    sessions_add_record "tmux" "$cwd" "tmux:$name" "cli" "$mtime" "$extra"
+  done
 }
 
 #------------------------------------------------------------------------------
@@ -343,12 +351,8 @@ sessions_discover_ttyd() {
     fi
 
     local extra
-    if [[ "$_SESSIONS_HAS_JQ" == true ]]; then
-      extra=$(jq -nc --arg pid "$pid" --arg port "$port" --arg tmux "$tmux_session" --arg cmd "$cmd" \
-        '{pid: $pid, port: $port, tmux_session: $tmux, command: $cmd}' 2>/dev/null) || extra="{}"
-    else
-      extra=$(printf '{"pid":"%s","port":"%s","tmux_session":"%s"}' "$pid" "$port" "$tmux_session")
-    fi
+    extra=$(jq -nc --arg pid "$pid" --arg port "$port" --arg tmux "$tmux_session" --arg cmd "$cmd" \
+      '{pid: $pid, port: $port, tmux_session: $tmux, command: $cmd}' 2>/dev/null) || extra="{}"
 
     sessions_add_record "ttyd" "${cwd:-unknown}" "ttyd:$pid" "web" "$now" "$extra"
   done <<< "$lines"
@@ -397,6 +401,71 @@ sessions_deduplicate() {
   ')
 
   _SESSIONS_RAW="$deduped"
+}
+
+#------------------------------------------------------------------------------
+# Layer 2: .peer-sync enrichment
+# Walk up from each session's cwd to find orchestration context.
+# Adds orchestration metadata to extra_json for sessions with .peer-sync.
+#------------------------------------------------------------------------------
+
+sessions_enrich_peer_sync() {
+  [[ -n "$_SESSIONS_RAW" ]] || return 0
+
+  local enriched=""
+  while IFS= read -r record; do
+    [[ -n "$record" ]] || continue
+    local cwd extra_json
+    cwd=$(printf '%s' "$record" | cut -f2)
+    extra_json=$(printf '%s' "$record" | cut -f6)
+
+    # Walk up from cwd to find .peer-sync
+    local check_dir="$cwd"
+    local peer_sync_dir=""
+    while [[ -n "$check_dir" ]]; do
+      if [[ -d "$check_dir/.peer-sync" ]]; then
+        peer_sync_dir="$check_dir/.peer-sync"
+        break
+      fi
+      local parent
+      parent=$(dirname "$check_dir")
+      [[ "$parent" != "$check_dir" ]] || break
+      check_dir="$parent"
+    done
+
+    if [[ -n "$peer_sync_dir" ]]; then
+      # Read orchestration state
+      local mode="" feature="" phase="" round=""
+      [[ ! -f "$peer_sync_dir/mode" ]] || mode=$(cat "$peer_sync_dir/mode" 2>/dev/null | tr -d '[:space:]')
+      [[ ! -f "$peer_sync_dir/feature" ]] || feature=$(cat "$peer_sync_dir/feature" 2>/dev/null | tr -d '[:space:]')
+      [[ ! -f "$peer_sync_dir/phase" ]] || phase=$(cat "$peer_sync_dir/phase" 2>/dev/null | tr -d '[:space:]')
+      [[ ! -f "$peer_sync_dir/round" ]] || round=$(cat "$peer_sync_dir/round" 2>/dev/null | tr -d '[:space:]')
+
+      # Merge orchestration into extra_json
+      extra_json=$(printf '%s' "$extra_json" | jq -c \
+        --arg mode "$mode" --arg feature "$feature" --arg phase "$phase" --arg round "$round" \
+        --arg orch_type "$(if [[ "$mode" == "solo" ]]; then echo "agent-solo"; else echo "agent-duo"; fi)" \
+        '. + {orchestration: {type: $orch_type, mode: $mode, feature: $feature, phase: $phase, round: $round}}' \
+        2>/dev/null) || true
+
+      # Rebuild record with updated extra_json
+      local agent_type session_id source_kind mtime_epoch
+      agent_type=$(printf '%s' "$record" | cut -f1)
+      session_id=$(printf '%s' "$record" | cut -f3)
+      source_kind=$(printf '%s' "$record" | cut -f4)
+      mtime_epoch=$(printf '%s' "$record" | cut -f5)
+      record=$(printf '%s\t%s\t%s\t%s\t%s\t%s' \
+        "$agent_type" "$cwd" "$session_id" "$source_kind" "$mtime_epoch" "$extra_json")
+    fi
+
+    if [[ -z "$enriched" ]]; then
+      enriched="$record"
+    else
+      enriched+=$'\n'"$record"
+    fi
+  done <<< "$_SESSIONS_RAW"
+
+  _SESSIONS_RAW="$enriched"
 }
 
 #------------------------------------------------------------------------------
@@ -612,8 +681,9 @@ sessions_generate_report() {
     echo ""
     echo "**Summary:** $total_classified classified, $total_unclassified unclassified"
 
-  } > "$report_file"
+  } > "${report_file}.tmp"
 
+  mv "${report_file}.tmp" "$report_file"
   pai_lite_info "sessions report written to $report_file"
   echo "$report_file"
 }
@@ -669,6 +739,16 @@ _sessions_format_record() {
     [[ -z "$tmux_session" ]] || echo "- **tmux session:** $tmux_session"
     [[ -z "$git_branch" ]] || echo "- **Git branch:** $git_branch"
     [[ -z "$summary" ]] || echo "- **Summary:** $summary"
+
+    # Show orchestration context from .peer-sync enrichment
+    local orch_type orch_feature orch_phase orch_round
+    orch_type=$(printf '%s' "$extra_json" | jq -r '.orchestration.type // empty' 2>/dev/null) || true
+    if [[ -n "$orch_type" ]]; then
+      orch_feature=$(printf '%s' "$extra_json" | jq -r '.orchestration.feature // empty' 2>/dev/null) || true
+      orch_phase=$(printf '%s' "$extra_json" | jq -r '.orchestration.phase // empty' 2>/dev/null) || true
+      orch_round=$(printf '%s' "$extra_json" | jq -r '.orchestration.round // empty' 2>/dev/null) || true
+      echo "- **Orchestration:** $orch_type (feature: ${orch_feature:-?}, phase: ${orch_phase:-?}, round: ${orch_round:-?})"
+    fi
   fi
   echo ""
 }
@@ -693,6 +773,9 @@ sessions_discover_and_report() {
 
   # Deduplicate by cwd
   sessions_deduplicate
+
+  # Layer 2: Enrich with .peer-sync orchestration data
+  sessions_enrich_peer_sync
 
   # Classify against slots
   sessions_classify
