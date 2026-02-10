@@ -66,6 +66,21 @@ sanitize_path_for_id() {
   echo "$path" | tr '/. ' '---' | tr -cd 'a-zA-Z0-9_-'
 }
 
+# Generate an 8-char hex fingerprint from task text
+# Normalizes: lowercase, strip non-alphanumeric (keep spaces), collapse whitespace, trim
+content_fingerprint() {
+  local text="$1"
+  text="${text,,}"
+  text="$(printf '%s' "$text" | tr -cd 'a-z0-9 ' | tr -s ' ' | sed 's/^ //;s/ $//')"
+  if command -v md5sum >/dev/null 2>&1; then
+    printf '%s' "$text" | md5sum | cut -c1-8
+  elif command -v md5 >/dev/null 2>&1; then
+    printf '%s' "$text" | md5 -q | cut -c1-8
+  else
+    printf '%s' "$text" | cksum | awk '{printf "%08x", $1}'
+  fi
+}
+
 tasks_file_path() {
   pai_lite_ensure_state_repo
   pai_lite_ensure_state_dir
@@ -132,9 +147,10 @@ tasks_sync() {
         while IFS= read -r line || [[ -n "$line" ]]; do
           line_no=$((line_no + 1))
           if [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]*\[[[:space:]]\][[:space:]]*(.+)$ ]]; then
-            local task_text id escaped
+            local task_text id escaped fingerprint
             task_text="${BASH_REMATCH[1]:-}"
-            id="watch-${path_id}-${line_no}"
+            fingerprint="$(content_fingerprint "$task_text")"
+            id="watch-${path_id}-${fingerprint}"
             escaped="$(yaml_escape "$task_text")"
             echo "  - id: $id"
             echo "    title: \"$escaped\""
@@ -142,9 +158,10 @@ tasks_sync() {
             echo "    path: \"$(yaml_escape "$expanded_path")\""
             echo "    line: $line_no"
           elif [[ "$line" =~ TODO[:[:space:]]*(.+)$ ]]; then
-            local task_text id escaped
+            local task_text id escaped fingerprint
             task_text="${BASH_REMATCH[1]:-}"
-            id="watch-${path_id}-${line_no}"
+            fingerprint="$(content_fingerprint "$task_text")"
+            id="watch-${path_id}-${fingerprint}"
             escaped="$(yaml_escape "$task_text")"
             echo "  - id: $id"
             echo "    title: \"$escaped\""
@@ -236,7 +253,7 @@ tasks_convert() {
 
   local count=0
   local current_id="" current_title="" current_source="" current_repo=""
-  local current_url="" current_labels=""
+  local current_url="" current_labels="" current_path=""
 
   # Parse tasks.yaml and create individual files
   while IFS= read -r line; do
@@ -247,7 +264,7 @@ tasks_convert() {
       # Write previous task if exists
       if [[ -n "$current_id" ]]; then
         tasks_write_file "$current_id" "$current_title" "$current_source" \
-          "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
+          "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir" "$current_path"
         count=$((count + 1))
       fi
       current_id="$new_id"
@@ -257,6 +274,7 @@ tasks_convert() {
       current_repo=""
       current_url=""
       current_labels=""
+      current_path=""
     elif [[ "$line" =~ ^[[:space:]]*title:[[:space:]]*\"?(.+)\"?$ ]]; then
       current_title="${BASH_REMATCH[1]:-}"
       current_title="${current_title%\"}"
@@ -269,13 +287,16 @@ tasks_convert() {
     elif [[ "$line" =~ ^[[:space:]]*labels:[[:space:]]*\"?(.*)\"?$ ]]; then
       current_labels="${BASH_REMATCH[1]:-}"
       current_labels="${current_labels%\"}"
+    elif [[ "$line" =~ ^[[:space:]]*path:[[:space:]]*\"?(.+)\"?$ ]]; then
+      current_path="${BASH_REMATCH[1]:-}"
+      current_path="${current_path%\"}"
     fi
   done < "$yaml_file"
 
   # Write last task
   if [[ -n "$current_id" ]]; then
     tasks_write_file "$current_id" "$current_title" "$current_source" \
-      "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir"
+      "$current_repo" "$current_url" "$current_labels" "$today" "$tasks_dir" "$current_path"
     count=$((count + 1))
   fi
 
@@ -285,12 +306,47 @@ tasks_convert() {
 # Helper: Write individual task file
 tasks_write_file() {
   local id="$1" title="$2" source="$3" repo="$4" url="$5" labels="$6" today="$7" dir="$8"
+  local watch_path="${9:-}"
 
   # Skip if file already exists (don't overwrite user edits)
   local file="$dir/${id}.md"
   if [[ -f "$file" ]]; then
     pai_lite_info "skipping existing: $id"
     return
+  fi
+
+  # Migration: if this is a fingerprint-based watch task, look for old line-number-based file
+  if [[ "$source" == "watch" && "$id" =~ ^watch-(.+)-[0-9a-f]{8}$ ]]; then
+    local path_prefix="${BASH_REMATCH[1]}"
+    local old_file=""
+    for candidate in "$dir"/watch-"${path_prefix}"-*.md; do
+      [[ -f "$candidate" ]] || continue
+      local candidate_basename
+      candidate_basename="$(basename "$candidate" .md)"
+      # Check if candidate has a numeric suffix (old line-number format)
+      local candidate_suffix="${candidate_basename##watch-${path_prefix}-}"
+      if [[ "$candidate_suffix" =~ ^[0-9]+$ ]]; then
+        # Verify title matches
+        local candidate_title
+        candidate_title="$(awk '/^title:/ { sub(/^title:[[:space:]]*"?/, ""); sub(/"?$/, ""); print; exit }' "$candidate")"
+        if [[ "$candidate_title" == "$title" ]]; then
+          old_file="$candidate"
+          break
+        fi
+      fi
+    done
+
+    if [[ -n "$old_file" ]]; then
+      mv "$old_file" "$file"
+      # Update the id: field in frontmatter
+      if [[ "$(uname -s)" == "Darwin" ]]; then
+        sed -i '' "s/^id: .*/id: $id/" "$file"
+      else
+        sed -i "s/^id: .*/id: $id/" "$file"
+      fi
+      pai_lite_info "migrated: $(basename "$old_file" .md) -> $id"
+      return
+    fi
   fi
 
   # Infer priority from labels

@@ -93,6 +93,55 @@ else
   ok "pai-lite <unknown> → non-zero exit"
 fi
 
+# ── Section: content_fingerprint ─────────────────────────────────────
+echo
+echo "${bold}content_fingerprint${reset}"
+
+# Source only the functions we need (tasks.sh sources common.sh and triggers.sh
+# which need config; we just need the fingerprint function itself)
+eval "$(sed -n '/^content_fingerprint()/,/^}/p' "$root_dir/lib/tasks.sh")"
+
+# Test basic format: 8-char hex
+fp1="$(content_fingerprint "Add dark mode support")"
+if [[ ${#fp1} -eq 8 && "$fp1" =~ ^[0-9a-f]{8}$ ]]; then
+  ok "fingerprint is 8-char hex: $fp1"
+else
+  fail "fingerprint format" "got: '$fp1' (length ${#fp1})"
+fi
+
+# Test case insensitivity
+fp2="$(content_fingerprint "ADD DARK MODE SUPPORT")"
+if [[ "$fp1" == "$fp2" ]]; then
+  ok "fingerprint is case-insensitive"
+else
+  fail "fingerprint case normalization" "$fp1 vs $fp2"
+fi
+
+# Test whitespace normalization
+fp3="$(content_fingerprint "  Add   dark  mode  support  ")"
+if [[ "$fp1" == "$fp3" ]]; then
+  ok "fingerprint normalizes whitespace"
+else
+  fail "fingerprint whitespace normalization" "$fp1 vs $fp3"
+fi
+
+# Test punctuation stripping
+fp4="$(content_fingerprint "Add dark-mode support!")"
+fp5="$(content_fingerprint "Add darkmode support")"
+if [[ "$fp4" == "$fp5" ]]; then
+  ok "fingerprint strips non-alphanumeric"
+else
+  fail "fingerprint punctuation normalization" "$fp4 vs $fp5"
+fi
+
+# Test different texts produce different fingerprints
+fp6="$(content_fingerprint "Completely different task")"
+if [[ "$fp1" != "$fp6" ]]; then
+  ok "different texts produce different fingerprints"
+else
+  fail "fingerprint collision" "$fp1 == $fp6"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────
 echo
 total=$((pass + fail + skip))

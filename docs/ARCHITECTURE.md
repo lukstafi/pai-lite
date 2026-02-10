@@ -560,7 +560,7 @@ Events that fire automation:
 
 **Watch rules**: The `triggers:watch` config is a list of rules, each with `paths` (files to monitor) and `action` (command to run on change). Rules with `action: tasks sync` also have their paths scanned for unchecked checkboxes (`- [ ]`) and `TODO:` lines. Each rule gets its own launchd plist / systemd path unit.
 
-**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<line>` ensure no duplicates), then automatically runs `tasks convert` which skips existing task files to preserve user edits.
+**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<fingerprint>` ensure no duplicates, where fingerprint is an 8-char md5 hex of normalized task text), then automatically runs `tasks convert` which skips existing task files to preserve user edits.
 
 ## Implementation: Pure Bash + CLI Tools
 

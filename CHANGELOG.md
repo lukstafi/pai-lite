@@ -34,7 +34,7 @@ These components are implemented and may work, but have seen little to no real-w
 - Multi-source aggregation: GitHub issues, README checkboxes, file watch rules
 - YAML frontmatter format: id, title, project, status, priority (A/B/C), deadline, dependencies, effort, context, adapter
 - Dependency tracking with `blocks`/`blocked_by` and cycle detection via `tsort`
-- Deterministic IDs: `gh-<repo>-<number>` for issues, `watch-<path>-<line>` for file sources
+- Deterministic IDs: `gh-<repo>-<number>` for issues, `watch-<path>-<fingerprint>` for file sources (8-char md5 of normalized text; migrates old line-number-based IDs automatically)
 
 #### Flow engine
 - `flow ready` — priority-sorted, dependency-filtered, deadline-aware queue
