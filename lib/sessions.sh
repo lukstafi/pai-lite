@@ -49,8 +49,10 @@ sessions_add_record() {
   local agent_type="$1" cwd="$2" session_id="$3" source_kind="$4" mtime_epoch="$5"
   local extra_json="${6:-}"
   [[ -n "$extra_json" ]] || extra_json='{}'
-  # Normalize: strip trailing slash from cwd
-  cwd="${cwd%/}"
+  # Normalize: strip trailing slash from cwd (but preserve root /)
+  if [[ "$cwd" != "/" ]]; then
+    cwd="${cwd%/}"
+  fi
   local record
   record=$(printf '%s\t%s\t%s\t%s\t%s\t%s' \
     "$agent_type" "$cwd" "$session_id" "$source_kind" "$mtime_epoch" "$extra_json")
