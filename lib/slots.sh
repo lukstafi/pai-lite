@@ -24,6 +24,7 @@ slots_empty_block() {
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -172,6 +173,11 @@ slot_get_session() {
   slot_get_field "$block" "Session"
 }
 
+slot_get_path() {
+  local block="$1"
+  slot_get_field "$block" "Path"
+}
+
 slot_get_process() {
   local block="$1"
   slot_get_field "$block" "Process"
@@ -264,6 +270,7 @@ slot_assign() {
   local task_or_desc="$2"
   local adapter="${3:-manual}"
   local session="${4:-}"
+  local path="${5:-}"
 
   local file count started block task_id process
   file="$(slots_file_path)"
@@ -273,6 +280,11 @@ slot_assign() {
   slot_validate_range "$slot" "$count"
 
   started="$(date -u +"%Y-%m-%dT%H:%MZ")"
+
+  # Normalize path: strip trailing slash
+  if [[ -n "$path" && "$path" != "/" ]]; then
+    path="${path%/}"
+  fi
 
   # Determine if this is a task ID or a process description
   if [[ "$task_or_desc" =~ ^task-[0-9]+ ]] || [[ "$task_or_desc" =~ ^gh- ]] || [[ "$task_or_desc" =~ ^readme- ]]; then
@@ -317,6 +329,7 @@ slot_assign() {
 **Task:** $task_id
 **Mode:** $adapter
 **Session:** $session
+**Path:** ${path:-null}
 **Started:** $started
 
 **Terminals:**
@@ -634,6 +647,12 @@ slots_refresh() {
   if [[ $any_updated -eq 1 ]]; then
     slots_write_file "$count"
     pai_lite_state_commit "slots refresh"
+  fi
+
+  # Also run session discovery to keep sessions.md up to date
+  if declare -F sessions_discover_and_report >/dev/null 2>&1; then
+    sessions_discover_and_report >/dev/null 2>&1 || true
+    pai_lite_state_commit "sessions discovery" 2>/dev/null || true
   fi
 }
 

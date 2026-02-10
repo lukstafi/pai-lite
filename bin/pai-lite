@@ -27,6 +27,8 @@ source "$root_dir/lib/notify.sh"
 source "$root_dir/lib/dashboard.sh"
 # shellcheck source=lib/mayor.sh
 source "$root_dir/lib/mayor.sh"
+# shellcheck source=lib/sessions.sh
+source "$root_dir/lib/sessions.sh"
 
 usage() {
   cat <<'USAGE'
@@ -36,7 +38,7 @@ Commands:
   slots                        Show all slots
   slots refresh                Refresh slot state from adapters
   slot <n>                     Show slot n
-  slot <n> assign <task|desc> [-a adapter] [-s session]
+  slot <n> assign <task|desc> [-a adapter] [-s session] [-p path]
                                Assign a task to slot n
   slot <n> clear [done|abandoned]
                                Clear slot n (optionally mark task done/abandoned)
@@ -85,6 +87,9 @@ Commands:
   dashboard generate           Generate JSON data for dashboard
   dashboard serve [port]       Serve dashboard (default: 7678)
   dashboard install            Install dashboard to state repo
+
+  sessions                     Discover and classify all agent sessions
+  sessions report              Generate sessions report for Mayor
 
   sync                         Pull + push state repo (full sync)
   state pull                   Pull latest from state repo
@@ -333,6 +338,7 @@ case "$cmd" in
         # Parse flags and task description
         adapter="manual"
         session=""
+        slot_path=""
         task_or_desc=""
         while [[ $# -gt 0 ]]; do
           case "$1" in
@@ -342,6 +348,10 @@ case "$cmd" in
               ;;
             --session|-s)
               session="${2:-}"
+              shift 2
+              ;;
+            --path|-p)
+              slot_path="${2:-}"
               shift 2
               ;;
             *)
@@ -356,7 +366,7 @@ case "$cmd" in
           esac
         done
         [[ -n "$task_or_desc" ]] || pai_lite_die "task or description required"
-        slot_assign "$slot_num" "$task_or_desc" "$adapter" "$session"
+        slot_assign "$slot_num" "$task_or_desc" "$adapter" "$session" "$slot_path"
         ;;
       clear)
         final_status="${4:-ready}"
@@ -498,6 +508,55 @@ case "$cmd" in
       echo "Critical items:"
       flow_main critical 2>/dev/null || echo "  (flow engine not initialized)"
     fi
+    ;;
+  sessions)
+    require_config
+    sub="${2:-}"
+    case "$sub" in
+      report)
+        # Run discovery in current shell (not subshell) so state variables persist
+        _SESSIONS_RAW=""
+        _SESSIONS_CLASSIFIED=""
+        _SESSIONS_UNCLASSIFIED=""
+        sessions_discover_codex
+        sessions_discover_claude_code
+        sessions_discover_tmux
+        sessions_discover_ttyd
+        sessions_deduplicate
+        sessions_enrich_peer_sync
+        sessions_classify
+        sessions_generate_report
+        sessions_summary
+        ;;
+      "")
+        # Quick discovery and summary to stdout
+        _SESSIONS_RAW=""
+        sessions_discover_codex
+        sessions_discover_claude_code
+        sessions_discover_tmux
+        sessions_discover_ttyd
+        sessions_deduplicate
+        sessions_enrich_peer_sync
+        sessions_classify
+        sessions_summary
+        echo ""
+        if [[ -n "${_SESSIONS_UNCLASSIFIED:-}" ]]; then
+          echo "Unclassified sessions:"
+          while IFS=$'\t' read -r agent_type cwd session_id _rest; do
+            echo "  $agent_type: $cwd ($session_id)"
+          done <<< "$_SESSIONS_UNCLASSIFIED"
+        fi
+        if [[ -n "${_SESSIONS_CLASSIFIED:-}" ]]; then
+          echo "Classified sessions:"
+          while IFS=$'\t' read -r agent_type cwd session_id source_kind mtime_epoch extra_json slot_num; do
+            echo "  Slot $slot_num: $agent_type $cwd ($session_id)"
+          done <<< "$_SESSIONS_CLASSIFIED"
+        fi
+        ;;
+      *)
+        pai_lite_die "unknown sessions subcommand: $sub (use: report, or omit for summary)"
+        ;;
+    esac
     ;;
   triggers)
     require_config

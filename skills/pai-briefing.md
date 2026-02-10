@@ -30,6 +30,11 @@ This skill is invoked by the pai-lite automation when:
    - If the dates differ or no briefing exists, proceed with the full process below
 
 2. **Gather context**:
+   - Run `pai-lite sessions report` to discover all active agent sessions and generate
+     the sessions report (`sessions.md`). This scans Codex (`~/.codex/sessions/`),
+     Claude Code (`~/.claude/projects/`), and tmux for sessions started by any tool.
+   - Read `sessions.md` — pay special attention to **Unclassified Sessions** that
+     couldn't be matched to any slot. These may need slot assignment or investigation.
    - Read `slots.md` to understand active work
    - Read `tasks/*.md` to understand task inventory
    - Use flow engine to compute ready queue: `pai-lite flow ready`
@@ -56,6 +61,11 @@ This skill is invoked by the pai-lite automation when:
 5. **Generate briefing**:
    Write a strategic briefing covering:
    - **Current state**: Active slots, ongoing work
+   - **Discovered sessions**: Summary of all agent sessions found on the system.
+     If there are unclassified sessions, list them and suggest slot assignments
+     (or note that slots need initialization). Sessions are matched to slots by
+     longest-prefix cwd matching — if a session's cwd starts with a slot's path,
+     it belongs to that slot.
    - **Ready tasks**: Priority-sorted list of what can start
    - **Urgent items**: Deadlines, stalled work, blockers
    - **Suggestions**: What to work on today and why
