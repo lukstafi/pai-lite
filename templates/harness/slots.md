@@ -6,6 +6,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -22,6 +23,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -38,6 +40,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -54,6 +57,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -70,6 +74,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
@@ -86,6 +91,7 @@
 **Task:** null
 **Mode:** null
 **Session:** null
+**Path:** null
 **Started:** null
 
 **Terminals:**
