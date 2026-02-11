@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.2.0 — 2026-02-11
+
+Second release. Focus on robustness, better Mayor workflows, and task management improvements.
+
+### New features
+
+- **Task merging and duplicate detection** — `flow duplicates` finds near-duplicate tasks; `tasks merge` combines them with dependency rewiring.
+- **Content-fingerprint task IDs** — Watch-path tasks now use 8-char md5 of normalized text (`watch-<path>-<fingerprint>`) instead of line numbers, so IDs survive file edits. Old IDs are migrated automatically.
+- **Cross-reference migration** — `tasks migrate-refs` updates `blocks`/`blocked_by` references after ID changes.
+- **Pervasive session discovery** — `sessions list` scans tmux, screen, VS Code, and `.peer-sync/` directories to find all active agent sessions, enriching slot data.
+- **Mayor inbox** — Async message channel (`mayor inbox send/read`) for non-blocking communication with the Mayor session. Briefing and health-check skills read the inbox automatically.
+- **Briefing context pre-computation** — Bash pre-computes slot state, ready queue, and critical items before invoking the briefing skill, reducing token usage.
+- **Proactive slot management** — Mayor briefing now includes slot occupancy analysis and reassignment suggestions.
+- **Dashboard briefing tab** — New tab renders the latest briefing as formatted Markdown alongside terminals and task views.
+- **Lazy dashboard server** — Dashboard HTTP server auto-starts via launchd/systemd on first `dashboard open` and stops when idle.
+- **Mayor keepalive nudge** — When the keepalive trigger fires, if the Mayor queue is non-empty the nudge includes a timestamp and pending item count.
+- **CLAUDE.md template for harness directories** — `pai-lite init` deploys a CLAUDE.md with project conventions and upstream-PR workflow into each harness directory.
+
+### Fixes
+
+- **Flow engine glob** — Fixed task file matching to include all `*.md` files with YAML frontmatter, not just `task-*.md`.
+- **`printf` with dash-prefixed strings** — `log_info`/`log_error` no longer fail when the message starts with a dash.
+- **Mayor keepalive timestamp** — Nudge messages now include the current time for log traceability.
+
+### Other changes
+
+- **Mayor queue path** — `queue.jsonl` and `results/` moved from `harness/tasks/` to `harness/mayor/` for clearer separation.
+- **Removed `/pai-context-sync` skill** — Redundant with existing automation; removed to reduce surface area.
+- **Test script** — Added `tests/test.sh` with shellcheck linting and smoke tests for core commands.
+- **Archived PLAN.md** — Original v0.1 plan moved to `docs/PLAN-v0.1-archive.md`.
+
+---
+
 ## v0.1.0 — 2026-02-08
 
 First release of pai-lite: a lightweight personal AI infrastructure for humans working with AI agents.
