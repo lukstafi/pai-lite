@@ -1,0 +1,38 @@
+// Task types — frontmatter schema for task-*.md files
+
+export interface TaskFrontmatter {
+  id: string;
+  title: string;
+  project: string;
+  status: string; // ready, in-progress, done, abandoned, merged
+  priority: string; // A, B, C
+  deadline: string | null;
+  dependencies: {
+    blocks: string[];
+    blocked_by: string[];
+  };
+  effort: string; // small, medium, large
+  context: string;
+  slot: string | null;
+  adapter: string | null;
+  created: string;
+  started: string | null;
+  completed: string | null;
+  source: string; // github, watch, manual
+  url?: string;
+  github_issue?: number;
+  elaborated?: string;
+  merged_into?: string;
+  merged_from?: string[];
+}
+
+export interface TaskYamlEntry {
+  id: string;
+  title: string;
+  source: string;
+  repo?: string;
+  url?: string;
+  labels?: string;
+  path?: string;
+  line?: number;
+}

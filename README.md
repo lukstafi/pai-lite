@@ -14,41 +14,53 @@ A lightweight personal AI infrastructure — a harness for humans working with A
 ## Installation
 
 ```bash
-# Clone and install
+# 1. Install Bun (if not already installed)
+curl -fsSL https://bun.sh/install | bash
+
+# 2. Clone and build
 gh repo clone lukstafi/pai-lite
 cd pai-lite
-./bin/pai-lite init
+bun install
+bun run build    # compiles bin/pai-lite
+
+# 3. Add to PATH (if not already)
+export PATH="$PATH:$(pwd)/bin"
 ```
 
-`init` performs a comprehensive installation (or update):
-
-1. **Binary** — copies `bin/`, `lib/`, `adapters/`, `templates/`, `skills/` to `~/.local/pai-lite/` and symlinks `~/.local/bin/pai-lite`
-2. **State repo** — clones your private state repo (if not yet cloned), creates the harness directory with initial config, slots file, and Mayor memory structure
-3. **Skills** — installs all skill files (e.g. `/pai-briefing`, `/pai-elaborate`) to your harness's `.claude/commands/` so Mayor and direct Claude Code sessions can use them
-4. **Hooks** — installs the `pai-lite-on-stop` hook script and configures Claude Code's `settings.json` to call it on session stop (this is how Mayor drains its queue)
-5. **Triggers** — installs launchd agents (macOS) or systemd units (Linux) for startup, periodic sync, and Mayor keepalive
-
-Use `--no-hooks` or `--no-triggers` to skip those steps. To update pai-lite later, pull the latest changes and run `./bin/pai-lite init` again — it's safe to re-run.
-
-If `~/.local/bin` isn't in your PATH, add it to your shell profile:
-
-```bash
-export PATH="$PATH:$HOME/.local/bin"
-```
+> **Note:** `pai-lite init` (automated setup of state repo, hooks, skills, and triggers)
+> is not yet migrated to TypeScript. For now, set up your state repo manually and run
+> migrated commands directly. See the Configuration section below.
 
 ### Dependencies
 
-```bash
-# macOS
-brew install yq jq tmux
+**Required: [Bun](https://bun.sh) runtime (v1.1+)**
 
-# Ubuntu/Debian
-sudo apt install yq jq tmux
+```bash
+# Install Bun (macOS, Linux, WSL)
+curl -fsSL https://bun.sh/install | bash
 ```
 
-- `yq` — YAML parsing (mikefarah/yq)
-- `jq` — JSON filtering
+Then build the pai-lite binary:
+
+```bash
+cd pai-lite
+bun install
+bun run build
+```
+
+**Other dependencies:**
+
+```bash
+# macOS
+brew install jq tmux
+
+# Ubuntu/Debian
+sudo apt install jq tmux
+```
+
+- `bun` — TypeScript runtime and build tool (required)
 - `gh` — GitHub CLI (for cloning state repo and fetching issues)
+- `jq` — JSON filtering (used by some adapters and triggers)
 - `tmux` — terminal multiplexer (Mayor runs in a tmux session)
 - `ttyd` — optional, for web access to Mayor's terminal
 
@@ -73,7 +85,7 @@ state_path: harness
 
 ### Step 2: Configure your projects
 
-The full configuration lives in your state repo at `harness/config.yaml`. After the first `pai-lite init`, edit it:
+The full configuration lives in your state repo at `harness/config.yaml`. Create it manually (or use `pai-lite init` once it's migrated):
 
 ```bash
 ${EDITOR:-vi} ~/your-private-repo/harness/config.yaml
@@ -108,7 +120,7 @@ This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, the
 
 ### Step 4: Verify triggers
 
-Triggers were already installed by `pai-lite init`. They automate Mayor startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, a keepalive trigger also starts the Mayor at login and checks every 15 minutes.
+Triggers automate Mayor startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, a keepalive trigger also starts the Mayor at login and checks every 15 minutes. Install them with:
 
 Verify with:
 
@@ -344,8 +356,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, including:
 
 ## Development
 
-- Shell scripts are Bash 4+ and designed to be dependency-light.
-- Run `shellcheck` on `bin/` and `lib/` during changes.
+```bash
+bun install            # Install dependencies
+bun run typecheck      # Type-check (tsc --noEmit)
+bun run build          # Compile to bin/pai-lite
+bun run dev            # Run directly from source (no compile)
+```
+
+- Core logic is TypeScript in `src/`. Adapters remain in Bash (`adapters/`).
 - State changes to slots auto-commit to the state repo.
 
 ## License

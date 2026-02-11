@@ -1,0 +1,17 @@
+{
+  "name": "pai-lite",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "bun build --compile src/index.ts --outfile bin/pai-lite",
+    "typecheck": "bun x tsc --noEmit",
+    "dev": "bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
+  }
+}
