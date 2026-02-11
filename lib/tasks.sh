@@ -730,10 +730,16 @@ tasks_needs_elaboration() {
   for file in "$tasks_dir"/*.md; do
     [[ -f "$file" ]] || continue
 
-    local id needs_elab=false
+    local id task_status needs_elab=false
 
-    # Extract task ID
+    # Extract task ID and status
     id=$(awk '/^id:/ { print $2; exit }' "$file")
+    task_status=$(awk '/^status:/ { print $2; exit }' "$file")
+
+    # Skip non-active tasks (merged, done, abandoned)
+    case "$task_status" in
+      merged|done|abandoned) continue ;;
+    esac
 
     # Check 1: Has "elaborated:" in frontmatter?
     if ! grep -q '^elaborated:' "$file"; then
