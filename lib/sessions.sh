@@ -146,8 +146,14 @@ sessions_discover_codex() {
 # Claude Code session discovery
 # Layout: $CLAUDE_PROJECTS_DIR/<encoded-path>/sessions-index.json
 #   has entries[] with: sessionId, projectPath, created, modified, gitBranch, summary
-# Fallback: scan <encoded-path>/*.jsonl, read first entry with parentUuid:null for cwd
+# Primary: scan <encoded-path>/*.jsonl for all sessions (CLI + VS Code)
+# Enrichment: if sessions-index.json exists, use it to add metadata (summary,
+#   git branch) to sessions found by JSONL scan. The index is maintained by
+#   VS Code only and does not cover CLI-initiated sessions.
 #------------------------------------------------------------------------------
+
+# Associative array for index metadata lookup (sessionId -> extra JSON)
+declare -gA _SESSIONS_INDEX_META
 
 sessions_discover_claude_code() {
   [[ -d "$CLAUDE_PROJECTS_DIR" ]] || return 0
@@ -158,32 +164,24 @@ sessions_discover_claude_code() {
   # Iterate over project directories
   for project_dir in "$CLAUDE_PROJECTS_DIR"/*/; do
     [[ -d "$project_dir" ]] || continue
-    local index_file="$project_dir/sessions-index.json"
 
+    # Build metadata cache from index if available
+    _SESSIONS_INDEX_META=()
+    local index_file="$project_dir/sessions-index.json"
     if [[ -f "$index_file" ]]; then
-      # Use sessions-index.json (rich metadata)
-      local raw_before="$_SESSIONS_RAW"
-      _sessions_claude_from_index "$index_file" "$project_dir" "$now"
-      # If index yielded nothing (all entries stale), fall back to JSONL scan
-      if [[ "$_SESSIONS_RAW" == "$raw_before" ]]; then
-        _sessions_claude_from_jsonl "$project_dir" "$now"
-      fi
-    else
-      # Fallback: scan JSONL files directly
-      _sessions_claude_from_jsonl "$project_dir" "$now"
+      _sessions_claude_build_meta_cache "$index_file"
     fi
+
+    # Always scan JSONL files (ground truth for all sessions)
+    _sessions_claude_from_jsonl "$project_dir" "$now"
   done
 }
 
-_sessions_claude_from_index() {
-  local index_file="$1" project_dir="$2" now="$3"
+# Build a metadata lookup from sessions-index.json (VS Code only).
+# Populates _SESSIONS_INDEX_META[sessionId] = extra JSON string.
+_sessions_claude_build_meta_cache() {
+  local index_file="$1"
 
-  # Extract originalPath from index
-  local original_path
-  original_path=$(jq -r '.originalPath // empty' "$index_file" 2>/dev/null)
-
-  # Use process substitution to avoid subshell (pipe | while runs in subshell,
-  # losing _SESSIONS_RAW modifications)
   local entries
   entries=$(jq -c '.entries[]?' "$index_file" 2>/dev/null) || return 0
   [[ -n "$entries" ]] || return 0
@@ -191,33 +189,9 @@ _sessions_claude_from_index() {
   while IFS= read -r entry; do
     [[ -n "$entry" ]] || continue
 
-    local session_id modified_ms modified_epoch cwd
-
+    local session_id
     session_id=$(printf '%s' "$entry" | jq -r '.sessionId // empty')
     [[ -n "$session_id" ]] || continue
-
-    # modified is in milliseconds epoch
-    modified_ms=$(printf '%s' "$entry" | jq -r '.fileMtime // .modified // empty')
-    if [[ -n "$modified_ms" ]]; then
-      # Convert ms to seconds if it looks like ms (>1e12)
-      if (( ${modified_ms%%.*} > 1000000000000 )); then
-        modified_epoch=$(( ${modified_ms%%.*} / 1000 ))
-      else
-        modified_epoch="${modified_ms%%.*}"
-      fi
-    else
-      modified_epoch="$now"
-    fi
-
-    # Skip stale sessions
-    local age=$(( now - modified_epoch ))
-    if (( age > SESSIONS_STALE_THRESHOLD )); then
-      continue
-    fi
-
-    cwd=$(printf '%s' "$entry" | jq -r '.projectPath // empty')
-    [[ -n "$cwd" ]] || cwd="$original_path"
-    [[ -n "$cwd" ]] || continue
 
     local extra
     extra=$(printf '%s' "$entry" | jq -c '{
@@ -227,7 +201,7 @@ _sessions_claude_from_index() {
       is_sidechain: (.isSidechain // false)
     }' 2>/dev/null) || extra="{}"
 
-    sessions_add_record "claude-code" "$cwd" "$session_id" "unknown" "$modified_epoch" "$extra"
+    _SESSIONS_INDEX_META["$session_id"]="$extra"
   done <<< "$entries"
 }
 
@@ -261,7 +235,10 @@ _sessions_claude_from_jsonl() {
     [[ -n "$cwd" ]] || continue
     [[ -n "$session_id" ]] || session_id=$(basename "$jsonl_file" .jsonl)
 
-    sessions_add_record "claude-code" "$cwd" "$session_id" "unknown" "$mtime_epoch" "{}"
+    # Enrich with index metadata if available (summary, git branch, etc.)
+    local extra="${_SESSIONS_INDEX_META[$session_id]:-"{}"}"
+
+    sessions_add_record "claude-code" "$cwd" "$session_id" "unknown" "$mtime_epoch" "$extra"
   done < <(find "$project_dir" -maxdepth 1 -name '*.jsonl' -type f -print0 2>/dev/null)
 }
 
