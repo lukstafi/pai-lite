@@ -181,6 +181,9 @@ case "$cmd" in
         if [[ ! -f "$harness_dir/slots.md" ]]; then
           cp "$root_dir/templates/harness/slots.md" "$harness_dir/slots.md"
         fi
+        if [[ ! -f "$harness_dir/CLAUDE.md" ]]; then
+          cp "$root_dir/templates/harness/CLAUDE.md" "$harness_dir/CLAUDE.md"
+        fi
 
         # Create Mayor directory structure
         mayor_dir="$harness_dir/mayor"
