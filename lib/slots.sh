@@ -149,11 +149,15 @@ slot_show() {
 slot_get_field() {
   local block="$1"
   local field="$2"
-  printf "%s" "$block" | awk -F"\\*\\*${field}:\\*\\*" -v field="$field" '
-    $0 ~ "\\*\\*" field ":\\*\\*" {
-      sub(/^[[:space:]]*/, "", $2)
-      print $2
-      exit
+  printf "%s" "$block" | awk -v marker="**${field}:**" '
+    {
+      i = index($0, marker)
+      if (i > 0) {
+        val = substr($0, i + length(marker))
+        gsub(/^[[:space:]]+/, "", val)
+        print val
+        exit
+      }
     }
   '
 }

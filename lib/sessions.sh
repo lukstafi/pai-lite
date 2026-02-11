@@ -162,7 +162,12 @@ sessions_discover_claude_code() {
 
     if [[ -f "$index_file" ]]; then
       # Use sessions-index.json (rich metadata)
+      local raw_before="$_SESSIONS_RAW"
       _sessions_claude_from_index "$index_file" "$project_dir" "$now"
+      # If index yielded nothing (all entries stale), fall back to JSONL scan
+      if [[ "$_SESSIONS_RAW" == "$raw_before" ]]; then
+        _sessions_claude_from_jsonl "$project_dir" "$now"
+      fi
     else
       # Fallback: scan JSONL files directly
       _sessions_claude_from_jsonl "$project_dir" "$now"
