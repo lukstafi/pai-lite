@@ -5,13 +5,14 @@ import { join, basename } from "path";
 import { loadConfigSync } from "./config.ts";
 
 function paiLiteRoot(): string {
-  // Find the root by looking for package.json from the binary location
-  const binPath = process.argv[1] ?? "";
-  if (binPath.includes("/bin/")) {
-    return binPath.replace(/\/bin\/.*$/, "");
+  // Use process.execPath — in compiled Bun binaries, process.argv[1] is a
+  // virtual /$bunfs/... path, but process.execPath is the real filesystem path.
+  const execPath = process.execPath;
+  if (execPath.includes("/bin/")) {
+    return execPath.replace(/\/bin\/.*$/, "");
   }
-  if (binPath.includes("/src/")) {
-    return binPath.replace(/\/src\/.*$/, "");
+  if (execPath.includes("/src/")) {
+    return execPath.replace(/\/src\/.*$/, "");
   }
   return process.cwd();
 }

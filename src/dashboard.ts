@@ -247,7 +247,8 @@ export function dashboardServe(port: number = 7678): void {
 
   const serverScript = join(dashboardDir, "..", "..", "pai-lite", "lib", "dashboard_server.py");
   // Fallback: try to find the server script relative to the binary
-  const altScript = join(dirname(dirname(process.argv[1] ?? "")), "lib", "dashboard_server.py");
+  // Use process.execPath — in compiled Bun binaries, process.argv[1] is virtual
+  const altScript = join(dirname(dirname(process.execPath)), "lib", "dashboard_server.py");
 
   let script = "";
   if (existsSync(serverScript)) script = serverScript;
@@ -259,7 +260,7 @@ export function dashboardServe(port: number = 7678): void {
 
   const config = loadConfigSync();
   const ttl = config.dashboard?.ttl ?? 5;
-  const bin = process.argv[1] ?? "pai-lite";
+  const bin = process.execPath;
 
   // Generate initial data
   dashboardGenerate();
@@ -276,7 +277,8 @@ export function dashboardServe(port: number = 7678): void {
 // --- Install ---
 
 export function dashboardInstall(): void {
-  const rootDir = dirname(dirname(process.argv[1] ?? ""));
+  // Use process.execPath — in compiled Bun binaries, process.argv[1] is virtual
+  const rootDir = dirname(dirname(process.execPath));
   const templateDir = join(rootDir, "templates", "dashboard");
   const dashboardDir = join(harnessDir(), "dashboard");
 

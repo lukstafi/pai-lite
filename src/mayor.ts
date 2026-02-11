@@ -165,7 +165,7 @@ function briefingPrecomputeContext(): void {
   // Capture slots
   let slotsOutput = "(unavailable)";
   try {
-    const r = Bun.spawnSync([process.argv[0] ?? "pai-lite", "slots"], { stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync([process.execPath, "slots"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0) slotsOutput = r.stdout.toString().trim();
   } catch { /* ignore */ }
 
@@ -179,28 +179,28 @@ function briefingPrecomputeContext(): void {
   // Flow ready
   let flowReadyOutput = "(unavailable)";
   try {
-    const r = Bun.spawnSync([process.argv[0] ?? "pai-lite", "flow", "ready"], { stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync([process.execPath, "flow", "ready"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0) flowReadyOutput = r.stdout.toString().trim();
   } catch { /* ignore */ }
 
   // Flow critical
   let flowCriticalOutput = "(unavailable)";
   try {
-    const r = Bun.spawnSync([process.argv[0] ?? "pai-lite", "flow", "critical"], { stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync([process.execPath, "flow", "critical"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0) flowCriticalOutput = r.stdout.toString().trim();
   } catch { /* ignore */ }
 
   // Tasks needing elaboration
   let needsElabOutput = "None";
   try {
-    const r = Bun.spawnSync([process.argv[0] ?? "pai-lite", "tasks", "needs-elaboration"], { stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync([process.execPath, "tasks", "needs-elaboration"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0 && r.stdout.toString().trim()) needsElabOutput = r.stdout.toString().trim();
   } catch { /* ignore */ }
 
   // Recent journal
   let journalOutput = "(no journal entries)";
   try {
-    const r = Bun.spawnSync([process.argv[0] ?? "pai-lite", "journal", "recent", "20"], { stdout: "pipe", stderr: "pipe" });
+    const r = Bun.spawnSync([process.execPath, "journal", "recent", "20"], { stdout: "pipe", stderr: "pipe" });
     if (r.exitCode === 0) journalOutput = r.stdout.toString().trim();
   } catch { /* ignore */ }
 
@@ -747,7 +747,23 @@ export async function runMayor(args: string[]): Promise<void> {
     case "context":
       mayorContext();
       break;
+    case "queue-pop": {
+      // Called by the stop hook to check if there's a queued skill to run
+      const cwd = args[1] ?? "";
+      if (cwd) {
+        const harness = harnessDir();
+        if (!cwd.startsWith(harness)) {
+          // Not the Mayor session — silently exit
+          break;
+        }
+      }
+      const skillCommand = queuePopSkill();
+      if (skillCommand) {
+        console.log(JSON.stringify({ decision: "block", reason: skillCommand }));
+      }
+      break;
+    }
     default:
-      throw new Error(`unknown mayor command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, context)`);
+      throw new Error(`unknown mayor command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context)`);
   }
 }
