@@ -58,10 +58,12 @@ Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
    - For tasks that appear in the ready queue or are high-priority:
      - Use the Task tool to invoke `/pai-elaborate <task-id>` (parallel)
 
-4. **Analyze and split work**:
+4. **Analyze, merge, and split work**:
    - Identify high-priority ready tasks, approaching deadlines (7 days),
      stalled work (in-progress > 7 days), slot utilization
    - Factor in inbox messages as high-priority context
+   - Check for duplicate/overlapping tasks: run `pai-lite tasks duplicates`
+     and merge any confirmed duplicates with `pai-lite tasks merge <target> <source...>`
    - Check whether tasks or projects should be split into finer-grained units:
      - Multiple git worktrees under the same repo → separate sub-projects
        (exception: worktrees from the same agent-duo feature are one unit)

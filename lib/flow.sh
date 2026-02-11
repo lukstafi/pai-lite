@@ -164,7 +164,8 @@ flow_critical() {
     [.[] | select(
       .deadline != null and
       .status != "done" and
-      .status != "abandoned"
+      .status != "abandoned" and
+      .status != "merged"
     )]
     | map(. + {
         _deadline_epoch: (.deadline | strptime("%Y-%m-%d") | mktime),

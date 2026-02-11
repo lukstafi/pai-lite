@@ -57,6 +57,8 @@ Commands:
   tasks queue-elaborations     Queue elaboration for unprocessed ready tasks
   tasks check <id>             Check if task needs elaboration
   tasks migrate-refs           Sync + update cross-references after ID migration
+  tasks merge <target> <src..> Merge source task(s) into target
+  tasks duplicates             Find potential duplicate tasks
 
   flow ready                   Priority-sorted ready tasks
   flow blocked                 What's blocked and why
@@ -444,8 +446,19 @@ case "$cmd" in
       migrate-refs)
         tasks_migrate_refs
         ;;
+      merge)
+        shift 2  # Remove 'tasks merge'
+        target="${1:-}"
+        [[ -n "$target" ]] || pai_lite_die "target task ID required"
+        shift
+        [[ $# -gt 0 ]] || pai_lite_die "at least one source task ID required"
+        tasks_merge "$target" "$@"
+        ;;
+      duplicates)
+        tasks_duplicates
+        ;;
       *)
-        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples, needs-elaboration, queue-elaborations, check, migrate-refs)"
+        pai_lite_die "unknown tasks subcommand: $sub (use: sync, list, show, convert, create, files, samples, needs-elaboration, queue-elaborations, check, migrate-refs, merge, duplicates)"
         ;;
     esac
     ;;

@@ -225,6 +225,29 @@ task_update_frontmatter() {
   ' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
+# Add a new field to task frontmatter (inserts before closing ---)
+# Use this for fields that don't exist in the template (e.g. merged_into)
+task_add_frontmatter() {
+  local task_id="$1" field="$2" value="$3"
+  local file
+  file="$(task_file_path "$task_id")"
+  [[ -f "$file" ]] || return 1
+
+  # If field already exists, update it instead
+  if grep -q "^${field}:" "$file"; then
+    task_update_frontmatter "$task_id" "$field" "$value"
+    return
+  fi
+
+  local tmp="${file}.tmp"
+  awk -v field="$field" -v value="$value" '
+    BEGIN { count=0 }
+    /^---$/ { count++ }
+    count == 2 && /^---$/ { print field ": " value }
+    { print }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
 task_update_for_slot_assign() {
   local task_id="$1"
   local slot="$2"

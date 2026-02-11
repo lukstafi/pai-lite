@@ -956,3 +956,237 @@ tasks_migrate_refs() {
     echo "  $old_id -> $new_id"
   done
 }
+
+#------------------------------------------------------------------------------
+# Merge tasks: mark source tasks as merged into a target task
+#------------------------------------------------------------------------------
+
+tasks_merge() {
+  local target_id="$1"
+  shift
+  local source_ids=("$@")
+
+  [[ -n "$target_id" ]] || pai_lite_die "target task ID required"
+  [[ ${#source_ids[@]} -gt 0 ]] || pai_lite_die "at least one source task ID required"
+
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+
+  # Validate all IDs exist
+  local target_file="$tasks_dir/${target_id}.md"
+  if [[ ! -f "$target_file" ]]; then
+    pai_lite_die "target task not found: $target_id"
+  fi
+
+  for src_id in "${source_ids[@]}"; do
+    local src_file="$tasks_dir/${src_id}.md"
+    if [[ ! -f "$src_file" ]]; then
+      pai_lite_die "source task not found: $src_id"
+    fi
+    if [[ "$src_id" == "$target_id" ]]; then
+      pai_lite_die "cannot merge a task into itself: $src_id"
+    fi
+  done
+
+  local merged_count=0
+
+  for src_id in "${source_ids[@]}"; do
+    local src_file="$tasks_dir/${src_id}.md"
+
+    # Update source: set status to merged, add merged_into field
+    task_update_frontmatter "$src_id" "status" "merged"
+    task_add_frontmatter "$src_id" "merged_into" "$target_id"
+    task_update_frontmatter "$src_id" "slot" "null"
+
+    # Transfer dependencies from source to target
+    tasks_merge_transfer_deps "$src_id" "$target_id"
+
+    # Update any tasks that reference source in blocked_by → replace with target
+    tasks_merge_repoint_deps "$src_id" "$target_id"
+
+    merged_count=$((merged_count + 1))
+    echo "Merged: $src_id -> $target_id"
+  done
+
+  # Add merged_from list to target
+  local merged_list
+  merged_list="[$(printf '%s' "${source_ids[*]}" | tr ' ' ',')]"
+  # If target already has merged_from, we need to append
+  if grep -q '^merged_from:' "$target_file"; then
+    # Read existing list, append new IDs
+    local existing
+    existing="$(awk '/^merged_from:/ { sub(/^merged_from:[[:space:]]*/, ""); print; exit }' "$target_file")"
+    # Simple approach: combine the bracket contents
+    existing="${existing#\[}"
+    existing="${existing%\]}"
+    local new_items
+    new_items="$(printf '%s' "${source_ids[*]}" | tr ' ' ',')"
+    if [[ -n "$existing" ]]; then
+      merged_list="[$existing, $new_items]"
+    else
+      merged_list="[$new_items]"
+    fi
+    task_update_frontmatter "$target_id" "merged_from" "$merged_list"
+  else
+    task_add_frontmatter "$target_id" "merged_from" "$merged_list"
+  fi
+
+  echo ""
+  echo "Merged $merged_count task(s) into $target_id"
+}
+
+# Transfer blocks/blocked_by from source to target (internal helper)
+tasks_merge_transfer_deps() {
+  local src_id="$1" target_id="$2"
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+  local src_file="$tasks_dir/${src_id}.md"
+  local target_file="$tasks_dir/${target_id}.md"
+
+  pai_lite_require_cmd yq
+
+  # Extract source dependencies
+  local src_blocks src_blocked_by
+  src_blocks="$(awk '/^---$/{ if(++c==2) exit } c==1' "$src_file" | yq -r '.dependencies.blocks // [] | .[]' 2>/dev/null || true)"
+  src_blocked_by="$(awk '/^---$/{ if(++c==2) exit } c==1' "$src_file" | yq -r '.dependencies.blocked_by // [] | .[]' 2>/dev/null || true)"
+
+  # Extract target dependencies
+  local tgt_blocks tgt_blocked_by
+  tgt_blocks="$(awk '/^---$/{ if(++c==2) exit } c==1' "$target_file" | yq -r '.dependencies.blocks // [] | .[]' 2>/dev/null || true)"
+  tgt_blocked_by="$(awk '/^---$/{ if(++c==2) exit } c==1' "$target_file" | yq -r '.dependencies.blocked_by // [] | .[]' 2>/dev/null || true)"
+
+  # Merge blocks: add source's blocks to target (skip duplicates and self-refs)
+  local new_blocks="$tgt_blocks"
+  while IFS= read -r dep; do
+    [[ -n "$dep" ]] || continue
+    [[ "$dep" != "$target_id" ]] || continue
+    [[ "$dep" != "$src_id" ]] || continue
+    if ! echo "$new_blocks" | grep -qx "$dep" 2>/dev/null; then
+      new_blocks="$(printf '%s\n%s' "$new_blocks" "$dep")"
+    fi
+  done <<< "$src_blocks"
+
+  # Merge blocked_by: add source's blocked_by to target
+  local new_blocked_by="$tgt_blocked_by"
+  while IFS= read -r dep; do
+    [[ -n "$dep" ]] || continue
+    [[ "$dep" != "$target_id" ]] || continue
+    [[ "$dep" != "$src_id" ]] || continue
+    if ! echo "$new_blocked_by" | grep -qx "$dep" 2>/dev/null; then
+      new_blocked_by="$(printf '%s\n%s' "$new_blocked_by" "$dep")"
+    fi
+  done <<< "$src_blocked_by"
+
+  # Format as YAML arrays and update target
+  local blocks_yaml blocked_by_yaml
+  blocks_yaml="[$(echo "$new_blocks" | grep -v '^$' | paste -sd',' - 2>/dev/null || echo '')]"
+  blocked_by_yaml="[$(echo "$new_blocked_by" | grep -v '^$' | paste -sd',' - 2>/dev/null || echo '')]"
+
+  # Use sed to update the nested dependency fields
+  local tmp="${target_file}.tmp"
+  awk -v blocks="$blocks_yaml" -v blocked_by="$blocked_by_yaml" '
+    /^[[:space:]]*blocks:/ && in_deps { print "  blocks: " blocks; next }
+    /^[[:space:]]*blocked_by:/ && in_deps { print "  blocked_by: " blocked_by; next }
+    /^dependencies:/ { in_deps=1 }
+    /^[a-z]/ && !/^dependencies:/ { in_deps=0 }
+    { print }
+  ' "$target_file" > "$tmp" && mv "$tmp" "$target_file"
+}
+
+# Repoint other tasks' blocked_by references from source to target (internal helper)
+tasks_merge_repoint_deps() {
+  local src_id="$1" target_id="$2"
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+
+  local is_darwin=false
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    is_darwin=true
+  fi
+
+  for f in "$tasks_dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    local fid
+    fid="$(basename "$f" .md)"
+    # Skip source and target themselves
+    [[ "$fid" != "$src_id" && "$fid" != "$target_id" ]] || continue
+    # Replace source ID with target ID in blocked_by/blocks references
+    if grep -q "$src_id" "$f" 2>/dev/null; then
+      if $is_darwin; then
+        sed -i '' "s|$src_id|$target_id|g" "$f"
+      else
+        sed -i "s|$src_id|$target_id|g" "$f"
+      fi
+    fi
+  done
+}
+
+#------------------------------------------------------------------------------
+# Find potential duplicate tasks by title fingerprint
+#------------------------------------------------------------------------------
+
+tasks_duplicates() {
+  local tasks_dir
+  tasks_dir="$(tasks_dir_path)"
+
+  if [[ ! -d "$tasks_dir" ]]; then
+    echo "No task files yet"
+    return
+  fi
+
+  # Collect fingerprint -> task IDs mapping
+  # Use temp files since associative arrays in subshells are tricky
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+
+  for file in "$tasks_dir"/*.md; do
+    [[ -f "$file" ]] || continue
+    local id status title
+    id=$(awk '/^id:/ { print $2; exit }' "$file")
+    status=$(awk '/^status:/ { print $2; exit }' "$file")
+
+    # Skip terminal states
+    case "$status" in
+      done|abandoned|merged) continue ;;
+    esac
+
+    title=$(awk '/^title:/ { sub(/^title:[[:space:]]*"?/, ""); sub(/"?$/, ""); print; exit }' "$file")
+    [[ -n "$title" ]] || continue
+
+    local fp
+    fp="$(content_fingerprint "$title")"
+
+    # Append to fingerprint group file
+    echo "$id|$title" >> "$tmpdir/$fp"
+  done
+
+  # Find groups with 2+ entries
+  local found=false
+  local group_num=0
+  for fp_file in "$tmpdir"/*; do
+    [[ -f "$fp_file" ]] || continue
+    local count
+    count=$(wc -l < "$fp_file" | tr -d ' ')
+    if [[ "$count" -ge 2 ]]; then
+      found=true
+      group_num=$((group_num + 1))
+      echo "Group $group_num (fingerprint: $(basename "$fp_file")):"
+      while IFS='|' read -r id title; do
+        echo "  $id  \"$title\""
+      done < "$fp_file"
+      # Suggest merge command using first entry as target
+      local first_id
+      first_id="$(head -1 "$fp_file" | cut -d'|' -f1)"
+      local other_ids
+      other_ids="$(tail -n +2 "$fp_file" | cut -d'|' -f1 | tr '\n' ' ')"
+      echo "  -> pai-lite tasks merge $first_id $other_ids"
+      echo ""
+    fi
+  done
+
+  rm -rf "$tmpdir"
+
+  if ! $found; then
+    echo "No duplicate tasks found"
+  fi
+}
