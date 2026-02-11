@@ -31,9 +31,9 @@ for a personal tool.
 development), `Bun.$` shell integration for ergonomic subprocess calls, `bun build --compile`
 produces a self-contained binary with zero runtime dependency.
 
-## Migration Strategy: Incremental
+## Migration Stages
 
-No big-bang rewrite. At every phase, `pai-lite` keeps working.
+Prepare each stage as a separate commit.
 
 ### Phase 0: Scaffold
 
@@ -70,7 +70,6 @@ The natural first target — it's JSON-heavy and benefits most from the migratio
 
 - Triggers, flow engine, Mayor queue, notify
 - Dashboard backend shares types with frontend
-- Migrate one module at a time
 
 ## Data Format Discoveries (from PR research)
 
@@ -140,6 +139,8 @@ These decisions were validated through the agent-duo review process (6+ rounds).
    briefing and pays attention to unclassified sessions.
 
 ## Suggested TypeScript Types
+
+This is just for inspiration.
 
 ```typescript
 interface DiscoveredSession {
