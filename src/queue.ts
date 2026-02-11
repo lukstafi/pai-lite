@@ -1,0 +1,89 @@
+// Mayor queue functions — queue-based communication with Claude Code Mayor session
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
+import { join, dirname } from "path";
+import { harnessDir } from "./config.ts";
+
+function queueFile(): string {
+  return join(harnessDir(), "mayor", "queue.jsonl");
+}
+
+function resultsDir(): string {
+  return join(harnessDir(), "mayor", "results");
+}
+
+export function queueRequest(action: string, extra?: string): string {
+  const file = queueFile();
+  mkdirSync(dirname(file), { recursive: true });
+
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const requestId = `req-${Math.floor(Date.now() / 1000)}-${process.pid}`;
+
+  let request: string;
+  if (extra) {
+    request = `{"id":"${requestId}","action":"${action}","timestamp":"${timestamp}",${extra}}`;
+  } else {
+    request = `{"id":"${requestId}","action":"${action}","timestamp":"${timestamp}"}`;
+  }
+
+  appendFileSync(file, request + "\n");
+  return requestId;
+}
+
+export function queuePop(): string | null {
+  const file = queueFile();
+  if (!existsSync(file)) return null;
+
+  const content = readFileSync(file, "utf-8").trim();
+  if (!content) return null;
+
+  const lines = content.split("\n");
+  const first = lines[0]!;
+  writeFileSync(file, lines.slice(1).join("\n") + (lines.length > 1 ? "\n" : ""));
+  return first;
+}
+
+export function queuePending(): boolean {
+  const file = queueFile();
+  if (!existsSync(file)) return false;
+  const content = readFileSync(file, "utf-8").trim();
+  return content.length > 0;
+}
+
+export function queueShow(): void {
+  const file = queueFile();
+  if (!existsSync(file)) {
+    console.log("No pending queue requests");
+    return;
+  }
+  const content = readFileSync(file, "utf-8").trim();
+  if (!content) {
+    console.log("No pending queue requests");
+    return;
+  }
+  const lines = content.split("\n");
+  console.log(`${lines.length} pending request(s):`);
+  for (const line of lines) {
+    try {
+      const req = JSON.parse(line);
+      console.log(`  ${req.id}: ${req.action} (${req.timestamp})`);
+    } catch {
+      console.log(`  (unparseable): ${line.slice(0, 80)}`);
+    }
+  }
+}
+
+export function writeResult(requestId: string, status: string, outputFile?: string): void {
+  const dir = resultsDir();
+  mkdirSync(dir, { recursive: true });
+  const resultFile = join(dir, `${requestId}.json`);
+
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
+  if (outputFile && existsSync(outputFile)) {
+    const content = JSON.stringify(readFileSync(outputFile, "utf-8"));
+    writeFileSync(resultFile, `{"id":"${requestId}","status":"${status}","timestamp":"${timestamp}","output":${content}}\n`);
+  } else {
+    writeFileSync(resultFile, `{"id":"${requestId}","status":"${status}","timestamp":"${timestamp}"}\n`);
+  }
+}
