@@ -624,7 +624,7 @@ pai_lite_journal_append() {
   fi
 
   # Append the entry
-  printf "- **%s** [%s] %s\n" "$timestamp" "$category" "$message" >> "$journal_file"
+  printf -- "- **%s** [%s] %s\n" "$timestamp" "$category" "$message" >> "$journal_file"
 }
 
 # Read recent journal entries
