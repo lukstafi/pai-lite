@@ -23,6 +23,7 @@ Second release. Focus on robustness, better Mayor workflows, and task management
 - **Flow engine glob** — Fixed task file matching to include all `*.md` files with YAML frontmatter, not just `task-*.md`.
 - **`printf` with dash-prefixed strings** — `log_info`/`log_error` no longer fail when the message starts with a dash.
 - **Mayor keepalive timestamp** — Nudge messages now include the current time for log traceability.
+- Tiny fixes to task elaboration and slot assignment workflows.
 
 ### Other changes
 
