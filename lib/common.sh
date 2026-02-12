@@ -105,7 +105,7 @@ ludics_config_get_nested() {
 # Config Parsing: Mag Section
 #------------------------------------------------------------------------------
 
-# Get a value from the Mag config section
+# Get a value from Mag config section
 # Usage: ludics_config_mag_get <key>
 # Example: ludics_config_mag_get "enabled" -> true/false
 ludics_config_mag_get() {
