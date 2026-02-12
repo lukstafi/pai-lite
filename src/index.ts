@@ -16,6 +16,7 @@ import { runFederation } from "./federation.ts";
 import { runTriggers } from "./triggers.ts";
 import { slotsList } from "./slots/index.ts";
 import { flowReady, flowCritical } from "./flow.ts";
+import { runQuote } from "./quote.ts";
 
 const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   sessions: runSessions,
@@ -29,6 +30,7 @@ const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   network: runNetwork,
   federation: runFederation,
   triggers: runTriggers,
+  quote: async () => runQuote(),
   sync: async () => stateFullSync(),
   state: async (args) => {
     const sub = args[0] ?? "";
@@ -135,6 +137,8 @@ Commands:
   federation tick              Publish heartbeat and run leader election
   federation elect             Run leader election only
   federation heartbeat         Publish heartbeat only
+
+  quote                        Print a random quote
 
   status                       Overview of slots + tasks
   briefing                     Morning briefing

@@ -1,0 +1,60 @@
+"LUDICS is a monist approach to logic — without this nonsense distinction syntax/semantics/meta — just plain logical artifacts, period."
+— Locus Solum (Girard 2001)
+"The meaning of logical rules is to be found in the rules themselves."
+— On the meaning of logical rules I (Girard 1998)
+"Linear logic is not an alternative logic; it should rather be seen as an extension of usual logic."
+— Linear Logic: its syntax and semantics (Girard 1995)
+"Contraction is the fingernail of infinity in propositional calculus."
+— Linear Logic: its syntax and semantics (Girard 1995)
+"This is perfect in mathematics, but wrong in real life, since real implication is causal."
+— Linear Logic: its syntax and semantics (Girard 1995)
+"If logic is a sort of game, proofs are winning strategies."
+— The Blind Spot (Girard 2011)
+"The opposition between syntax and semantics is an obsolete legacy of the XIXth century."
+— On the meaning of logical rules I (Girard 1998)
+"We have enough knowledge to depart from the old world but we don't yet know enough to produce a well-organized alternative."
+— On the meaning of logical rules I (Girard 1998)
+"The abuse of the expression 'meta' has completely distorted the relation of logicians to their own field."
+— On the meaning of logical rules I (Girard 1998)
+"Either you say 'God' or 'It shows!', and I do think that the second explanation is the only possible one, in spite of its obvious limitations."
+— On the meaning of logical rules I (Girard 1998)
+"The fax is nothing but the ludic version of the familiar copycat strategy."
+— Locus Solum (Girard 2001)
+"Incompleteness can be ascribed to a ready-made normativity, inducing a rigid departure syntax/semantics."
+— Normativity in Logic (Girard 2012)
+"The question at stake is the nature of mathematical knowledge and the difference between a question and an answer, i.e., the implicit and the explicit."
+— The Blind Spot (Girard 2011)
+"Category theory only presents a limited aspect of logic; provided we realise this, it remains a very important tool."
+— Locus Solum (Girard 2001)
+"The limitations of categories lies in their spiritualism, their extreme spiritualism: everything is up to isomorphism."
+— Locus Solum (Girard 2001)
+"Science also progresses by deciding that questions on which no progress is made are of no interest."
+— On the meaning of logical rules I (Girard 1998)
+"Negation should not be interpreted by NO, but by the exchange between Player and Opponent."
+— On the meaning of logical rules I (Girard 1998)
+"Truth does not exist independently of the means, the protocols, of verification."
+— The Blind Spot (Girard 2011)
+"For 70 years people have been obsessed by this question, and nothing came out of it."
+— On the meaning of logical rules I (Girard 1998), on meta-foundations
+"We live on a sort of wandering body with a ball of fire in its center, but nobody would buy an insurance against the explosion of Earth."
+— On the meaning of logical rules I (Girard 1998)
+"Truth is lived, not taught."
+— The Glass Bead Game (Hesse)
+"One can be a strict logician or grammarian and at the same time full of imagination and music."
+— The Glass Bead Game (Hesse)
+"Our mission is to recognize contraries for what they are: first of all as contraries, but then as opposite poles of a unity."
+— The Glass Bead Game (Hesse)
+"Every important cultural gesture comes down to a morality, a model for human behavior concentrated into a gesture."
+— The Glass Bead Game (Hesse)
+"Each of us is merely one human being, merely an experiment, a way station."
+— The Glass Bead Game (Hesse)
+"We should be mindful of everything, for we can interpret everything."
+— The Glass Bead Game (Hesse)
+"The more pointedly and logically we formulate a thesis, the more irresistibly it cries out for its antithesis."
+— The Glass Bead Game (Hesse)
+"To deal with history means to abandon oneself to chaos but to retain a belief in the ordination and the meaning."
+— The Glass Bead Game (Hesse)
+"Nothing is harder, yet nothing is more necessary, than to speak of certain things whose existence is neither demonstrable nor probable."
+— The Glass Bead Game (Hesse)
+"The continuance of civilization depends on this strict schooling."
+— The Glass Bead Game (Hesse)
