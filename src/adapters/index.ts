@@ -3,7 +3,7 @@
 import { existsSync } from "fs";
 import { join, dirname } from "path";
 
-function paiLiteRoot(): string {
+function ludicsRoot(): string {
   // src/adapters/index.ts → project root
   return join(dirname(new URL(import.meta.url).pathname), "../..");
 }
@@ -19,18 +19,18 @@ export interface AdapterContext {
 }
 
 function adapterFilePath(mode: string): string {
-  return join(paiLiteRoot(), "adapters", `${mode}.sh`);
+  return join(ludicsRoot(), "adapters", `${mode}.sh`);
 }
 
 function buildEnv(ctx: AdapterContext): Record<string, string> {
   return {
     ...process.env as Record<string, string>,
-    PAI_LITE_STATE_DIR: ctx.harnessDir,
-    PAI_LITE_STATE_REPO: ctx.stateRepoDir,
-    PAI_LITE_SLOT: String(ctx.slot),
-    PAI_LITE_TASK: ctx.taskId,
-    PAI_LITE_SESSION: ctx.session,
-    PAI_LITE_PROCESS: ctx.process,
+    LUDICS_STATE_DIR: ctx.harnessDir,
+    LUDICS_STATE_REPO: ctx.stateRepoDir,
+    LUDICS_SLOT: String(ctx.slot),
+    LUDICS_TASK: ctx.taskId,
+    LUDICS_SESSION: ctx.session,
+    LUDICS_PROCESS: ctx.process,
   };
 }
 

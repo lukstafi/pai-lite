@@ -27,7 +27,7 @@ export function stateCommit(message: string): void {
   run(["git", "add", "-A"], repoDir);
   const result = run(["git", "commit", "-m", message], repoDir);
   if (result.success) {
-    console.error(`pai-lite: committed: ${message}`);
+    console.error(`ludics: committed: ${message}`);
   }
 }
 
@@ -39,14 +39,14 @@ export function statePull(): boolean {
   const hasChanges = diffResult.exitCode !== 0;
 
   if (hasChanges) {
-    run(["git", "stash", "push", "-m", "pai-lite auto-stash before pull"], repoDir);
+    run(["git", "stash", "push", "-m", "ludics auto-stash before pull"], repoDir);
   }
 
   const pullResult = run(["git", "pull", "--rebase"], repoDir);
   if (pullResult.success) {
-    console.error("pai-lite: pulled latest from remote");
+    console.error("ludics: pulled latest from remote");
   } else {
-    console.error("pai-lite: pull failed (may need manual intervention)");
+    console.error("ludics: pull failed (may need manual intervention)");
     if (hasChanges) {
       run(["git", "stash", "pop"], repoDir);
     }
@@ -56,9 +56,9 @@ export function statePull(): boolean {
   if (hasChanges) {
     const popResult = run(["git", "stash", "pop"], repoDir);
     if (popResult.success) {
-      console.error("pai-lite: restored local changes");
+      console.error("ludics: restored local changes");
     } else {
-      console.error("pai-lite: conflict restoring local changes (check git stash)");
+      console.error("ludics: conflict restoring local changes (check git stash)");
     }
   }
 
@@ -69,9 +69,9 @@ export function statePush(): void {
   const repoDir = stateRepoDir();
   const result = run(["git", "push"], repoDir);
   if (result.success) {
-    console.error("pai-lite: pushed to remote");
+    console.error("ludics: pushed to remote");
   } else {
-    console.error("pai-lite: push failed (will retry later)");
+    console.error("ludics: push failed (will retry later)");
   }
 }
 

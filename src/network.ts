@@ -48,7 +48,7 @@ export function networkHostname(): string {
     const configHost = hostnameFromConfig();
     if (configHost) return configHost;
 
-    console.error("pai-lite: tailscale mode enabled but cannot determine hostname");
+    console.error("ludics: tailscale mode enabled but cannot determine hostname");
     return "localhost";
   }
 

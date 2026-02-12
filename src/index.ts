@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// pai-lite — TypeScript entry point
+// ludics — TypeScript entry point
 
 import { runSessions } from "./sessions/index.ts";
 import { runSlots, runSlot } from "./slots/index.ts";
@@ -9,7 +9,7 @@ import { journalRecent, journalList } from "./journal.ts";
 import { queueShow } from "./queue.ts";
 import { runFlow } from "./flow.ts";
 import { runNotify } from "./notify.ts";
-import { runMayor } from "./mayor.ts";
+import { runMag } from "./mag.ts";
 import { runDashboard } from "./dashboard.ts";
 import { runNetwork } from "./network.ts";
 import { runFederation } from "./federation.ts";
@@ -23,7 +23,7 @@ const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   slot: runSlot,
   tasks: runTasks,
   flow: runFlow,
-  mayor: runMayor,
+  mag: runMag,
   notify: runNotify,
   dashboard: runDashboard,
   network: runNetwork,
@@ -49,16 +49,16 @@ const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
     flowReady();
   },
   briefing: async () => {
-    const { mayorBriefing } = await import("./mayor.ts");
-    mayorBriefing();
+    const { magBriefing } = await import("./mag.ts");
+    magBriefing();
   },
   doctor: async () => {
-    const { mayorDoctor } = await import("./mayor.ts");
-    mayorDoctor();
+    const { magDoctor } = await import("./mag.ts");
+    magDoctor();
   },
 };
 
-const USAGE = `Usage: pai-lite <command>
+const USAGE = `Usage: ludics <command>
 
 Commands:
   slots                        Show all slots
@@ -92,21 +92,21 @@ Commands:
   flow context                 Context distribution across slots
   flow check-cycle             Check for dependency cycles
 
-  mayor start [--no-ttyd]      Start Mayor tmux session (with ttyd by default)
-  mayor stop                   Stop Mayor tmux session
-  mayor status                 Show Mayor status
-  mayor attach                 Attach to Mayor tmux session
-  mayor logs [n]               Show recent Mayor activity
-  mayor doctor                 Health check for Mayor setup
-  mayor briefing               Request morning briefing
-  mayor suggest                Get task suggestions
-  mayor analyze <issue>        Analyze GitHub issue
-  mayor elaborate <id>         Elaborate task into detailed spec
-  mayor health-check           Check for stalled work, deadlines
-  mayor message "text"         Send async message to Mayor
-  mayor inbox                  Show and consume pending messages
-  mayor queue                  Show pending queue requests
-  mayor context                Pre-compute briefing context file
+  mag start [--no-ttyd]        Start Mag tmux session (with ttyd by default)
+  mag stop                     Stop Mag tmux session
+  mag status                   Show Mag status
+  mag attach                   Attach to Mag tmux session
+  mag logs [n]                 Show recent Mag activity
+  mag doctor                   Health check for Mag setup
+  mag briefing                 Request morning briefing
+  mag suggest                  Get task suggestions
+  mag analyze <issue>          Analyze GitHub issue
+  mag elaborate <id>           Elaborate task into detailed spec
+  mag health-check             Check for stalled work, deadlines
+  mag message "text"           Send async message to Mag
+  mag inbox                    Show and consume pending messages
+  mag queue                    Show pending queue requests
+  mag context                  Pre-compute briefing context file
 
   notify pai <msg>             Send strategic notification
   notify agents <msg>          Send operational notification
@@ -118,7 +118,7 @@ Commands:
   dashboard install            Install dashboard to state repo
 
   sessions [--json]            Discover and classify all agent sessions
-  sessions report [--json]     Generate sessions report for Mayor (Markdown + JSON)
+  sessions report [--json]     Generate sessions report for Mag (Markdown + JSON)
   sessions refresh [--json]    Re-run discovery and update report
   sessions show [filter]       Show detailed session info (optional cwd/id filter)
 
@@ -131,7 +131,7 @@ Commands:
   journal list [days]          List journal files from last n days
 
   network status               Show network configuration
-  federation status            Show federation status (multi-machine Mayor)
+  federation status            Show federation status (multi-machine Mag)
   federation tick              Publish heartbeat and run leader election
   federation elect             Run leader election only
   federation heartbeat         Publish heartbeat only
@@ -160,12 +160,12 @@ async function main(): Promise<void> {
   if (handler) {
     await handler(args.slice(1));
   } else {
-    console.error(`pai-lite ${cmd}: not yet migrated`);
+    console.error(`ludics ${cmd}: not yet migrated`);
     process.exit(1);
   }
 }
 
 main().catch((err: unknown) => {
-  console.error(`pai-lite: fatal: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(`ludics: fatal: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

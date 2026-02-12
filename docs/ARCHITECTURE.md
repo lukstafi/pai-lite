@@ -1,13 +1,13 @@
-# pai-lite Architecture
+# ludics Architecture
 
 *Design document — describes the target architecture, not necessarily the current implementation.*
 
 ## Overview
 
-pai-lite is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (the Mayor), and maintains flow-based task management.
+ludics is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (the Mag), and maintains flow-based task management.
 
 **Core philosophy: "Autonomy babysitting automation"**
-- **Autonomous layer**: AI agents make strategic decisions (Mayor, workers)
+- **Autonomous layer**: AI agents make strategic decisions (Mag, workers)
 - **Automation layer**: Deterministic scripts execute reliably (triggers, adapters, sync)
 - The autonomous layer supervises; the automation layer provides predictable, deterministic behavior.
 
@@ -15,7 +15,7 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              THE MAYOR (Autonomous - Lifelong)             │
+│              THE MAG (Autonomous - Lifelong)             │
 │         Claude Opus 4.5 in Claude Code (tmux/ttyd)         │
 │                                                            │
 │  Invoked by automation when AI judgment needed:            │
@@ -42,7 +42,7 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 │    • Detects deadline violations (date math)               │
 │                                                            │
 │  Trigger System (launchd):                                 │
-│    • 08:00 → invoke Mayor for briefing                     │
+│    • 08:00 → invoke Mag for briefing                     │
 │    • Every 4h → slot health check                          │
 │    • WatchPaths → file changed, sync tasks / health check   │
 │                                                            │
@@ -52,11 +52,11 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 │                                                            │
 │  State Sync (git):                                         │
 │    • Pull from repos → aggregate issues                    │
-│    • Commit Mayor's changes                                │
+│    • Commit Mag's changes                                │
 │    • Push to private repo                                  │
 │                                                            │
 │  Notifications (ntfy.sh):                                  │
-│    • <user>-pai: Mayor strategic updates (private)         │
+│    • <user>-pai: Mag strategic updates (private)         │
 │    • <user>-agents: Worker task events (private)           │
 │    • <user>-public: Milestone broadcasts (read-only)       │
 └────────────┬───────────────────────────────────────────────┘
@@ -77,11 +77,11 @@ pai-lite is a lightweight personal AI infrastructure — a harness for humans wo
 
 ## Core Concepts
 
-### The Mayor: Autonomous Coordinator
+### The Mag: Autonomous Coordinator
 
-The **Mayor** is a persistent Claude Code instance running in a dedicated tmux session (`pai-mayor`) with ttyd web access enabled by default on port 7679. It provides autonomous strategic thinking while the automation layer handles reliable execution.
+The **Mag** is a persistent Claude Code instance running in a dedicated tmux session (`ludics-mag`) with ttyd web access enabled by default on port 7679. It provides autonomous strategic thinking while the automation layer handles reliable execution.
 
-**What the Mayor does (Claude Opus 4.5):**
+**What the Mag does (Claude Opus 4.5):**
 - Analyzes GitHub issues for actionability and dependencies (context understanding)
 - Generates morning briefings with strategic suggestions (writing, wisdom)
 - Detects stalled work (tasks in-progress >7 days with no updates)
@@ -91,7 +91,7 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - **Learns from corrections** — updates institutional memory when mistakes are identified
 - **Consolidates learnings** — periodically synthesizes scattered corrections into structured knowledge
 
-**What the Mayor delegates:**
+**What the Mag delegates:**
 
 *Via Task tool (native Claude Code subagents):*
 - **Haiku**: Fast extraction, parsing, simple validation
@@ -103,44 +103,44 @@ The **Mayor** is a persistent Claude Code instance running in a dedicated tmux s
 - Priority filtering: `jq` for sorting and selection
 - Graph visualization: `graphviz` (dot)
 
-The Mayor's skills (defined in the framework) can embed delegation patterns, e.g., a `/pai-analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mayor writes the task file.
+The Mag's skills (defined in the framework) can embed delegation patterns, e.g., a `/ludics-analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mag writes the task file.
 
-**How automation invokes the Mayor:**
+**How automation invokes the Mag:**
 ```bash
 # trigger_skill sends the slash command with a brief sleep
 # so the console processes the prompt instead of a raw newline.
 
 # Trigger at 08:00 (launchd)
-trigger_skill pai-mayor "/pai-briefing"
-# Mayor writes to briefing.md
+trigger_skill ludics-mag "/ludics-briefing"
+# Mag writes to briefing.md
 # Automation reads and notifies
 
 # New issue detected
-trigger_skill pai-mayor "/pai-analyze-issue ocannl 127"
-# Mayor creates task-143.md with inferred dependencies
+trigger_skill ludics-mag "/ludics-analyze-issue ocannl 127"
+# Mag creates task-143.md with inferred dependencies
 
 # User asks for suggestions
-trigger_skill pai-mayor "/pai-suggest"
-# Mayor analyzes flow state, writes suggestions
+trigger_skill ludics-mag "/ludics-suggest"
+# Mag analyzes flow state, writes suggestions
 ```
 
-**Why one lifelong Mayor (not multiple specialized agents)?**
+**Why one lifelong Mag (not multiple specialized agents)?**
 - Builds institutional memory (learns patterns, preferences)
 - Consistent decision-making across analysis, scheduling, briefing
 - Can see connections across projects
-- Simpler mental model (one AI coordinates pai-lite)
+- Simpler mental model (one AI coordinates ludics)
 
-**Why Claude Opus 4.5 for Mayor?**
+**Why Claude Opus 4.5 for Mag?**
 - **Well-rounded judgment** — strategic thinking over raw benchmark optimization
 - **Strong SWE skills** — task elaboration, detailed specifications
 - **Better writer** — briefings, narratives, contextual understanding
 - **Infrequent invocations** — cost is acceptable for morning briefings, issue analysis
 
-**Why Opus over Sonnet for Mayor?**
-- Mayor needs **institutional memory** and nuanced judgment
+**Why Opus over Sonnet for Mag?**
+- Mag needs **institutional memory** and nuanced judgment
 - Briefings require **depth** over speed
 - Strategic decisions benefit from more capable reasoning
-- Cost is manageable since Mayor runs infrequently
+- Cost is manageable since Mag runs infrequently
 
 **When Haiku/Sonnet subagents make sense:**
 - Fast extraction tasks (parsing dependencies from prose)
@@ -150,7 +150,7 @@ trigger_skill pai-mayor "/pai-suggest"
 
 ### Future: Model Portability
 
-pai-lite is currently Claude-specific but designed with future model portability in mind. The architecture could support other frontier models (e.g., OpenAI Codex) as Mayor backends once they gain equivalent capabilities.
+ludics is currently Claude-specific but designed with future model portability in mind. The architecture could support other frontier models (e.g., OpenAI Codex) as Mag backends once they gain equivalent capabilities.
 
 **Current assessment (Feb 2026):**
 
@@ -164,7 +164,7 @@ pai-lite is currently Claude-specific but designed with future model portability
 **What's already portable:**
 - **Skills** — agent-duo's skill templates already install to both Claude Code and Codex
 - **Adapters** — read state from sources (`.peer-sync/`, git), not from the model
-- **Mayor interface** — `/pai-briefing`, `/pai-analyze-issue` are just skill invocations
+- **Mag interface** — `/ludics-briefing`, `/ludics-analyze-issue` are just skill invocations
 - **CLI tools** — yq, jq, tsort don't care which AI invokes them
 
 **Codex subagent status (Feb 2026):**
@@ -175,15 +175,15 @@ Codex has adjacent capabilities but not a direct Task tool equivalent:
 - **Workaround**: OpenAI Agents SDK can orchestrate multiple agents with Codex as an MCP server (handoffs, guardrails, traces)
 - **CLI profiles**: `codex --profile <name>` for behavior switching, but not isolated-context subagents
 
-What's missing: A first-class, user-invocable `Task()` tool where the Mayor can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
+What's missing: A first-class, user-invocable `Task()` tool where the Mag can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
 
-**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mayor's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping the Mayor backend would primarily require adapting the delegation patterns.
+**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mag's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping the Mag backend would primarily require adapting the delegation patterns.
 
 **When to revisit:** Check Codex subagent status quarterly. Key signals: official Task-equivalent announcement, or general-purpose subagent spawning in CLI docs.
 
 ### Delegation Strategy
 
-The Mayor uses **Claude Code's native Task tool** for delegation, not custom API wrappers:
+The Mag uses **Claude Code's native Task tool** for delegation, not custom API wrappers:
 
 | Task | Approach | Why |
 |------|----------|-----|
@@ -192,10 +192,10 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 | Topological sort, cycle detection | `tsort` | Standard Unix tool |
 | Filter/sort tasks | `yq` + `jq` | Fast, scriptable |
 | Graph visualization | `graphviz` | DOT format, renders PNGs |
-| Strategic analysis | Mayor (Opus) | Needs judgment, context |
-| Writing briefings | Mayor (Opus) | Needs narrative skill |
+| Strategic analysis | Mag (Opus) | Needs judgment, context |
+| Writing briefings | Mag (Opus) | Needs narrative skill |
 
-**Example: `/pai-analyze-issue` skill**
+**Example: `/ludics-analyze-issue` skill**
 ```
 1. [Opus] Read issue, assess actionability
    └─ Not actionable → return early
@@ -210,45 +210,45 @@ The Mayor uses **Claude Code's native Task tool** for delegation, not custom API
 4. [Opus] Write task file with context
 ```
 
-Skills defined in the framework embed these patterns, keeping the Mayor's prompts clean.
+Skills defined in the framework embed these patterns, keeping the Mag's prompts clean.
 
-**Example: `/pai-learn` skill (institutional memory)**
+**Example: `/ludics-learn` skill (institutional memory)**
 
-When the user corrects a mistake, they can invoke `/pai-learn` to have the Mayor update its memory:
+When the user corrects a mistake, they can invoke `/ludics-learn` to have the Mag update its memory:
 
 ```
 User: "Don't use yq -s on single files, it expects multiple"
-User: /pai-learn
+User: /ludics-learn
 
-Mayor:
+Mag:
 1. Acknowledges the correction
-2. Writes to mayor/memory/corrections.md:
+2. Writes to mag/memory/corrections.md:
    ---
    - date: 2026-02-01
      context: yq usage
      correction: "yq -s expects multiple files; use yq eval for single files"
      source: user feedback
    ---
-3. If pattern is broader, updates mayor/memory/tools.md or CLAUDE.md
+3. If pattern is broader, updates mag/memory/tools.md or CLAUDE.md
 ```
 
-This creates a feedback loop where the Mayor learns from its mistakes and avoids repeating them.
+This creates a feedback loop where the Mag learns from its mistakes and avoids repeating them.
 
-**Example: `/pai-sync-learnings` skill (knowledge consolidation)**
+**Example: `/ludics-sync-learnings` skill (knowledge consolidation)**
 
-Periodically (or on demand), the Mayor consolidates scattered learnings:
+Periodically (or on demand), the Mag consolidates scattered learnings:
 
 ```
-/pai-sync-learnings
+/ludics-sync-learnings
 
-Mayor:
-1. Reads mayor/memory/corrections.md (recent entries)
+Mag:
+1. Reads mag/memory/corrections.md (recent entries)
 2. Reads journal/*.md (friction points, user feedback)
 3. Groups by theme (tooling, workflow, project-specific)
 4. Updates structured memory files:
-   - mayor/memory/tools.md (CLI tool gotchas)
-   - mayor/memory/workflows.md (process patterns)
-   - mayor/memory/projects/*.md (project-specific knowledge)
+   - mag/memory/tools.md (CLI tool gotchas)
+   - mag/memory/workflows.md (process patterns)
+   - mag/memory/projects/*.md (project-specific knowledge)
 5. Archives processed corrections (moves to corrections-archive.md)
 6. Optionally proposes CLAUDE.md updates for broad patterns
 ```
@@ -257,7 +257,7 @@ This prevents memory files from becoming cluttered while ensuring learnings are 
 
 ### The Slot Model: Forcing Function for Parallelization
 
-pai-lite hardcodes **6 slots** (not configurable) based on cognitive science and forcing functions.
+ludics hardcodes **6 slots** (not configurable) based on cognitive science and forcing functions.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -292,7 +292,7 @@ pai-lite hardcodes **6 slots** (not configurable) based on cognitive science and
 
 ### Flow-Based Task Management
 
-pai-lite uses **flow-based scheduling** (throughput over latency), not time-based scheduling (org-mode's SCHEDULED dates).
+ludics uses **flow-based scheduling** (throughput over latency), not time-based scheduling (org-mode's SCHEDULED dates).
 
 **What matters:**
 - ✅ **Dependencies**: What blocks what (can't start B until A is done)
@@ -355,34 +355,34 @@ None - ready to continue
 
 ### Flow Views (Not Calendar Agenda)
 
-Instead of org-mode's calendar-based agenda, pai-lite provides **flow views**:
+Instead of org-mode's calendar-based agenda, ludics provides **flow views**:
 
 ```bash
 # What can I work on right now?
-pai-lite flow ready
+ludics flow ready
 # → Priority-sorted list of tasks where blocked_by is empty
 
 # What's blocking progress?
-pai-lite flow blocked
+ludics flow blocked
 # → Dependency graph of blocked tasks and their blockers
 
 # What needs urgent attention?
-pai-lite flow critical
+ludics flow critical
 # → Approaching deadlines + stalled work + high-priority ready tasks
 
 # What happens if I finish this?
-pai-lite flow impact task-042
+ludics flow impact task-042
 # → Shows downstream tasks that would unblock
 
 # Am I context-switching too much?
-pai-lite flow context
+ludics flow context
 # → Shows context distribution across active slots
 ```
 
 **Flow analysis (shell implementation):**
 ```bash
 #!/bin/bash
-# pai-lite flow ready — suggest next task
+# ludics flow ready — suggest next task
 
 TASKS_DIR="$STATE_PATH/tasks"
 
@@ -412,7 +412,7 @@ jq 'sort_by(.priority) | first' /tmp/ready.json
 
 ### Three-Tier Notification System
 
-pai-lite uses **ntfy.sh** with three reserved topics:
+ludics uses **ntfy.sh** with three reserved topics:
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -463,7 +463,7 @@ pai-lite uses **ntfy.sh** with three reserved topics:
 - ntfy is for push notifications (ephemeral), not bidirectional communication
 - Human feedback should go through proper channels (email, GitHub Issues/Discussions)
 - Prevents notification pollution (unbounded public input defeats the purpose)
-- Keeps your notification stream under control (the whole point of pai-lite)
+- Keeps your notification stream under control (the whole point of ludics)
 
 **ntfy.sh topic security:**
 The `<user>-*` topic names shown here assume **reserved topics** via an ntfy.sh subscription. Without a subscription, ntfy.sh topics are globally namespaced — anyone who guesses the name can subscribe. Options for users without subscriptions:
@@ -473,7 +473,7 @@ The `<user>-*` topic names shown here assume **reserved topics** via an ntfy.sh 
 
 ### Adapters
 
-pai-lite doesn't run agents — it coordinates whatever you're using:
+ludics doesn't run agents — it coordinates whatever you're using:
 
 | Adapter | What it manages | State source |
 |---------|-----------------|--------------|
@@ -485,15 +485,15 @@ pai-lite doesn't run agents — it coordinates whatever you're using:
 
 Adapters are simple Bash scripts that:
 1. Read state from their source
-2. Translate to pai-lite's slot format
+2. Translate to ludics's slot format
 3. Optionally expose actions (start, stop, status)
 
 ### Orchestration: Queue-Based Communication
 
-pai-lite uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
+ludics uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
 
 **The Problem with send-keys:**
-- `tmux send-keys -t pai-mayor "/pai-briefing"; tmux send-keys -t pai-mayor C-m` assumes Claude is at a prompt
+- `tmux send-keys -t ludics-mag "/ludics-briefing"; tmux send-keys -t ludics-mag C-m` assumes Claude is at a prompt
 - If Claude is mid-turn, the command gets injected into its response
 - No acknowledgment that the command was received
 - Overwhelming when queueing multiple requests
@@ -501,12 +501,12 @@ pai-lite uses a **queue-based mechanism** for robust communication between the a
 **Queue-based approach:**
 
 ```
-Automation Layer                      Mayor (Claude Code)
+Automation Layer                      Mag (Claude Code)
      │                                      │
      │ 1. Writes request                    │
      ├──────────────────────────────────────>
      │    to queue file                     │
-     │    (mayor/queue.jsonl)               │
+     │    (mag/queue.jsonl)               │
      │                                      │
      │                                      │ 2. Stop hook fires
      │                                      │    when Claude ready
@@ -514,7 +514,7 @@ Automation Layer                      Mayor (Claude Code)
      │                                      │ 3. Reads queue
      │ 4. Reads result                      │    Processes requests
      <──────────────────────────────────────┤    Writes results
-     │    (mayor/results/)                  │
+     │    (mag/results/)                  │
 ```
 
 **Implementation:**
@@ -523,19 +523,19 @@ Automation writes requests to the queue file:
 
 ```bash
 echo '{"action": "briefing", "timestamp": "2026-02-01T08:00:00Z"}' >> \
-  "$STATE_PATH/mayor/queue.jsonl"
+  "$STATE_PATH/mag/queue.jsonl"
 ```
 
-Mayor's stop hook (`pai-lite-on-stop`) delegates to `pai-lite mayor queue-pop`, which reads and processes queued requests:
+Mag's stop hook (`ludics-on-stop`) delegates to `ludics mag queue-pop`, which reads and processes queued requests:
 
 ```bash
 #!/bin/bash
-# Stop hook (installed by pai-lite init --hooks)
+# Stop hook (installed by ludics init --hooks)
 # Delegates to the CLI so action mapping lives in one place
-exec pai-lite mayor queue-pop
+exec ludics mag queue-pop
 ```
 
-`mayor_queue_pop()` in `lib/mayor.sh` pops the first request from the queue, maps its action to a skill command (e.g. `briefing` → `/pai-briefing`), and outputs Stop hook JSON (`{"decision": "block", "reason": "/pai-briefing"}`) that tells Claude Code to continue with that skill command.
+`mag_queue_pop()` in `lib/mag.sh` pops the first request from the queue, maps its action to a skill command (e.g. `briefing` → `/ludics-briefing`), and outputs Stop hook JSON (`{"decision": "block", "reason": "/ludics-briefing"}`) that tells Claude Code to continue with that skill command.
 
 **Benefits:**
 - ✅ **Robust**: Works regardless of Claude's state
@@ -553,7 +553,7 @@ Events that fire automation:
 
 | Trigger | Mechanism | Example action |
 |---------|-----------|----------------|
-| Morning | launchd `StartCalendarInterval` | Invoke Mayor for briefing |
+| Morning | launchd `StartCalendarInterval` | Invoke Mag for briefing |
 | Periodic | launchd `StartInterval` | Health check, flow analysis |
 | File change | launchd `WatchPaths` | Sync tasks, health check, etc. |
 | Manual | CLI command | User-initiated |
@@ -564,11 +564,11 @@ Events that fire automation:
 
 ## Implementation: Pure Bash + CLI Tools
 
-pai-lite uses **Bash for coordination** with standard **CLI tools for logic**:
+ludics uses **Bash for coordination** with standard **CLI tools for logic**:
 
 ```
 Bash (coordination + logic):
-├─ bin/pai-lite              CLI entry, arg parsing, dispatch
+├─ bin/ludics              CLI entry, arg parsing, dispatch
 ├─ lib/triggers.sh           launchd integration
 ├─ lib/slots.sh              tmux/adapter orchestration
 ├─ lib/flow.sh               Task filtering, ready queue (uses yq/jq/tsort)
@@ -593,7 +593,7 @@ CLI tools (deterministic operations):
 
 **Example integration:**
 ```bash
-# Bash wrapper (bin/pai-lite)
+# Bash wrapper (bin/ludics)
 case "$1" in
     flow)
         case "$2" in
@@ -614,9 +614,9 @@ case "$1" in
         esac
         ;;
     briefing)
-        # Queue request for Mayor (processed by stop hook)
+        # Queue request for Mag (processed by stop hook)
         echo '{"action": "briefing", "timestamp": "'"$(date -Iseconds)"'"}' >> \
-          "$STATE_PATH/mayor/queue.jsonl"
+          "$STATE_PATH/mag/queue.jsonl"
         # Wait for result file
         wait_for_file "$STATE_PATH/briefing.md"
         cat "$STATE_PATH/briefing.md"
@@ -627,17 +627,17 @@ esac
 
 ## Directory Structure
 
-### Public repo (`pai-lite`)
+### Public repo (`ludics`)
 
 ```
-pai-lite/
+ludics/
 ├── README.md
 ├── CLAUDE.md                      # Instructions for AI agents
 ├── docs/
 │   ├── ARCHITECTURE.md            # This file
 │   └── ADAPTERS.md
 ├── bin/
-│   └── pai-lite                   # Main CLI (Bash)
+│   └── ludics                   # Main CLI (Bash)
 ├── lib/
 │   ├── slots.sh                   # Slot management
 │   ├── tasks.sh                   # Task aggregation
@@ -660,7 +660,7 @@ pai-lite/
 ```
 your-private-repo/
 └── harness/
-    ├── config.yaml                # Projects, Mayor settings, notification topics
+    ├── config.yaml                # Projects, Mag settings, notification topics
     ├── slots.md                   # Current slot states (6 slots, always)
     ├── agenda.md                  # Generated flow view (not calendar)
     ├── tasks/                     # Task files (git-backed, unmarked)
@@ -671,7 +671,7 @@ your-private-repo/
     ├── journal/                   # Daily logs
     │   ├── 2026-01-31.md
     │   └── notifications.jsonl    # Notification history (for dashboard)
-    └── mayor/                     # Mayor's persistent state
+    └── mag/                     # Mag's persistent state
         ├── context.md             # Current understanding
         ├── queue.jsonl            # Request queue (async communication)
         ├── results/               # Request result files
@@ -681,7 +681,7 @@ your-private-repo/
             └── user-preferences.md
 ```
 
-**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `pai-lite convert` (from a GitHub issue or README TODO) looks identical to one elaborated by the Mayor or created manually. The Mayor processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
+**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `ludics convert` (from a GitHub issue or README TODO) looks identical to one elaborated by the Mag or created manually. The Mag processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
 
 ## State Format
 
@@ -747,7 +747,7 @@ your-private-repo/
 ### config.yaml
 
 ```yaml
-# pai-lite configuration
+# ludics configuration
 
 state_repo: lukstafi/self-improve
 state_path: harness
@@ -780,10 +780,10 @@ adapters:
   claude-ai:
     enabled: true
 
-mayor:
+mag:
   enabled: true
   backend: tmux-ttyd           # Similar setup to agent-duo
-  session: pai-mayor
+  session: ludics-mag
   ttyd_port: 7679              # Web terminal access (default, ttyd starts automatically)
 
   # Delegation uses Claude Code's native Task tool
@@ -806,7 +806,7 @@ mayor:
 notifications:
   provider: ntfy
   topics:
-    pai: lukstafi-pai           # Private strategic (Mayor)
+    pai: lukstafi-pai           # Private strategic (Mag)
     agents: lukstafi-agents     # Private operational (workers)
     public: lukstafi-public     # Public read-only (broadcasts)
 
@@ -835,7 +835,7 @@ notifications:
 triggers:
   startup:
     enabled: true
-    action: mayor briefing
+    action: mag briefing
   sync:
     interval: 3600  # seconds
     action: tasks sync
@@ -849,64 +849,64 @@ triggers:
 
 ```bash
 # Task management
-pai-lite tasks sync              # Aggregate tasks and convert to task files
-pai-lite tasks list              # Show all tasks
-pai-lite tasks show <id>         # Show task details
+ludics tasks sync              # Aggregate tasks and convert to task files
+ludics tasks list              # Show all tasks
+ludics tasks show <id>         # Show task details
 
 # Flow views (not calendar-based)
-pai-lite flow ready              # Priority-sorted ready tasks
-pai-lite flow blocked            # What's blocked and why
-pai-lite flow critical           # Deadlines + stalled + high-priority
-pai-lite flow impact <id>        # What this task unblocks
-pai-lite flow context            # Context distribution
+ludics flow ready              # Priority-sorted ready tasks
+ludics flow blocked            # What's blocked and why
+ludics flow critical           # Deadlines + stalled + high-priority
+ludics flow impact <id>        # What this task unblocks
+ludics flow context            # Context distribution
 
 # Slot management (always 6 slots)
-pai-lite slots                   # Show all slots
-pai-lite slots refresh           # Refresh slot state from adapters
-pai-lite slot <n>                # Show slot n (1-6)
-pai-lite slot <n> assign <task|desc> [-a adapter] [-s session]
+ludics slots                   # Show all slots
+ludics slots refresh           # Refresh slot state from adapters
+ludics slot <n>                # Show slot n (1-6)
+ludics slot <n> assign <task|desc> [-a adapter] [-s session]
                                  # Assign task to slot
-pai-lite slot <n> clear [done|abandoned]
+ludics slot <n> clear [done|abandoned]
                                  # Clear slot (optionally mark task done/abandoned)
-pai-lite slot <n> start          # Start agent session (uses adapter)
-pai-lite slot <n> stop           # Stop agent session
-pai-lite slot <n> note "text"    # Add to runtime notes
+ludics slot <n> start          # Start agent session (uses adapter)
+ludics slot <n> stop           # Stop agent session
+ludics slot <n> note "text"    # Add to runtime notes
 
 # State synchronization
-pai-lite sync                    # Full sync (pull + push)
-pai-lite state pull              # Pull latest from remote
-pai-lite state push              # Push local changes
+ludics sync                    # Full sync (pull + push)
+ludics state pull              # Pull latest from remote
+ludics state push              # Push local changes
 
 # Journal
-pai-lite journal                 # Show today's journal entries
-pai-lite journal recent [n]      # Show last n entries
-pai-lite journal list [days]     # List journal files from last n days
+ludics journal                 # Show today's journal entries
+ludics journal recent [n]      # Show last n entries
+ludics journal list [days]     # List journal files from last n days
 
-# Mayor interaction
-pai-lite mayor briefing          # Generate strategic briefing
-pai-lite mayor suggest           # Get task suggestions
-pai-lite mayor analyze <issue>   # Analyze GitHub issue
-pai-lite mayor elaborate <id>    # Elaborate task into detailed spec
-pai-lite mayor health-check      # Scan for stalled work, deadlines
+# Mag interaction
+ludics mag briefing          # Generate strategic briefing
+ludics mag suggest           # Get task suggestions
+ludics mag analyze <issue>   # Analyze GitHub issue
+ludics mag elaborate <id>    # Elaborate task into detailed spec
+ludics mag health-check      # Scan for stalled work, deadlines
 
 # Status
-pai-lite status                  # Overview of slots + flow state
-pai-lite briefing                # Morning briefing (invokes Mayor)
+ludics status                  # Overview of slots + flow state
+ludics briefing                # Morning briefing (invokes Mag)
 
 # Setup
-pai-lite init                    # Initialize config
-pai-lite triggers install        # Install launchd triggers
+ludics init                    # Initialize config
+ludics triggers install        # Install launchd triggers
 ```
 
 ## Web Dashboard
 
-pai-lite provides a simple web dashboard for at-a-glance status monitoring. The dashboard is a static HTML page served via a lightweight web server, refreshed via JavaScript polling or SSE.
+ludics provides a simple web dashboard for at-a-glance status monitoring. The dashboard is a static HTML page served via a lightweight web server, refreshed via JavaScript polling or SSE.
 
 **Dashboard layout (3x2 grid):**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     pai-lite Dashboard                       │
+│                     ludics Dashboard                       │
 ├──────────────┬──────────────┬──────────────┬────────────────┤
 │              │              │              │                │
 │   Slot 1     │   Slot 2     │   Slot 3     │  Ready Queue   │
@@ -933,7 +933,7 @@ pai-lite provides a simple web dashboard for at-a-glance status monitoring. The 
 │              │              │              │                │
 ├──────────────┴──────────────┴──────────────┤  [view all]    │
 │                                             │                │
-│  Mayor: Claude Code (Opus 4.5)              ├────────────────┤
+│  Mag: Claude Code (Opus 4.5)              ├────────────────┤
 │  Status: ● Running                          │                │
 │  Last activity: 2 minutes ago               │  Quick Links   │
 │  [Open ttyd terminal] [View context]        │                │
@@ -959,8 +959,8 @@ pai-lite provides a simple web dashboard for at-a-glance status monitoring. The 
   - Real-time updates via polling or SSE
   - Click → full notification log
 
-- **Mayor status**: Uptime, last activity, link to ttyd terminal
-  - Direct access to Mayor's Claude Code session
+- **Mag status**: Uptime, last activity, link to ttyd terminal
+  - Direct access to Mag's Claude Code session
   - Context file preview
 
 **Implementation:**
@@ -1088,12 +1088,12 @@ tabButton.onclick = () => {
 
 **Setup:**
 ```bash
-# Mayor runs in tmux with ttyd web access (starts ttyd by default)
-pai-lite mayor start
-# Or without ttyd: pai-lite mayor start --no-ttyd
+# Mag runs in tmux with ttyd web access (starts ttyd by default)
+ludics mag start
+# Or without ttyd: ludics mag start --no-ttyd
 
 # launchd triggers (when laptop awake)
-pai-lite triggers install
+ludics triggers install
 ```
 
 ### Option 2: Dedicated Always-On Machine (Full Autonomy)
@@ -1112,21 +1112,21 @@ pai-lite triggers install
 **Architecture:**
 ```
 Mac Mini (always-on):
-  • Mayor (Claude Code in tmux)
+  • Mag (Claude Code in tmux)
   • Automation layer (launchd triggers)
   • Git sync (pulls/pushes to self-improve)
   • Notifications sent to phone
 
 Your Laptop (work machine):
-  • pai-lite CLI (reads git state)
+  • ludics CLI (reads git state)
   • Worker slots (agent-duo, claude-code)
-  • Can SSH to Mac Mini to check Mayor
+  • Can SSH to Mac Mini to check Mag
 ```
 
 **State flow:**
-1. Mac Mini's Mayor analyzes repos at 7am → writes to git
+1. Mac Mini's Mag analyzes repos at 7am → writes to git
 2. Mac Mini pushes to GitHub
-3. Your laptop pulls when you start work → sees Mayor's analysis
+3. Your laptop pulls when you start work → sees Mag's analysis
 4. You work in slots on laptop → updates slots.md
 5. Laptop pushes to git → Mac Mini syncs and monitors
 
@@ -1183,7 +1183,7 @@ watch_phase_changes() {
 
 2. **Flow-based, not time-based** — Throughput over latency, dependencies over deadlines
 
-3. **Thin coordination layer** — pai-lite coordinates, doesn't replace existing tools
+3. **Thin coordination layer** — ludics coordinates, doesn't replace existing tools
 
 4. **Adapter pattern** — Support any orchestrator via simple scripts
 
@@ -1195,26 +1195,26 @@ watch_phase_changes() {
 
 8. **Pure Bash implementation** — Bash for glue, standard CLI tools (yq, jq, tsort) for algorithms
 
-9. **One lifelong Mayor** — Builds memory, consistent decisions, sees cross-project connections
+9. **One lifelong Mag** — Builds memory, consistent decisions, sees cross-project connections
 
 10. **Notifications are outputs, not inputs** — ntfy for push alerts, email/GitHub for human communication
 
 ## Failure Modes and Recovery
 
-The automation layer is deterministic but not infallible. Here's how pai-lite handles failures:
+The automation layer is deterministic but not infallible. Here's how ludics handles failures:
 
 | Failure | Detection | Recovery |
 |---------|-----------|----------|
-| Mayor crashes mid-analysis | tmux session exits, launchd notices | Restart Mayor; git state is last-committed |
+| Mag crashes mid-analysis | tmux session exits, launchd notices | Restart Mag; git state is last-committed |
 | Git sync conflict | `git pull` fails | Notify user; manual resolution required |
-| launchd trigger doesn't fire | Health check detects stale state | User runs `pai-lite triggers check` |
+| launchd trigger doesn't fire | Health check detects stale state | User runs `ludics triggers check` |
 | ntfy.sh unreachable | curl returns error | Log locally; retry on next trigger |
-| Claude API down | Task tool fails | Mayor retries or skips delegation, logs warning |
+| Claude API down | Task tool fails | Mag retries or skips delegation, logs warning |
 | Task file corrupted | yq parse fails | Notify user; task excluded from flow until fixed |
 
 **Design for recovery:**
 - All state changes go through git → crash-safe, auditable
-- Mayor writes atomically (temp file → rename)
+- Mag writes atomically (temp file → rename)
 - Adapters are stateless readers (can restart anytime)
 - Triggers are idempotent (safe to re-run)
 
@@ -1230,41 +1230,41 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
   launchd watch rules detect file changes
   Bash: tasks sync → fetch issues, scan watched files for TODOs, convert to task files
 
-07:05 - Mayor analyzes new issues
-  Automation: tmux send-keys -t pai-mayor "/analyze new-issues.json"
-  Mayor (Opus): reads issues with context, understands implications
-  Mayor: Task → Haiku extracts dependencies as JSON
-  Mayor: creates task-143.md with context, acceptance criteria, code pointers
-  Mayor: git commit, push
+07:05 - Mag analyzes new issues
+  Automation: tmux send-keys -t ludics-mag "/analyze new-issues.json"
+  Mag (Opus): reads issues with context, understands implications
+  Mag: Task → Haiku extracts dependencies as JSON
+  Mag: creates task-143.md with context, acceptance criteria, code pointers
+  Mag: git commit, push
 
 08:00 - Morning briefing
   launchd: triggers briefing
-  Automation: tmux send-keys -t pai-mayor "/pai-briefing"
-  Mayor (Opus): reads slots.md, tasks/, understands context
+  Automation: tmux send-keys -t ludics-mag "/ludics-briefing"
+  Mag (Opus): reads slots.md, tasks/, understands context
   Bash: yq + jq compute ready queue, priorities
-  Mayor: writes briefing.md with strategic suggestions
+  Mag: writes briefing.md with strategic suggestions
   Automation: ntfy.sh/lukstafi-pai priority 3 "Briefing ready"
   You: read on phone when you wake up
 
 09:00 - Start work (on laptop)
-  You: pai-lite flow ready
+  You: ludics flow ready
   Bash: yq + jq filter ready tasks, sort by priority
   Output: task-101 (A, deadline 7 days), task-067 (A)...
 
-  You: pai-lite slot 1 assign task-101
+  You: ludics slot 1 assign task-101
   Bash: updates slots.md, git commit, push
 
-  You: pai-lite slot 1 start
+  You: ludics slot 1 start
   Bash: calls adapters/agent-duo.sh start 1
   agent-duo starts, writes to .peer-sync/
   Bash: ntfy.sh/lukstafi-agents "Slot 1: agent-duo started"
 
 12:00 - Periodic health check
   launchd: triggers every 4h
-  Automation: tmux send-keys -t pai-mayor "/pai-health-check"
-  Mayor: scans tasks in-progress
-  Mayor: detects task-089 stalled (14 days, no updates)
-  Mayor: ntfy.sh/lukstafi-pai priority 4 "task-089 stalled 14 days"
+  Automation: tmux send-keys -t ludics-mag "/ludics-health-check"
+  Mag: scans tasks in-progress
+  Mag: detects task-089 stalled (14 days, no updates)
+  Mag: ntfy.sh/lukstafi-pai priority 4 "task-089 stalled 14 days"
 
 14:30 - Slot completes PR
   agent-duo: phase → pr-ready
@@ -1272,22 +1272,22 @@ The automation layer is deterministic but not infallible. Here's how pai-lite ha
   Bash: ntfy.sh/lukstafi-agents priority 4 "Slot 1: PR ready"
 
 15:00 - You merge PR, task completes
-  You: pai-lite slot 1 clear
+  You: ludics slot 1 clear
   Bash: updates slots.md, task-101.md (status: done)
   Bash: git commit, push
 
-  Mayor (next check): sees task-101 done
+  Mag (next check): sees task-101 done
   Bash: jq recomputes ready queue, identifies newly unblocked tasks
-  Mayor (Opus): writes notification with context and strategic insight
-  Mayor: ntfy.sh/lukstafi-pai "task-101 done → 2 tasks unblocked, suggests 102 first"
+  Mag (Opus): writes notification with context and strategic insight
+  Mag: ntfy.sh/lukstafi-pai "task-101 done → 2 tasks unblocked, suggests 102 first"
 
-  Mayor: checks if task-101 tagged "release"
-  Mayor: yes! Auto-publish to lukstafi-public
-  Mayor: ntfy.sh/lukstafi-public priority 4 "OCANNL v2.1 released"
+  Mag: checks if task-101 tagged "release"
+  Mag: yes! Auto-publish to lukstafi-public
+  Mag: ntfy.sh/lukstafi-public priority 4 "OCANNL v2.1 released"
 
 Evening - You check flow state
-  You: pai-lite briefing
-  Mayor: generates end-of-day summary
+  You: ludics briefing
+  Mag: generates end-of-day summary
   Displays: 1 task completed, 2 newly ready, 4 slots idle, 1 deadline in 6 days
 ```
 
@@ -1295,16 +1295,16 @@ This architecture creates a **self-sustaining AI infrastructure** that amplifies
 
 ## Ancillary Features
 
-These features are useful additions but not central to pai-lite's core mission of orchestrating AI agents and managing flow-based tasks. They can be implemented incrementally as needed.
+These features are useful additions but not central to ludics's core mission of orchestrating AI agents and managing flow-based tasks. They can be implemented incrementally as needed.
 
-### `/pai-techdebt` Skill
+### `/ludics-techdebt` Skill
 
 End-of-day or end-of-week technical debt review:
 
 ```
-/pai-techdebt
+/ludics-techdebt
 
-Mayor:
+Mag:
 1. Task → Haiku: scan recent commits across watched projects for code smells
 2. Identify:
    - Duplicated code blocks (>80% similarity)
@@ -1324,7 +1324,7 @@ This keeps technical debt visible without interrupting active work.
 
 ### CI Failure Adapter
 
-Integrates GitHub Actions (or other CI) failures into the Mayor's workflow:
+Integrates GitHub Actions (or other CI) failures into the Mag's workflow:
 
 ```bash
 # adapters/github-actions.sh
@@ -1340,12 +1340,12 @@ poll_ci_failures() {
     # Filter to unseen failures (deduplication)
     while IFS=$'\t' read -r run_id branch created; do
         if ! grep -q "^$run_id$" "$seen_file" 2>/dev/null; then
-            # New failure - fetch logs and queue for Mayor
+            # New failure - fetch logs and queue for Mag
             gh run view "$run_id" --repo "$repo" --log-failed > "/tmp/failure-$run_id.log"
 
             # Queue analysis request
             echo "{\"action\": \"analyze-ci-failure\", \"repo\": \"$repo\", \"run_id\": \"$run_id\", \"branch\": \"$branch\"}" \
-              >> "$STATE_PATH/mayor/queue.jsonl"
+              >> "$STATE_PATH/mag/queue.jsonl"
 
             # Mark as seen
             echo "$run_id" >> "$seen_file"
@@ -1356,7 +1356,7 @@ poll_ci_failures() {
 
 **Deduplication**: The adapter maintains `ci-failures-seen.txt` to avoid re-processing the same failure. Entries can be pruned periodically (e.g., remove entries older than 7 days).
 
-**Mayor handling**: When the Mayor processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
+**Mag handling**: When the Mag processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
 - Creates a task file if it's a new issue
 - Adds a note to an existing task if it's related to active work
 - Notifies via ntfy if it's blocking a deadline

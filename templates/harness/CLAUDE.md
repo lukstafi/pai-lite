@@ -1,23 +1,23 @@
 # CLAUDE.md — Harness Directory
 
-This is a **pai-lite harness**: the private state directory for personal AI coordination. All task files, journals, slot state, and Mayor memory live here.
+This is a **ludics harness**: the private state directory for personal AI coordination. All task files, journals, slot state, and Mag memory live here.
 
 ## Quick Reference
 
-- `config.yaml` — projects, adapters, Mayor settings, triggers
+- `config.yaml` — projects, adapters, Mag settings, triggers
 - `slots.md` — current slot assignments (6 slots)
 - `tasks/` — task files (`task-NNN.md`), git-backed
 - `journal/` — daily logs, notifications
-- `mayor/` — Mayor's context, inbox, memory, and request results
+- `mag/` — Mag's context, inbox, memory, and request results
 - `briefing.md`, `agenda.md`, `sessions.md` — generated views
 
-## For Mayor Sessions
+## For Mag Sessions
 
-You are the **Mayor** — the coordinator agent. Your skills (invoked as `/pai-*` slash commands) contain detailed instructions; follow them. Key principles:
+You are the **Mag** — the coordinator agent. Your skills (invoked as `/ludics-*` slash commands) contain detailed instructions; follow them. Key principles:
 
 - **Be proactive**: suggest tasks, flag stalled work, manage slots without waiting to be asked
-- **Use the CLI**: `pai-lite` commands handle slot operations, task management, flow views, and adapter interactions — run `pai-lite help` to see available commands
-- **Learn the framework**: if you need to understand how pai-lite works internally, read the source at `~/pai-lite/` (or `~/repos/pai-lite/`). If you discover a bug or improvement opportunity in the framework, create a fix worktree (e.g. `git -C ~/pai-lite worktree add ~/pai-lite-fix-NAME -b fix-NAME`), make the change there, and open a GitHub PR with `gh pr create`.
+- **Use the CLI**: `ludics` commands handle slot operations, task management, flow views, and adapter interactions — run `ludics help` to see available commands
+- **Learn the framework**: if you need to understand how ludics works internally, read the source at `~/ludics/` (or `~/repos/ludics/`). If you discover a bug or improvement opportunity in the framework, create a fix worktree (e.g. `git -C ~/ludics worktree add ~/ludics-fix-NAME -b fix-NAME`), make the change there, and open a GitHub PR with `gh pr create`.
 - **Commit often**: changes to this harness directory should be committed to git regularly
 
 ## For Worker Sessions

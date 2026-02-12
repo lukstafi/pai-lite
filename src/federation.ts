@@ -1,4 +1,4 @@
-// Federation — seniority-based leader election for multi-machine Mayor coordination
+// Federation — seniority-based leader election for multi-machine Mag coordination
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
 import { join, dirname } from "path";
@@ -7,7 +7,7 @@ import { networkNodes, networkCurrentNode } from "./network.ts";
 import { journalAppend } from "./journal.ts";
 import { stateCommit, statePull, statePush } from "./state.ts";
 
-const HEARTBEAT_TIMEOUT = parseInt(process.env.PAI_LITE_HEARTBEAT_TIMEOUT ?? "900", 10);
+const HEARTBEAT_TIMEOUT = parseInt(process.env.LUDICS_HEARTBEAT_TIMEOUT ?? "900", 10);
 
 function federationDir(): string {
   return join(harnessDir(), "federation");
@@ -27,20 +27,20 @@ export function heartbeatPublish(): boolean {
   let nodeName = networkCurrentNode();
 
   if (!nodeName) {
-    console.error("pai-lite: federation: cannot determine current node name");
+    console.error("ludics: federation: cannot determine current node name");
     return false;
   }
 
   const dir = heartbeatsDir();
   mkdirSync(dir, { recursive: true });
 
-  const mayorSession = process.env.PAI_LITE_MAYOR_SESSION ?? "pai-mayor";
-  let mayorRunning = false;
-  const tmuxResult = Bun.spawnSync(["tmux", "has-session", "-t", mayorSession], {
+  const magSession = process.env.LUDICS_MAG_SESSION ?? "ludics-mag";
+  let magRunning = false;
+  const tmuxResult = Bun.spawnSync(["tmux", "has-session", "-t", magSession], {
     stdout: "pipe",
     stderr: "pipe",
   });
-  if (tmuxResult.exitCode === 0) mayorRunning = true;
+  if (tmuxResult.exitCode === 0) magRunning = true;
 
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
   const epoch = Math.floor(Date.now() / 1000);
@@ -49,11 +49,11 @@ export function heartbeatPublish(): boolean {
     node: nodeName,
     timestamp,
     epoch,
-    mayor_running: mayorRunning,
+    mag_running: magRunning,
   });
 
   writeFileSync(join(dir, `${nodeName}.json`), heartbeat + "\n");
-  console.error(`pai-lite: federation: published heartbeat for ${nodeName}`);
+  console.error(`ludics: federation: published heartbeat for ${nodeName}`);
   return true;
 }
 
@@ -71,13 +71,13 @@ function heartbeatIsFresh(nodeName: string): boolean {
   }
 }
 
-function nodeHasMayor(nodeName: string): boolean {
+function nodeHasMag(nodeName: string): boolean {
   const file = join(heartbeatsDir(), `${nodeName}.json`);
   if (!existsSync(file)) return false;
 
   try {
     const data = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
-    return data.mayor_running === true;
+    return data.mag_running === true;
   } catch {
     return false;
   }
@@ -134,7 +134,7 @@ function updateLeader(newLeader: string): boolean {
     JSON.stringify({ node: newLeader, elected: timestamp, term }) + "\n",
   );
 
-  console.error(`pai-lite: federation: new leader elected: ${newLeader} (term ${term})`);
+  console.error(`ludics: federation: new leader elected: ${newLeader} (term ${term})`);
   try {
     journalAppend("federation", `leader changed to ${newLeader} (term ${term})`);
   } catch {
@@ -150,7 +150,7 @@ export function federationElect(): string | null {
     updateLeader(leader);
     return leader;
   }
-  console.error("pai-lite: federation: no online nodes available for leader election");
+  console.error("ludics: federation: no online nodes available for leader election");
   return null;
 }
 
@@ -161,7 +161,7 @@ export function federationIsLeader(): boolean {
   return currentNode === leader;
 }
 
-export function federationShouldRunMayor(): boolean {
+export function federationShouldRunMag(): boolean {
   const nodes = networkNodes();
   if (nodes.length === 0) return true; // no federation = always allow
   return federationIsLeader();
@@ -170,20 +170,20 @@ export function federationShouldRunMayor(): boolean {
 // --- Federation tick ---
 
 export function federationTick(): void {
-  console.error("pai-lite: federation: running tick...");
+  console.error("ludics: federation: running tick...");
 
   try { statePull(); } catch { /* ignore */ }
   heartbeatPublish();
 
   const leader = federationElect();
   if (leader) {
-    console.error(`pai-lite: federation: current leader is ${leader}`);
+    console.error(`ludics: federation: current leader is ${leader}`);
   }
 
   try { stateCommit("federation heartbeat"); } catch { /* ignore */ }
   try { statePush(); } catch { /* ignore */ }
 
-  console.error("pai-lite: federation: tick complete");
+  console.error("ludics: federation: tick complete");
 }
 
 // --- Status display ---
@@ -212,7 +212,7 @@ export function federationStatus(): void {
   if (nodes.length === 0) {
     console.log("  (no nodes configured in network.nodes)");
     console.log("");
-    console.log("Federation is disabled - Mayor will run on any machine.");
+    console.log("Federation is disabled - Mag will run on any machine.");
   } else {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]!;
@@ -229,7 +229,7 @@ export function federationStatus(): void {
 
           if (heartbeatIsFresh(node.name)) {
             status = "online";
-            if (nodeHasMayor(node.name)) status = "online (mayor running)";
+            if (nodeHasMag(node.name)) status = "online (mag running)";
             heartbeatAge = ` [${mins}m ago]`;
           } else {
             status = `stale [${mins}m ago]`;
@@ -245,10 +245,10 @@ export function federationStatus(): void {
   }
 
   console.log("");
-  if (federationShouldRunMayor()) {
-    console.log("Mayor permission: ALLOWED (this node should run Mayor)");
+  if (federationShouldRunMag()) {
+    console.log("Mag permission: ALLOWED (this node should run Mag)");
   } else {
-    console.log("Mayor permission: BLOCKED (defer to leader)");
+    console.log("Mag permission: BLOCKED (defer to leader)");
   }
 }
 

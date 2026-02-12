@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/adapters/chatgpt-com.sh - ChatGPT web interface integration
+# ludics/adapters/chatgpt-com.sh - ChatGPT web interface integration
 # Tracks browser-based conversations via bookmarks/URLs
 
 #------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 adapter_chatgpt_com_bookmarks_file() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/chatgpt-com.urls"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/chatgpt-com.urls"
   else
-    echo "$HOME/.config/pai-lite/chatgpt-com.urls"
+    echo "$HOME/.config/ludics/chatgpt-com.urls"
   fi
 }
 
@@ -21,10 +21,10 @@ adapter_chatgpt_com_bookmarks_file() {
 #------------------------------------------------------------------------------
 
 adapter_chatgpt_com_state_dir() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/chatgpt"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/chatgpt"
   else
-    echo "$HOME/.config/pai-lite/chatgpt"
+    echo "$HOME/.config/ludics/chatgpt"
   fi
 }
 
@@ -40,7 +40,7 @@ adapter_chatgpt_com_metadata_file() {
 }
 
 #------------------------------------------------------------------------------
-# Adapter interface for pai-lite
+# Adapter interface for ludics
 #------------------------------------------------------------------------------
 
 adapter_chatgpt_com_read_state() {
@@ -136,7 +136,7 @@ adapter_chatgpt_com_start() {
   if [[ -z "$url" ]]; then
     echo "chatgpt-com start: Opening new ChatGPT conversation..." >&2
     echo "Please provide the conversation URL to track it:" >&2
-    echo "  pai-lite adapter chatgpt-com add <url> [label]" >&2
+    echo "  ludics adapter chatgpt-com add <url> [label]" >&2
     echo "" >&2
     echo "Or manually add to: $bookmarks" >&2
     return 1
@@ -188,7 +188,7 @@ adapter_chatgpt_com_stop() {
 
   if [[ -z "$identifier" ]]; then
     echo "chatgpt-com stop: no conversation identifier provided." >&2
-    echo "Usage: pai-lite adapter chatgpt-com stop <url|label|conversation_id>" >&2
+    echo "Usage: ludics adapter chatgpt-com stop <url|label|conversation_id>" >&2
     return 1
   fi
 
@@ -257,7 +257,7 @@ adapter_chatgpt_com_list() {
 
   if [[ ! -f "$bookmarks" ]]; then
     echo "No ChatGPT conversations tracked yet."
-    echo "Track a conversation with: pai-lite adapter chatgpt-com add <url> [label]"
+    echo "Track a conversation with: ludics adapter chatgpt-com add <url> [label]"
     return 0
   fi
 

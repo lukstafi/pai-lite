@@ -1,39 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pai_lite_die() {
-  echo "pai-lite: $*" >&2
+ludics_die() {
+  echo "ludics: $*" >&2
   exit 1
 }
 
-pai_lite_warn() {
-  echo "pai-lite: $*" >&2
+ludics_warn() {
+  echo "ludics: $*" >&2
 }
 
-pai_lite_info() {
-  echo "pai-lite: $*" >&2
+ludics_info() {
+  echo "ludics: $*" >&2
 }
 
-pai_lite_root() {
+ludics_root() {
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   cd "$script_dir/.." && pwd
 }
 
-# Get the pointer config path (minimal config in ~/.config/pai-lite/)
-pai_lite_pointer_config_path() {
-  if [[ -n "${PAI_LITE_CONFIG:-}" ]]; then
-    echo "$PAI_LITE_CONFIG"
+# Get the pointer config path (minimal config in ~/.config/ludics/)
+ludics_pointer_config_path() {
+  if [[ -n "${LUDICS_CONFIG:-}" ]]; then
+    echo "$LUDICS_CONFIG"
   else
-    echo "$HOME/.config/pai-lite/config.yaml"
+    echo "$HOME/.config/ludics/config.yaml"
   fi
 }
 
 # Get the full config path (in the harness directory)
 # Falls back to pointer config if harness config doesn't exist
-pai_lite_config_path() {
+ludics_config_path() {
   local pointer_config harness_config
-  pointer_config="$(pai_lite_pointer_config_path)"
+  pointer_config="$(ludics_pointer_config_path)"
 
   # If pointer config doesn't exist, return it anyway (error will be caught later)
   [[ -f "$pointer_config" ]] || { echo "$pointer_config"; return; }
@@ -64,37 +64,37 @@ pai_lite_config_path() {
   fi
 }
 
-pai_lite_require_cmd() {
+ludics_require_cmd() {
   local cmd="$1"
-  command -v "$cmd" >/dev/null 2>&1 || pai_lite_die "missing required command: $cmd"
+  command -v "$cmd" >/dev/null 2>&1 || ludics_die "missing required command: $cmd"
 }
 
-pai_lite_config_get() {
+ludics_config_get() {
   local key="$1"
   local config
-  config="$(pai_lite_config_path)"
-  [[ -f "$config" ]] || pai_lite_die "config not found: $config"
+  config="$(ludics_config_path)"
+  [[ -f "$config" ]] || ludics_die "config not found: $config"
   local result
   result=$(yq eval ".${key}" "$config" 2>/dev/null)
   if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
-pai_lite_config_slots_count() {
+ludics_config_slots_count() {
   local config
-  config="$(pai_lite_config_path)"
-  [[ -f "$config" ]] || pai_lite_die "config not found: $config"
+  config="$(ludics_config_path)"
+  [[ -f "$config" ]] || ludics_die "config not found: $config"
   local result
   result=$(yq eval '.slots.count' "$config" 2>/dev/null)
   if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
-# Get nested config value (e.g., "mayor.ttyd_port")
-# Usage: pai_lite_config_get_nested "section" "key"
-pai_lite_config_get_nested() {
+# Get nested config value (e.g., "mag.ttyd_port")
+# Usage: ludics_config_get_nested "section" "key"
+ludics_config_get_nested() {
   local section="$1"
   local key="$2"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
   local result
   result=$(yq eval ".${section}.${key}" "$config" 2>/dev/null)
@@ -102,49 +102,49 @@ pai_lite_config_get_nested() {
 }
 
 #------------------------------------------------------------------------------
-# Config Parsing: Mayor Section
+# Config Parsing: Mag Section
 #------------------------------------------------------------------------------
 
-# Get a value from the mayor config section
-# Usage: pai_lite_config_mayor_get <key>
-# Example: pai_lite_config_mayor_get "enabled" -> true/false
-pai_lite_config_mayor_get() {
+# Get a value from the mag config section
+# Usage: ludics_config_mag_get <key>
+# Example: ludics_config_mag_get "enabled" -> true/false
+ludics_config_mag_get() {
   local key="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
-  result=$(yq eval ".mayor.${key}" "$config" 2>/dev/null)
+  result=$(yq eval ".mag.${key}" "$config" 2>/dev/null)
   if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
-# Get a nested value from mayor config (e.g., autonomy_level.analyze_issues)
-# Usage: pai_lite_config_mayor_nested_get <section> <key>
-# Example: pai_lite_config_mayor_nested_get "autonomy_level" "analyze_issues"
-pai_lite_config_mayor_nested_get() {
+# Get a nested value from mag config (e.g., autonomy_level.analyze_issues)
+# Usage: ludics_config_mag_nested_get <section> <key>
+# Example: ludics_config_mag_nested_get "autonomy_level" "analyze_issues"
+ludics_config_mag_nested_get() {
   local section="$1" key="$2"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
-  result=$(yq eval ".mayor.${section}.${key}" "$config" 2>/dev/null)
+  result=$(yq eval ".mag.${section}.${key}" "$config" 2>/dev/null)
   if [[ "$result" != "null" && -n "$result" ]]; then echo "$result"; fi
 }
 
-# Get mayor schedule config
-# Usage: pai_lite_config_mayor_schedule <event>
-# Example: pai_lite_config_mayor_schedule "briefing" -> "08:00"
-pai_lite_config_mayor_schedule() {
-  pai_lite_config_mayor_nested_get "schedule" "$1"
+# Get mag schedule config
+# Usage: ludics_config_mag_schedule <event>
+# Example: ludics_config_mag_schedule "briefing" -> "08:00"
+ludics_config_mag_schedule() {
+  ludics_config_mag_nested_get "schedule" "$1"
 }
 
-# Get mayor autonomy level
-# Usage: pai_lite_config_mayor_autonomy <action>
-# Example: pai_lite_config_mayor_autonomy "analyze_issues" -> "auto"
-pai_lite_config_mayor_autonomy() {
-  pai_lite_config_mayor_nested_get "autonomy_level" "$1"
+# Get mag autonomy level
+# Usage: ludics_config_mag_autonomy <action>
+# Example: ludics_config_mag_autonomy "analyze_issues" -> "auto"
+ludics_config_mag_autonomy() {
+  ludics_config_mag_nested_get "autonomy_level" "$1"
 }
 
 #------------------------------------------------------------------------------
@@ -152,12 +152,12 @@ pai_lite_config_mayor_autonomy() {
 #------------------------------------------------------------------------------
 
 # Get a value from the notifications config section
-# Usage: pai_lite_config_notifications_get <key>
-# Example: pai_lite_config_notifications_get "provider" -> ntfy
-pai_lite_config_notifications_get() {
+# Usage: ludics_config_notifications_get <key>
+# Example: ludics_config_notifications_get "provider" -> ntfy
+ludics_config_notifications_get() {
   local key="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
@@ -166,12 +166,12 @@ pai_lite_config_notifications_get() {
 }
 
 # Get a notification topic
-# Usage: pai_lite_config_notifications_topic <tier>
-# Example: pai_lite_config_notifications_topic "pai" -> lukstafi-pai
-pai_lite_config_notifications_topic() {
+# Usage: ludics_config_notifications_topic <tier>
+# Example: ludics_config_notifications_topic "pai" -> lukstafi-pai
+ludics_config_notifications_topic() {
   local tier="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
@@ -180,12 +180,12 @@ pai_lite_config_notifications_topic() {
 }
 
 # Get a notification priority
-# Usage: pai_lite_config_notifications_priority <event>
-# Example: pai_lite_config_notifications_priority "briefing" -> 3
-pai_lite_config_notifications_priority() {
+# Usage: ludics_config_notifications_priority <event>
+# Example: ludics_config_notifications_priority "briefing" -> 3
+ludics_config_notifications_priority() {
   local event="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
@@ -194,12 +194,12 @@ pai_lite_config_notifications_priority() {
 }
 
 # Check if an event type should be auto-published
-# Usage: pai_lite_config_notifications_auto_publish <event>
+# Usage: ludics_config_notifications_auto_publish <event>
 # Returns 0 if should auto-publish, 1 otherwise
-pai_lite_config_notifications_auto_publish() {
+ludics_config_notifications_auto_publish() {
   local event="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local result
@@ -208,74 +208,74 @@ pai_lite_config_notifications_auto_publish() {
 }
 
 
-pai_lite_state_repo_slug() {
-  pai_lite_config_get "state_repo"
+ludics_state_repo_slug() {
+  ludics_config_get "state_repo"
 }
 
-pai_lite_state_repo_dir() {
+ludics_state_repo_dir() {
   local slug repo_name
-  slug="$(pai_lite_state_repo_slug)"
+  slug="$(ludics_state_repo_slug)"
   repo_name="${slug##*/}"
   echo "$HOME/$repo_name"
 }
 
-pai_lite_state_path() {
+ludics_state_path() {
   local path
-  path="$(pai_lite_config_get "state_path")"
+  path="$(ludics_config_get "state_path")"
   if [[ -n "$path" ]]; then echo "$path"; else echo "harness"; fi
 }
 
-pai_lite_state_harness_dir() {
+ludics_state_harness_dir() {
   local repo_dir path
-  repo_dir="$(pai_lite_state_repo_dir)"
-  path="$(pai_lite_state_path)"
+  repo_dir="$(ludics_state_repo_dir)"
+  path="$(ludics_state_path)"
   echo "$repo_dir/$path"
 }
 
-pai_lite_ensure_state_repo() {
+ludics_ensure_state_repo() {
   local repo_dir slug
-  repo_dir="$(pai_lite_state_repo_dir)"
-  slug="$(pai_lite_state_repo_slug)"
+  repo_dir="$(ludics_state_repo_dir)"
+  slug="$(ludics_state_repo_slug)"
 
   if [[ ! -d "$repo_dir/.git" ]]; then
-    pai_lite_require_cmd gh
-    pai_lite_info "cloning state repo $slug into $repo_dir"
+    ludics_require_cmd gh
+    ludics_info "cloning state repo $slug into $repo_dir"
     gh repo clone "$slug" "$repo_dir" >/dev/null
   fi
 }
 
-pai_lite_ensure_state_dir() {
+ludics_ensure_state_dir() {
   local harness_dir
-  harness_dir="$(pai_lite_state_harness_dir)"
+  harness_dir="$(ludics_state_harness_dir)"
   [[ -d "$harness_dir" ]] || mkdir -p "$harness_dir"
 }
 
 #------------------------------------------------------------------------------
-# Mayor Queue Functions
-# Queue-based communication with Claude Code Mayor session
+# Mag Queue Functions
+# Queue-based communication with Claude Code Mag session
 #------------------------------------------------------------------------------
 
-pai_lite_queue_file() {
-  echo "$(pai_lite_state_harness_dir)/mayor/queue.jsonl"
+ludics_queue_file() {
+  echo "$(ludics_state_harness_dir)/mag/queue.jsonl"
 }
 
-pai_lite_results_dir() {
-  echo "$(pai_lite_state_harness_dir)/mayor/results"
+ludics_results_dir() {
+  echo "$(ludics_state_harness_dir)/mag/results"
 }
 
-# Queue a request for the Mayor
-# Usage: pai_lite_queue_request <action> [extra_json_fields]
-pai_lite_queue_request() {
+# Queue a request for the Mag
+# Usage: ludics_queue_request <action> [extra_json_fields]
+ludics_queue_request() {
   local action="$1"
   local extra="${2:-}"
 
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
 
-  # Ensure mayor directory exists
-  local mayor_dir
-  mayor_dir="$(dirname "$queue_file")"
-  mkdir -p "$mayor_dir"
+  # Ensure mag directory exists
+  local mag_dir
+  mag_dir="$(dirname "$queue_file")"
+  mkdir -p "$mag_dir"
 
   local timestamp request_id
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -297,14 +297,14 @@ pai_lite_queue_request() {
   echo "$request_id"
 }
 
-# Wait for a result file from the Mayor
-# Usage: pai_lite_wait_for_result <request_id> [timeout_seconds]
-pai_lite_wait_for_result() {
+# Wait for a result file from the Mag
+# Usage: ludics_wait_for_result <request_id> [timeout_seconds]
+ludics_wait_for_result() {
   local request_id="$1"
   local timeout="${2:-300}"
 
   local results_dir result_file
-  results_dir="$(pai_lite_results_dir)"
+  results_dir="$(ludics_results_dir)"
   result_file="$results_dir/${request_id}.json"
 
   local elapsed=0
@@ -319,15 +319,15 @@ pai_lite_wait_for_result() {
     elapsed=$((elapsed + interval))
   done
 
-  pai_lite_warn "timeout waiting for result: $request_id"
+  ludics_warn "timeout waiting for result: $request_id"
   return 1
 }
 
 # Read and remove the first request from the queue (for stop hook)
-# Usage: pai_lite_queue_pop
-pai_lite_queue_pop() {
+# Usage: ludics_queue_pop
+ludics_queue_pop() {
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
 
   [[ -f "$queue_file" ]] || return 1
   [[ -s "$queue_file" ]] || return 1
@@ -344,37 +344,37 @@ pai_lite_queue_pop() {
 }
 
 # Check if queue has pending requests
-# Usage: pai_lite_queue_pending
-pai_lite_queue_pending() {
+# Usage: ludics_queue_pending
+ludics_queue_pending() {
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
 
   [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]
 }
 
 #------------------------------------------------------------------------------
-# Mayor Inbox Functions
-# Async message channel: humans drop messages, Mayor consumes them.
+# Mag Inbox Functions
+# Async message channel: humans drop messages, Mag consumes them.
 # inbox.md is free-form text (no required structure).
 # past-messages.md is the structured archive with date-stamped sections.
 #------------------------------------------------------------------------------
 
-pai_lite_inbox_file() {
-  echo "$(pai_lite_state_harness_dir)/mayor/inbox.md"
+ludics_inbox_file() {
+  echo "$(ludics_state_harness_dir)/mag/inbox.md"
 }
 
-pai_lite_past_messages_file() {
-  echo "$(pai_lite_state_harness_dir)/mayor/past-messages.md"
+ludics_past_messages_file() {
+  echo "$(ludics_state_harness_dir)/mag/past-messages.md"
 }
 
 # Write a message to the inbox (free-form text, appended as-is)
-# Usage: pai_lite_inbox_append <message>
-pai_lite_inbox_append() {
+# Usage: ludics_inbox_append <message>
+ludics_inbox_append() {
   local message="$1"
   local inbox_file
-  inbox_file="$(pai_lite_inbox_file)"
+  inbox_file="$(ludics_inbox_file)"
 
-  # Ensure mayor directory exists
+  # Ensure mag directory exists
   mkdir -p "$(dirname "$inbox_file")"
 
   # Append message followed by a blank line for readability
@@ -383,9 +383,9 @@ pai_lite_inbox_append() {
 
 # Check if inbox has content (non-empty, non-whitespace)
 # Returns 0 if there are messages, 1 if empty
-pai_lite_inbox_has_messages() {
+ludics_inbox_has_messages() {
   local inbox_file
-  inbox_file="$(pai_lite_inbox_file)"
+  inbox_file="$(ludics_inbox_file)"
 
   [[ -f "$inbox_file" ]] || return 1
 
@@ -397,24 +397,24 @@ pai_lite_inbox_has_messages() {
 }
 
 # Consume inbox: pull remote, print messages, archive to past-messages.md,
-# clear inbox. Output goes to stdout for Mayor to see.
-# Usage: pai_lite_inbox_consume
-pai_lite_inbox_consume() {
+# clear inbox. Output goes to stdout for Mag to see.
+# Usage: ludics_inbox_consume
+ludics_inbox_consume() {
   local inbox_file past_file
-  inbox_file="$(pai_lite_inbox_file)"
-  past_file="$(pai_lite_past_messages_file)"
+  inbox_file="$(ludics_inbox_file)"
+  past_file="$(ludics_past_messages_file)"
 
   # Pull latest from remote to pick up messages sent from other machines
-  if ! pai_lite_state_pull 2>/dev/null; then
+  if ! ludics_state_pull 2>/dev/null; then
     # Check for merge conflicts
     local repo_dir
-    repo_dir="$(pai_lite_state_repo_dir)"
+    repo_dir="$(ludics_state_repo_dir)"
     if git -C "$repo_dir" diff --name-only --diff-filter=U 2>/dev/null | grep -q .; then
       echo "ERROR: Merge conflicts detected in state repo."
-      echo "Please resolve conflicts in $repo_dir and run 'pai-lite mayor inbox' again."
+      echo "Please resolve conflicts in $repo_dir and run 'ludics mag inbox' again."
       return 1
     fi
-    pai_lite_warn "pull failed but no conflicts detected; continuing with local state"
+    ludics_warn "pull failed but no conflicts detected; continuing with local state"
   fi
 
   # Ensure directory exists
@@ -424,12 +424,12 @@ pai_lite_inbox_consume() {
   fi
 
   # Check for messages
-  if ! pai_lite_inbox_has_messages; then
+  if ! ludics_inbox_has_messages; then
     echo "No pending messages."
     return 0
   fi
 
-  # Print current inbox for Mayor to see
+  # Print current inbox for Mag to see
   echo "=== Pending Messages ==="
   cat "$inbox_file"
   echo ""
@@ -454,7 +454,7 @@ pai_lite_inbox_consume() {
   : > "$inbox_file"
 
   echo "The current message starts at past-messages.md line $start_line."
-  echo "To revisit past messages, read mayor/past-messages.md."
+  echo "To revisit past messages, read mag/past-messages.md."
 }
 
 #------------------------------------------------------------------------------
@@ -462,13 +462,13 @@ pai_lite_inbox_consume() {
 #------------------------------------------------------------------------------
 
 # Pull latest changes from the state repo remote
-# Usage: pai_lite_state_pull
-pai_lite_state_pull() {
+# Usage: ludics_state_pull
+ludics_state_pull() {
   local repo_dir
-  repo_dir="$(pai_lite_state_repo_dir)"
+  repo_dir="$(ludics_state_repo_dir)"
 
   if [[ ! -d "$repo_dir/.git" ]]; then
-    pai_lite_warn "state repo not initialized: $repo_dir"
+    ludics_warn "state repo not initialized: $repo_dir"
     return 1
   fi
 
@@ -476,14 +476,14 @@ pai_lite_state_pull() {
   local has_changes=0
   if ! git -C "$repo_dir" diff --quiet HEAD 2>/dev/null; then
     has_changes=1
-    git -C "$repo_dir" stash push -m "pai-lite auto-stash before pull" >/dev/null 2>&1 || true
+    git -C "$repo_dir" stash push -m "ludics auto-stash before pull" >/dev/null 2>&1 || true
   fi
 
   # Pull from remote
   if git -C "$repo_dir" pull --rebase >/dev/null 2>&1; then
-    pai_lite_info "pulled latest from remote"
+    ludics_info "pulled latest from remote"
   else
-    pai_lite_warn "pull failed (may need manual intervention)"
+    ludics_warn "pull failed (may need manual intervention)"
     # Restore stashed changes on failure
     if [[ $has_changes -eq 1 ]]; then
       git -C "$repo_dir" stash pop >/dev/null 2>&1 || true
@@ -494,9 +494,9 @@ pai_lite_state_pull() {
   # Restore stashed changes
   if [[ $has_changes -eq 1 ]]; then
     if git -C "$repo_dir" stash pop >/dev/null 2>&1; then
-      pai_lite_info "restored local changes"
+      ludics_info "restored local changes"
     else
-      pai_lite_warn "conflict restoring local changes (check git stash)"
+      ludics_warn "conflict restoring local changes (check git stash)"
     fi
   fi
 
@@ -504,11 +504,11 @@ pai_lite_state_pull() {
 }
 
 # Full state sync: pull, then push any local changes
-# Usage: pai_lite_state_full_sync
-pai_lite_state_full_sync() {
-  pai_lite_state_pull || true
-  pai_lite_state_commit "sync"
-  pai_lite_state_push
+# Usage: ludics_state_full_sync
+ludics_state_full_sync() {
+  ludics_state_pull || true
+  ludics_state_commit "sync"
+  ludics_state_push
 }
 
 #------------------------------------------------------------------------------
@@ -516,57 +516,57 @@ pai_lite_state_full_sync() {
 #------------------------------------------------------------------------------
 
 # Commit changes to the state repo
-# Usage: pai_lite_state_commit <message>
-pai_lite_state_commit() {
+# Usage: ludics_state_commit <message>
+ludics_state_commit() {
   local message="$1"
   local harness_dir
-  harness_dir="$(pai_lite_state_harness_dir)"
+  harness_dir="$(ludics_state_harness_dir)"
 
   # Check if there are changes to commit
   if ! git -C "$harness_dir" diff --quiet HEAD 2>/dev/null; then
     git -C "$harness_dir" add -A
     git -C "$harness_dir" commit -m "$message" >/dev/null
-    pai_lite_info "committed: $message"
+    ludics_info "committed: $message"
   elif ! git -C "$harness_dir" diff --cached --quiet 2>/dev/null; then
     git -C "$harness_dir" commit -m "$message" >/dev/null
-    pai_lite_info "committed: $message"
+    ludics_info "committed: $message"
   fi
 }
 
 # Push state repo to remote
-# Usage: pai_lite_state_push
-pai_lite_state_push() {
+# Usage: ludics_state_push
+ludics_state_push() {
   local harness_dir
-  harness_dir="$(pai_lite_state_harness_dir)"
+  harness_dir="$(ludics_state_harness_dir)"
 
   if git -C "$harness_dir" push >/dev/null 2>&1; then
-    pai_lite_info "pushed to remote"
+    ludics_info "pushed to remote"
   else
-    pai_lite_warn "push failed (will retry later)"
+    ludics_warn "push failed (will retry later)"
   fi
 }
 
 # Commit and push state repo
-# Usage: pai_lite_state_sync <message>
-pai_lite_state_sync() {
+# Usage: ludics_state_sync <message>
+ludics_state_sync() {
   local message="$1"
-  pai_lite_state_commit "$message"
-  pai_lite_state_push
+  ludics_state_commit "$message"
+  ludics_state_push
 }
 
 #------------------------------------------------------------------------------
-# Mayor Result Functions
+# Mag Result Functions
 #------------------------------------------------------------------------------
 
-# Write a result file (for Mayor to call after processing)
-# Usage: pai_lite_write_result <request_id> <status> [output_file]
-pai_lite_write_result() {
+# Write a result file (for Mag to call after processing)
+# Usage: ludics_write_result <request_id> <status> [output_file]
+ludics_write_result() {
   local request_id="$1"
   local status="$2"
   local output_file="${3:-}"
 
   local results_dir result_file
-  results_dir="$(pai_lite_results_dir)"
+  results_dir="$(ludics_results_dir)"
   mkdir -p "$results_dir"
   result_file="$results_dir/${request_id}.json"
 
@@ -590,26 +590,26 @@ pai_lite_write_result() {
 # Append events to journal/YYYY-MM-DD.md for audit trail
 #------------------------------------------------------------------------------
 
-pai_lite_journal_dir() {
-  echo "$(pai_lite_state_harness_dir)/journal"
+ludics_journal_dir() {
+  echo "$(ludics_state_harness_dir)/journal"
 }
 
-pai_lite_journal_file() {
+ludics_journal_file() {
   local date_str
   date_str="$(date +%Y-%m-%d)"
-  echo "$(pai_lite_journal_dir)/${date_str}.md"
+  echo "$(ludics_journal_dir)/${date_str}.md"
 }
 
 # Append an entry to today's journal
-# Usage: pai_lite_journal_append <category> <message>
-# Categories: slot, task, flow, mayor, system
-pai_lite_journal_append() {
+# Usage: ludics_journal_append <category> <message>
+# Categories: slot, task, flow, mag, system
+ludics_journal_append() {
   local category="$1"
   local message="$2"
 
   local journal_dir journal_file timestamp
-  journal_dir="$(pai_lite_journal_dir)"
-  journal_file="$(pai_lite_journal_file)"
+  journal_dir="$(ludics_journal_dir)"
+  journal_file="$(ludics_journal_file)"
   timestamp="$(date +"%H:%M:%S")"
 
   # Ensure journal directory exists
@@ -628,13 +628,13 @@ pai_lite_journal_append() {
 }
 
 # Read recent journal entries
-# Usage: pai_lite_journal_recent [count] [category]
-pai_lite_journal_recent() {
+# Usage: ludics_journal_recent [count] [category]
+ludics_journal_recent() {
   local count="${1:-20}"
   local category="${2:-}"
 
   local journal_file
-  journal_file="$(pai_lite_journal_file)"
+  journal_file="$(ludics_journal_file)"
 
   if [[ ! -f "$journal_file" ]]; then
     echo "No journal entries for today"
@@ -649,11 +649,11 @@ pai_lite_journal_recent() {
 }
 
 # List journal files
-# Usage: pai_lite_journal_list [days]
-pai_lite_journal_list() {
+# Usage: ludics_journal_list [days]
+ludics_journal_list() {
   local days="${1:-7}"
   local journal_dir
-  journal_dir="$(pai_lite_journal_dir)"
+  journal_dir="$(ludics_journal_dir)"
 
   if [[ ! -d "$journal_dir" ]]; then
     echo "No journal directory"
@@ -667,9 +667,9 @@ pai_lite_journal_list() {
 # Source network helpers if available
 #------------------------------------------------------------------------------
 
-_pai_lite_network_sh="$(dirname "${BASH_SOURCE[0]}")/network.sh"
-if [[ -f "$_pai_lite_network_sh" ]]; then
+_ludics_network_sh="$(dirname "${BASH_SOURCE[0]}")/network.sh"
+if [[ -f "$_ludics_network_sh" ]]; then
   # shellcheck source=lib/network.sh
-  source "$_pai_lite_network_sh"
+  source "$_ludics_network_sh"
 fi
-unset _pai_lite_network_sh
+unset _ludics_network_sh

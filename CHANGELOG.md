@@ -2,7 +2,7 @@
 
 ## v0.2.0 — 2026-02-11
 
-Second release. Focus on robustness, better Mayor workflows, and task management improvements.
+Second release. Focus on robustness, better Mag workflows, and task management improvements.
 
 ### New features
 
@@ -10,25 +10,25 @@ Second release. Focus on robustness, better Mayor workflows, and task management
 - **Content-fingerprint task IDs** — Watch-path tasks now use 8-char md5 of normalized text (`watch-<path>-<fingerprint>`) instead of line numbers, so IDs survive file edits. Old IDs are migrated automatically.
 - **Cross-reference migration** — `tasks migrate-refs` updates `blocks`/`blocked_by` references after ID changes.
 - **Pervasive session discovery** — `sessions list` scans tmux, screen, VS Code, and `.peer-sync/` directories to find all active agent sessions, enriching slot data.
-- **Mayor inbox** — Async message channel (`mayor inbox send/read`) for non-blocking communication with the Mayor session. Briefing and health-check skills read the inbox automatically.
+- **Mag inbox** — Async message channel (`mag inbox send/read`) for non-blocking communication with the Mag session. Briefing and health-check skills read the inbox automatically.
 - **Briefing context pre-computation** — Bash pre-computes slot state, ready queue, and critical items before invoking the briefing skill, reducing token usage.
-- **Proactive slot management** — Mayor briefing now includes slot occupancy analysis and reassignment suggestions.
+- **Proactive slot management** — Mag briefing now includes slot occupancy analysis and reassignment suggestions.
 - **Dashboard briefing tab** — New tab renders the latest briefing as formatted Markdown alongside terminals and task views.
 - **Lazy dashboard server** — Dashboard HTTP server auto-starts via launchd/systemd on first `dashboard open` and stops when idle.
-- **Mayor keepalive nudge** — When the keepalive trigger fires, if the Mayor queue is non-empty the nudge includes a timestamp and pending item count.
-- **CLAUDE.md template for harness directories** — `pai-lite init` deploys a CLAUDE.md with project conventions and upstream-PR workflow into each harness directory.
+- **Mag keepalive nudge** — When the keepalive trigger fires, if the Mag queue is non-empty the nudge includes a timestamp and pending item count.
+- **CLAUDE.md template for harness directories** — `ludics init` deploys a CLAUDE.md with project conventions and upstream-PR workflow into each harness directory.
 
 ### Fixes
 
 - **Flow engine glob** — Fixed task file matching to include all `*.md` files with YAML frontmatter, not just `task-*.md`.
 - **`printf` with dash-prefixed strings** — `log_info`/`log_error` no longer fail when the message starts with a dash.
-- **Mayor keepalive timestamp** — Nudge messages now include the current time for log traceability.
+- **Mag keepalive timestamp** — Nudge messages now include the current time for log traceability.
 - Tiny fixes to task elaboration and slot assignment workflows.
 
 ### Other changes
 
-- **Mayor queue path** — `queue.jsonl` and `results/` moved from `harness/tasks/` to `harness/mayor/` for clearer separation.
-- **Removed `/pai-context-sync` skill** — Redundant with existing automation; removed to reduce surface area.
+- **Mag queue path** — `queue.jsonl` and `results/` moved from `harness/tasks/` to `harness/mag/` for clearer separation.
+- **Removed `/ludics-context-sync` skill** — Redundant with existing automation; removed to reduce surface area.
 - **Test script** — Added `tests/test.sh` with shellcheck linting and smoke tests for core commands.
 - **Archived PLAN.md** — Original v0.1 plan moved to `docs/PLAN-v0.1-archive.md`.
 
@@ -36,15 +36,15 @@ Second release. Focus on robustness, better Mayor workflows, and task management
 
 ## v0.1.0 — 2026-02-08
 
-First release of pai-lite: a lightweight personal AI infrastructure for humans working with AI agents.
+First release of ludics: a lightweight personal AI infrastructure for humans working with AI agents.
 
 ### What works well (tested in daily use)
 
-- **macOS launchd integration** — Startup, periodic sync, and Mayor keepalive triggers install and fire reliably. Templates include proper PATH for Homebrew Bash 4+.
+- **macOS launchd integration** — Startup, periodic sync, and Mag keepalive triggers install and fire reliably. Templates include proper PATH for Homebrew Bash 4+.
 - **Task generation from sources** — GitHub issues (via `gh`), Markdown checkboxes, and watch rules on file changes all aggregate into `tasks.yaml` and convert to individual `task-*.md` files with YAML frontmatter.
 - **Briefings** — Morning briefing generation gathers slot state, ready queue, critical items, stalled work, and approaching deadlines into a Markdown report. Same-day briefings are amended rather than regenerated. Auto-committed to the state repo.
 - **Elaboration** — High-level tasks are expanded into detailed specs with subtasks, file references, edge cases, and test suggestions. Proactive elaboration queues unprocessed ready tasks automatically.
-- **Autonomous Mayor operation** — A persistent Claude Code session in tmux with queue-based communication. Automation writes requests to `mayor/queue.jsonl`; the stop hook drains the queue when Claude goes idle. Skills are invoked via tmux send-keys. ttyd provides web access.
+- **Autonomous Mag operation** — A persistent Claude Code session in tmux with queue-based communication. Automation writes requests to `mag/queue.jsonl`; the stop hook drains the queue when Claude goes idle. Skills are invoked via tmux send-keys. ttyd provides web access.
 
 ### What's included but not yet battle-tested
 
@@ -59,10 +59,10 @@ These components are implemented and may work, but have seen little to no real-w
 
 ### Full feature list
 
-#### Core CLI (`bin/pai-lite`)
-- 35+ commands across slots, tasks, flow, mayor, notify, dashboard, state, journal, network, federation, and setup
-- Self-installing (`pai-lite init`) with hooks, triggers, and skills auto-deployment
-- `pai-lite doctor` for environment validation
+#### Core CLI (`bin/ludics`)
+- 35+ commands across slots, tasks, flow, mag, notify, dashboard, state, journal, network, federation, and setup
+- Self-installing (`ludics init`) with hooks, triggers, and skills auto-deployment
+- `ludics doctor` for environment validation
 
 #### Task management
 - Multi-source aggregation: GitHub issues, README checkboxes, file watch rules
@@ -78,28 +78,28 @@ These components are implemented and may work, but have seen little to no real-w
 - `flow context` — active slots per context tag
 - `flow check-cycle` — topological validation of dependency graph
 
-#### Mayor system
+#### Mag system
 - Persistent Claude Code session in tmux with ttyd web access
 - Queue-based communication (`queue.jsonl` + `results/<id>.json`)
 - Stop hook fires on Claude idle to drain the queue
-- Keepalive trigger (every 15 min) restarts Mayor if needed
+- Keepalive trigger (every 15 min) restarts Mag if needed
 - Institutional memory: corrections, tools, workflows, project-specific knowledge
 
 #### Skills (9 total)
-- `pai-briefing` — morning briefing with same-day amending
-- `pai-elaborate` — task-to-spec expansion
-- `pai-suggest` — next-task recommendations
-- `pai-analyze-issue` — GitHub issue to actionable task
-- `pai-health-check` — stalled work detection
-- `pai-learn` — record corrections to institutional memory
-- `pai-sync-learnings` — consolidate corrections into knowledge files
-- `pai-techdebt` — technical debt tracking
+- `ludics-briefing` — morning briefing with same-day amending
+- `ludics-elaborate` — task-to-spec expansion
+- `ludics-suggest` — next-task recommendations
+- `ludics-analyze-issue` — GitHub issue to actionable task
+- `ludics-health-check` — stalled work detection
+- `ludics-learn` — record corrections to institutional memory
+- `ludics-sync-learnings` — consolidate corrections into knowledge files
+- `ludics-techdebt` — technical debt tracking
 
 #### Triggers
-- macOS launchd: startup, periodic sync, morning briefing, Mayor keepalive
+- macOS launchd: startup, periodic sync, morning briefing, Mag keepalive
 - Linux systemd: equivalent service + timer units
 - Watch rules: file change triggers for task sync
-- `pai-lite triggers install/status/uninstall`
+- `ludics triggers install/status/uninstall`
 
 #### Implementation
 - Pure Bash 4+ with CLI tools: `yq`, `jq`, `tsort`, `gh`, `tmux`, `ttyd`
@@ -110,5 +110,5 @@ These components are implemented and may work, but have seen little to no real-w
 ### Known issues
 
 - `declare -gA` in `slots.sh` requires Bash 4+; macOS ships Bash 3. Launchd plists include `/opt/homebrew/bin` in PATH to find Homebrew's Bash.
-- The installed copy at `~/.local/pai-lite/` is a file copy, not a symlink. Changes to the working copy must be manually re-installed.
+- The installed copy at `~/.local/ludics/` is a file copy, not a symlink. Changes to the working copy must be manually re-installed.
 - `[[ condition ]] && echo` at end of functions is unsafe under `set -e`; mitigated throughout but worth noting for contributors.

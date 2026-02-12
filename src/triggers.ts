@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlink
 import { join, basename } from "path";
 import { loadConfigSync } from "./config.ts";
 
-function paiLiteRoot(): string {
+function ludicsRoot(): string {
   // Use process.execPath — in compiled Bun binaries, process.argv[1] is a
   // virtual /$bunfs/... path, but process.execPath is the real filesystem path.
   const execPath = process.execPath;
@@ -19,7 +19,7 @@ function paiLiteRoot(): string {
 
 function binPath(): string {
   // The binary is the compiled entry point
-  return join(paiLiteRoot(), "bin", "pai-lite");
+  return join(ludicsRoot(), "bin", "ludics");
 }
 
 function sanitizeAction(action: string): string {
@@ -27,7 +27,7 @@ function sanitizeAction(action: string): string {
 }
 
 function commandFromAction(action: string): string {
-  return action || "mayor briefing";
+  return action || "mag briefing";
 }
 
 function triggerGet(section: string, key: string): string {
@@ -85,9 +85,9 @@ function plistArgs(bin: string, ...args: string[]): string {
 
 function plistLogs(name: string): string {
   return `  <key>StandardOutPath</key>
-  <string>${process.env.HOME}/Library/Logs/pai-lite-${name}.log</string>
+  <string>${process.env.HOME}/Library/Logs/ludics-${name}.log</string>
   <key>StandardErrorPath</key>
-  <string>${process.env.HOME}/Library/Logs/pai-lite-${name}.err</string>`;
+  <string>${process.env.HOME}/Library/Logs/ludics-${name}.err</string>`;
 }
 
 function installPlist(label: string, content: string): void {
@@ -108,7 +108,7 @@ function triggersInstallMacos(): void {
   // Startup trigger
   if (triggerGet("startup", "enabled") === "true") {
     const action = commandFromAction(triggerGet("startup", "action"));
-    const label = "com.pai-lite.startup";
+    const label = "com.ludics.startup";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -126,7 +126,7 @@ function triggersInstallMacos(): void {
   if (triggerGet("sync", "enabled") === "true") {
     const action = commandFromAction(triggerGet("sync", "action"));
     const interval = triggerGet("sync", "interval") || "3600";
-    const label = "com.pai-lite.sync";
+    const label = "com.ludics.sync";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -145,7 +145,7 @@ function triggersInstallMacos(): void {
     const action = commandFromAction(triggerGet("morning", "action"));
     const hour = triggerGet("morning", "hour") || "8";
     const minute = triggerGet("morning", "minute") || "0";
-    const label = "com.pai-lite.morning";
+    const label = "com.ludics.morning";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -163,7 +163,7 @@ function triggersInstallMacos(): void {
   if (triggerGet("health", "enabled") === "true") {
     const action = commandFromAction(triggerGet("health", "action"));
     const interval = triggerGet("health", "interval") || "14400";
-    const label = "com.pai-lite.health";
+    const label = "com.ludics.health";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -180,7 +180,7 @@ function triggersInstallMacos(): void {
   // Watch triggers
   for (const rule of triggerGetWatchRules()) {
     const sanitized = sanitizeAction(rule.action);
-    const label = `com.pai-lite.watch-${sanitized}`;
+    const label = `com.ludics.watch-${sanitized}`;
     const actionCmd = commandFromAction(rule.action);
 
     let watchPaths = `  <key>WatchPaths</key>\n  <array>\n`;
@@ -206,7 +206,7 @@ function triggersInstallMacos(): void {
   if (triggerGet("federation", "enabled") === "true") {
     const action = commandFromAction(triggerGet("federation", "action"));
     const interval = triggerGet("federation", "interval") || "300";
-    const label = "com.pai-lite.federation";
+    const label = "com.ludics.federation";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -220,30 +220,30 @@ function triggersInstallMacos(): void {
     console.log(`Installed launchd trigger: federation (every ${Math.floor(parseInt(interval) / 60)}m)`);
   }
 
-  // Mayor keepalive
+  // Mag keepalive
   const config = loadConfigSync();
-  const mayorEnabled = (config.mayor as Record<string, unknown> | undefined)?.enabled;
-  if (mayorEnabled === true || mayorEnabled === "true") {
-    const label = "com.pai-lite.mayor";
+  const magEnabled = (config.mag as Record<string, unknown> | undefined)?.enabled;
+  if (magEnabled === true || magEnabled === "true") {
+    const label = "com.ludics.mag";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
       `  <key>RunAtLoad</key>\n  <true/>`,
       `  <key>StartInterval</key>\n  <integer>900</integer>`,
       plistEnv(),
-      plistArgs(bin, "mayor", "start"),
-      plistLogs("mayor"),
+      plistArgs(bin, "mag", "start"),
+      plistLogs("mag"),
       PLIST_FOOTER,
     ].join("\n");
     installPlist(label, content);
-    console.log("Installed launchd trigger: mayor (keepalive every 15m)");
+    console.log("Installed launchd trigger: mag (keepalive every 15m)");
   }
 
   // Dashboard trigger
   if (triggerGet("dashboard", "enabled") === "true") {
     let port = triggerGet("dashboard", "port");
     if (!port) port = String(config.dashboard?.port ?? 7678);
-    const label = "com.pai-lite.dashboard";
+    const label = "com.ludics.dashboard";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
@@ -278,8 +278,8 @@ function triggersInstallLinux(): void {
   // Startup
   if (triggerGet("startup", "enabled") === "true") {
     const action = commandFromAction(triggerGet("startup", "action"));
-    writeSystemdUnit("pai-lite-startup.service", `[Unit]\nDescription=pai-lite startup trigger\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n\n[Install]\nWantedBy=default.target\n`);
-    enableSystemdUnit("pai-lite-startup.service");
+    writeSystemdUnit("ludics-startup.service", `[Unit]\nDescription=ludics startup trigger\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n\n[Install]\nWantedBy=default.target\n`);
+    enableSystemdUnit("ludics-startup.service");
     console.log("Installed systemd trigger: startup");
   }
 
@@ -287,9 +287,9 @@ function triggersInstallLinux(): void {
   if (triggerGet("sync", "enabled") === "true") {
     const action = commandFromAction(triggerGet("sync", "action"));
     const interval = triggerGet("sync", "interval") || "3600";
-    writeSystemdUnit("pai-lite-sync.service", `[Unit]\nDescription=pai-lite sync trigger\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
-    writeSystemdUnit("pai-lite-sync.timer", `[Unit]\nDescription=pai-lite sync timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=pai-lite-sync.service\n\n[Install]\nWantedBy=timers.target\n`);
-    enableSystemdUnit("pai-lite-sync.timer");
+    writeSystemdUnit("ludics-sync.service", `[Unit]\nDescription=ludics sync trigger\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
+    writeSystemdUnit("ludics-sync.timer", `[Unit]\nDescription=ludics sync timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=ludics-sync.service\n\n[Install]\nWantedBy=timers.target\n`);
+    enableSystemdUnit("ludics-sync.timer");
     console.log("Installed systemd trigger: sync");
   }
 
@@ -298,9 +298,9 @@ function triggersInstallLinux(): void {
     const action = commandFromAction(triggerGet("morning", "action"));
     const hour = triggerGet("morning", "hour") || "8";
     const minute = (triggerGet("morning", "minute") || "0").padStart(2, "0");
-    writeSystemdUnit("pai-lite-morning.service", `[Unit]\nDescription=pai-lite morning briefing\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
-    writeSystemdUnit("pai-lite-morning.timer", `[Unit]\nDescription=pai-lite morning briefing timer\n\n[Timer]\nOnCalendar=*-*-* ${hour}:${minute}:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n`);
-    enableSystemdUnit("pai-lite-morning.timer");
+    writeSystemdUnit("ludics-morning.service", `[Unit]\nDescription=ludics morning briefing\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
+    writeSystemdUnit("ludics-morning.timer", `[Unit]\nDescription=ludics morning briefing timer\n\n[Timer]\nOnCalendar=*-*-* ${hour}:${minute}:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n`);
+    enableSystemdUnit("ludics-morning.timer");
     console.log(`Installed systemd trigger: morning (daily at ${hour}:${minute})`);
   }
 
@@ -308,21 +308,21 @@ function triggersInstallLinux(): void {
   if (triggerGet("health", "enabled") === "true") {
     const action = commandFromAction(triggerGet("health", "action"));
     const interval = triggerGet("health", "interval") || "14400";
-    writeSystemdUnit("pai-lite-health.service", `[Unit]\nDescription=pai-lite health check\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
-    writeSystemdUnit("pai-lite-health.timer", `[Unit]\nDescription=pai-lite health check timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=pai-lite-health.service\n\n[Install]\nWantedBy=timers.target\n`);
-    enableSystemdUnit("pai-lite-health.timer");
+    writeSystemdUnit("ludics-health.service", `[Unit]\nDescription=ludics health check\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
+    writeSystemdUnit("ludics-health.timer", `[Unit]\nDescription=ludics health check timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=ludics-health.service\n\n[Install]\nWantedBy=timers.target\n`);
+    enableSystemdUnit("ludics-health.timer");
     console.log(`Installed systemd trigger: health (every ${Math.floor(parseInt(interval) / 3600)}h)`);
   }
 
   // Watch
   for (const rule of triggerGetWatchRules()) {
     const sanitized = sanitizeAction(rule.action);
-    const unitName = `pai-lite-watch-${sanitized}`;
+    const unitName = `ludics-watch-${sanitized}`;
     const actionCmd = commandFromAction(rule.action);
 
-    writeSystemdUnit(`${unitName}.service`, `[Unit]\nDescription=pai-lite watch trigger (${rule.action})\n\n[Service]\nType=oneshot\nExecStart=${bin} ${actionCmd}\n`);
+    writeSystemdUnit(`${unitName}.service`, `[Unit]\nDescription=ludics watch trigger (${rule.action})\n\n[Service]\nType=oneshot\nExecStart=${bin} ${actionCmd}\n`);
 
-    let pathUnit = `[Unit]\nDescription=pai-lite watch for file changes (${rule.action})\n\n[Path]\n`;
+    let pathUnit = `[Unit]\nDescription=ludics watch for file changes (${rule.action})\n\n[Path]\n`;
     for (const p of rule.paths) {
       pathUnit += `PathModified=${p}\n`;
     }
@@ -337,28 +337,28 @@ function triggersInstallLinux(): void {
   if (triggerGet("federation", "enabled") === "true") {
     const action = commandFromAction(triggerGet("federation", "action"));
     const interval = triggerGet("federation", "interval") || "300";
-    writeSystemdUnit("pai-lite-federation.service", `[Unit]\nDescription=pai-lite federation heartbeat\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
-    writeSystemdUnit("pai-lite-federation.timer", `[Unit]\nDescription=pai-lite federation timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=pai-lite-federation.service\n\n[Install]\nWantedBy=timers.target\n`);
-    enableSystemdUnit("pai-lite-federation.timer");
+    writeSystemdUnit("ludics-federation.service", `[Unit]\nDescription=ludics federation heartbeat\n\n[Service]\nType=oneshot\nExecStart=${bin} ${action}\n`);
+    writeSystemdUnit("ludics-federation.timer", `[Unit]\nDescription=ludics federation timer\n\n[Timer]\nOnUnitActiveSec=${interval}s\nUnit=ludics-federation.service\n\n[Install]\nWantedBy=timers.target\n`);
+    enableSystemdUnit("ludics-federation.timer");
     console.log(`Installed systemd trigger: federation (every ${Math.floor(parseInt(interval) / 60)}m)`);
   }
 
-  // Mayor keepalive
+  // Mag keepalive
   const config = loadConfigSync();
-  const mayorEnabled = (config.mayor as Record<string, unknown> | undefined)?.enabled;
-  if (mayorEnabled === true || mayorEnabled === "true") {
-    writeSystemdUnit("pai-lite-mayor.service", `[Unit]\nDescription=pai-lite Mayor keepalive\n\n[Service]\nType=oneshot\nExecStart=${bin} mayor start\n`);
-    writeSystemdUnit("pai-lite-mayor.timer", `[Unit]\nDescription=pai-lite Mayor keepalive timer\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=900s\nUnit=pai-lite-mayor.service\n\n[Install]\nWantedBy=timers.target\n`);
-    enableSystemdUnit("pai-lite-mayor.timer");
-    console.log("Installed systemd trigger: mayor (keepalive every 15m)");
+  const magEnabled = (config.mag as Record<string, unknown> | undefined)?.enabled;
+  if (magEnabled === true || magEnabled === "true") {
+    writeSystemdUnit("ludics-mag.service", `[Unit]\nDescription=ludics Mag keepalive\n\n[Service]\nType=oneshot\nExecStart=${bin} mag start\n`);
+    writeSystemdUnit("ludics-mag.timer", `[Unit]\nDescription=ludics Mag keepalive timer\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=900s\nUnit=ludics-mag.service\n\n[Install]\nWantedBy=timers.target\n`);
+    enableSystemdUnit("ludics-mag.timer");
+    console.log("Installed systemd trigger: mag (keepalive every 15m)");
   }
 
   // Dashboard
   if (triggerGet("dashboard", "enabled") === "true") {
     let port = triggerGet("dashboard", "port");
     if (!port) port = String(config.dashboard?.port ?? 7678);
-    writeSystemdUnit("pai-lite-dashboard.service", `[Unit]\nDescription=pai-lite dashboard server\n\n[Service]\nType=simple\nExecStart=${bin} dashboard serve ${port}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n`);
-    enableSystemdUnit("pai-lite-dashboard.service");
+    writeSystemdUnit("ludics-dashboard.service", `[Unit]\nDescription=ludics dashboard server\n\n[Service]\nType=simple\nExecStart=${bin} dashboard serve ${port}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n`);
+    enableSystemdUnit("ludics-dashboard.service");
     console.log(`Installed systemd trigger: dashboard (port ${port})`);
   }
 }
@@ -368,9 +368,9 @@ function triggersInstallLinux(): void {
 function triggersUninstallMacos(): void {
   const agentsDir = join(process.env.HOME!, "Library/LaunchAgents");
   const labels = [
-    "com.pai-lite.startup", "com.pai-lite.sync", "com.pai-lite.morning",
-    "com.pai-lite.health", "com.pai-lite.federation", "com.pai-lite.mayor",
-    "com.pai-lite.dashboard",
+    "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
+    "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
+    "com.ludics.dashboard",
   ];
 
   for (const label of labels) {
@@ -378,44 +378,44 @@ function triggersUninstallMacos(): void {
     if (existsSync(plist)) {
       Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
       unlinkSync(plist);
-      console.log(`Uninstalled launchd trigger: ${label.replace("com.pai-lite.", "")}`);
+      console.log(`Uninstalled launchd trigger: ${label.replace("com.ludics.", "")}`);
     }
   }
 
   // Watch plists
   if (existsSync(agentsDir)) {
     for (const f of readdirSync(agentsDir)) {
-      if (f.startsWith("com.pai-lite.watch-") && f.endsWith(".plist")) {
+      if (f.startsWith("com.ludics.watch-") && f.endsWith(".plist")) {
         const plist = join(agentsDir, f);
         Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
         unlinkSync(plist);
-        console.log(`Uninstalled launchd trigger: ${f.replace("com.pai-lite.", "").replace(".plist", "")}`);
+        console.log(`Uninstalled launchd trigger: ${f.replace("com.ludics.", "").replace(".plist", "")}`);
       }
     }
   }
 
-  console.log("All pai-lite launchd triggers uninstalled");
+  console.log("All ludics launchd triggers uninstalled");
 }
 
 function triggersUninstallLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mayor", "dashboard"];
+  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard"];
 
   for (const name of names) {
-    const serviceFile = join(systemdDir, `pai-lite-${name}.service`);
-    const timerFile = join(systemdDir, `pai-lite-${name}.timer`);
-    const pathFile = join(systemdDir, `pai-lite-${name}.path`);
+    const serviceFile = join(systemdDir, `ludics-${name}.service`);
+    const timerFile = join(systemdDir, `ludics-${name}.timer`);
+    const pathFile = join(systemdDir, `ludics-${name}.path`);
 
     if (existsSync(timerFile)) {
-      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.timer`], { stdout: "pipe", stderr: "pipe" });
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.timer`], { stdout: "pipe", stderr: "pipe" });
       unlinkSync(timerFile);
     }
     if (existsSync(pathFile)) {
-      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.path`], { stdout: "pipe", stderr: "pipe" });
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.path`], { stdout: "pipe", stderr: "pipe" });
       unlinkSync(pathFile);
     }
     if (existsSync(serviceFile)) {
-      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.service`], { stdout: "pipe", stderr: "pipe" });
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.service`], { stdout: "pipe", stderr: "pipe" });
       unlinkSync(serviceFile);
       console.log(`Uninstalled systemd trigger: ${name}`);
     }
@@ -424,7 +424,7 @@ function triggersUninstallLinux(): void {
   // Watch units
   if (existsSync(systemdDir)) {
     for (const f of readdirSync(systemdDir)) {
-      if (f.startsWith("pai-lite-watch-") && f.endsWith(".service")) {
+      if (f.startsWith("ludics-watch-") && f.endsWith(".service")) {
         const unitName = f.replace(".service", "");
         const pathFile = join(systemdDir, `${unitName}.path`);
         if (existsSync(pathFile)) {
@@ -433,13 +433,13 @@ function triggersUninstallLinux(): void {
         }
         Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.service`], { stdout: "pipe", stderr: "pipe" });
         unlinkSync(join(systemdDir, f));
-        console.log(`Uninstalled systemd trigger: ${unitName.replace("pai-lite-", "")}`);
+        console.log(`Uninstalled systemd trigger: ${unitName.replace("ludics-", "")}`);
       }
     }
   }
 
   Bun.spawnSync(["systemctl", "--user", "daemon-reload"], { stdout: "pipe", stderr: "pipe" });
-  console.log("All pai-lite systemd triggers uninstalled");
+  console.log("All ludics systemd triggers uninstalled");
 }
 
 // --- Status ---
@@ -447,12 +447,12 @@ function triggersUninstallLinux(): void {
 function triggersStatusMacos(): void {
   const agentsDir = join(process.env.HOME!, "Library/LaunchAgents");
   const labels = [
-    "com.pai-lite.startup", "com.pai-lite.sync", "com.pai-lite.morning",
-    "com.pai-lite.health", "com.pai-lite.federation", "com.pai-lite.mayor",
-    "com.pai-lite.dashboard",
+    "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
+    "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
+    "com.ludics.dashboard",
   ];
 
-  console.log("pai-lite launchd triggers:");
+  console.log("ludics launchd triggers:");
   console.log("");
 
   let foundAny = false;
@@ -462,7 +462,7 @@ function triggersStatusMacos(): void {
     if (!existsSync(plist)) continue;
     foundAny = true;
 
-    const name = label.replace("com.pai-lite.", "");
+    const name = label.replace("com.ludics.", "");
     const check = Bun.spawnSync(["launchctl", "list", label], { stdout: "pipe", stderr: "pipe" });
     const status = check.exitCode === 0 ? "loaded" : "not loaded";
     console.log(`  ${name.padEnd(20)} ${status}`);
@@ -471,10 +471,10 @@ function triggersStatusMacos(): void {
   // Watch plists
   if (existsSync(agentsDir)) {
     for (const f of readdirSync(agentsDir)) {
-      if (f.startsWith("com.pai-lite.watch-") && f.endsWith(".plist")) {
+      if (f.startsWith("com.ludics.watch-") && f.endsWith(".plist")) {
         foundAny = true;
         const label = f.replace(".plist", "");
-        const name = label.replace("com.pai-lite.", "");
+        const name = label.replace("com.ludics.", "");
         const check = Bun.spawnSync(["launchctl", "list", label], { stdout: "pipe", stderr: "pipe" });
         const status = check.exitCode === 0 ? "loaded" : "not loaded";
         console.log(`  ${name.padEnd(20)} ${status}`);
@@ -483,33 +483,33 @@ function triggersStatusMacos(): void {
   }
 
   if (!foundAny) {
-    console.log("  No pai-lite triggers installed");
+    console.log("  No ludics triggers installed");
   }
 
   console.log("");
-  console.log(`Log files: ${process.env.HOME}/Library/Logs/pai-lite-*.log`);
+  console.log(`Log files: ${process.env.HOME}/Library/Logs/ludics-*.log`);
 }
 
 function triggersStatusLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mayor", "dashboard"];
+  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard"];
 
-  console.log("pai-lite systemd triggers:");
+  console.log("ludics systemd triggers:");
   console.log("");
 
   let foundAny = false;
 
   for (const name of names) {
-    const serviceFile = join(systemdDir, `pai-lite-${name}.service`);
+    const serviceFile = join(systemdDir, `ludics-${name}.service`);
     if (!existsSync(serviceFile)) continue;
     foundAny = true;
 
-    const timerFile = join(systemdDir, `pai-lite-${name}.timer`);
-    const pathFile = join(systemdDir, `pai-lite-${name}.path`);
+    const timerFile = join(systemdDir, `ludics-${name}.timer`);
+    const pathFile = join(systemdDir, `ludics-${name}.path`);
 
-    let unitToCheck = `pai-lite-${name}.service`;
-    if (existsSync(timerFile)) unitToCheck = `pai-lite-${name}.timer`;
-    else if (existsSync(pathFile)) unitToCheck = `pai-lite-${name}.path`;
+    let unitToCheck = `ludics-${name}.service`;
+    if (existsSync(timerFile)) unitToCheck = `ludics-${name}.timer`;
+    else if (existsSync(pathFile)) unitToCheck = `ludics-${name}.path`;
 
     const check = Bun.spawnSync(["systemctl", "--user", "is-active", unitToCheck], { stdout: "pipe", stderr: "pipe" });
     const status = check.stdout.toString().trim() || "inactive";
@@ -519,10 +519,10 @@ function triggersStatusLinux(): void {
   // Watch units
   if (existsSync(systemdDir)) {
     for (const f of readdirSync(systemdDir)) {
-      if (f.startsWith("pai-lite-watch-") && f.endsWith(".service")) {
+      if (f.startsWith("ludics-watch-") && f.endsWith(".service")) {
         foundAny = true;
         const unitName = f.replace(".service", "");
-        const name = unitName.replace("pai-lite-", "");
+        const name = unitName.replace("ludics-", "");
         const pathFile = join(systemdDir, `${unitName}.path`);
         const unitToCheck = existsSync(pathFile) ? `${unitName}.path` : `${unitName}.service`;
         const check = Bun.spawnSync(["systemctl", "--user", "is-active", unitToCheck], { stdout: "pipe", stderr: "pipe" });
@@ -533,11 +533,11 @@ function triggersStatusLinux(): void {
   }
 
   if (!foundAny) {
-    console.log("  No pai-lite triggers installed");
+    console.log("  No ludics triggers installed");
   }
 
   console.log("");
-  console.log("View logs: journalctl --user -u 'pai-lite-*'");
+  console.log("View logs: journalctl --user -u 'ludics-*'");
 }
 
 // --- Public API ---

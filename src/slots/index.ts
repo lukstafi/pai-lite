@@ -72,7 +72,7 @@ function taskUpdateFrontmatter(taskId: string, field: string, value: string): vo
 function taskUpdateForSlotAssign(taskId: string, slot: number, adapter: string, started: string): void {
   const file = taskFilePath(taskId);
   if (!existsSync(file)) {
-    console.error(`pai-lite: task file not found: ${taskId} (skipping task update)`);
+    console.error(`ludics: task file not found: ${taskId} (skipping task update)`);
     return;
   }
   taskUpdateFrontmatter(taskId, "status", "in-progress");
@@ -84,7 +84,7 @@ function taskUpdateForSlotAssign(taskId: string, slot: number, adapter: string, 
 function taskUpdateForSlotClear(taskId: string, finalStatus: string): void {
   const file = taskFilePath(taskId);
   if (!existsSync(file)) {
-    console.error(`pai-lite: task file not found: ${taskId} (skipping task update)`);
+    console.error(`ludics: task file not found: ${taskId} (skipping task update)`);
     return;
   }
   taskUpdateFrontmatter(taskId, "status", finalStatus);
@@ -191,7 +191,7 @@ export function slotAssign(
 **Terminals:**
 
 **Runtime:**
-- Assigned via pai-lite
+- Assigned via ludics
 
 **Git:**
 `;
@@ -313,7 +313,7 @@ export function slotsRefresh(): void {
 
     blocks.set(i, mergeAdapterState(block, output));
     anyUpdated = true;
-    console.error(`pai-lite: refreshed slot ${i} (${mode})`);
+    console.error(`ludics: refreshed slot ${i} (${mode})`);
   }
 
   if (anyUpdated) {
@@ -344,7 +344,7 @@ export async function runSlots(args: string[]): Promise<void> {
 export async function runSlot(args: string[]): Promise<void> {
   const slotStr = args[0];
   if (!slotStr || !/^\d+$/.test(slotStr)) {
-    throw new Error("slot number required (e.g., pai-lite slot 1)");
+    throw new Error("slot number required (e.g., ludics slot 1)");
   }
   const slotNum = parseInt(slotStr, 10);
   const sub = args[1] ?? "";

@@ -1,0 +1,22 @@
+# ludics startup service for Linux (systemd)
+#
+# This service runs 'ludics briefing' on login.
+#
+# Installation:
+#   1. Copy to ~/.config/systemd/user/
+#   2. Edit the ExecStart path if needed
+#   3. Run: systemctl --user enable ludics-startup.service
+#
+# Or use: ludics triggers install
+
+[Unit]
+Description=ludics startup briefing
+After=network.target
+
+[Service]
+Type=oneshot
+# Update this path to your ludics installation
+ExecStart=/usr/local/bin/ludics briefing
+
+[Install]
+WantedBy=default.target

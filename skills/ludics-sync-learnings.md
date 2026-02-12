@@ -1,29 +1,29 @@
-# /pai-sync-learnings - Knowledge Consolidation
+# /ludics-sync-learnings - Knowledge Consolidation
 
 Consolidate scattered learnings from corrections.md into structured memory files.
 
 ## Trigger
 
 This skill is invoked when:
-- The user runs `pai-lite mayor sync-learnings`
+- The user runs `ludics mag sync-learnings`
 - Periodically (weekly) via automation
 - When corrections.md grows beyond a threshold
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
 
 ## Process
 
 1. **Read recent corrections**:
    ```bash
-   cat "$PAI_LITE_STATE_PATH/mayor/memory/corrections.md"
+   cat "$LUDICS_STATE_PATH/mag/memory/corrections.md"
    ```
 
 2. **Read journal friction points**:
    ```bash
-   grep -l "friction\|mistake\|learned" "$PAI_LITE_STATE_PATH/journal/"*.md
+   grep -l "friction\|mistake\|learned" "$LUDICS_STATE_PATH/journal/"*.md
    ```
 
 3. **Group by theme**:

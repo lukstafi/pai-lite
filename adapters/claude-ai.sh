@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/adapters/claude-ai.sh - Claude.ai web interface integration
+# ludics/adapters/claude-ai.sh - Claude.ai web interface integration
 # Tracks browser-based conversations via bookmarks/URLs with metadata
 
 #------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 adapter_claude_ai_bookmarks_file() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/claude-ai.urls"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/claude-ai.urls"
   else
-    echo "$HOME/.config/pai-lite/claude-ai.urls"
+    echo "$HOME/.config/ludics/claude-ai.urls"
   fi
 }
 
@@ -21,10 +21,10 @@ adapter_claude_ai_bookmarks_file() {
 #------------------------------------------------------------------------------
 
 adapter_claude_ai_state_dir() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/claude-ai"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/claude-ai"
   else
-    echo "$HOME/.config/pai-lite/claude-ai"
+    echo "$HOME/.config/ludics/claude-ai"
   fi
 }
 
@@ -40,7 +40,7 @@ adapter_claude_ai_metadata_file() {
 }
 
 #------------------------------------------------------------------------------
-# Adapter interface for pai-lite
+# Adapter interface for ludics
 #------------------------------------------------------------------------------
 
 adapter_claude_ai_read_state() {
@@ -132,7 +132,7 @@ adapter_claude_ai_start() {
   if [[ -z "$url" ]]; then
     echo "claude-ai start: Opening new Claude.ai conversation..." >&2
     echo "Please provide the conversation URL to track it:" >&2
-    echo "  pai-lite adapter claude-ai add <url> [label]" >&2
+    echo "  ludics adapter claude-ai add <url> [label]" >&2
     echo "" >&2
     echo "Or manually add to: $bookmarks" >&2
     return 1
@@ -184,7 +184,7 @@ adapter_claude_ai_stop() {
 
   if [[ -z "$identifier" ]]; then
     echo "claude-ai stop: no conversation identifier provided." >&2
-    echo "Usage: pai-lite adapter claude-ai stop <url|label|conversation_id>" >&2
+    echo "Usage: ludics adapter claude-ai stop <url|label|conversation_id>" >&2
     return 1
   fi
 
@@ -253,7 +253,7 @@ adapter_claude_ai_list() {
 
   if [[ ! -f "$bookmarks" ]]; then
     echo "No Claude.ai conversations tracked yet."
-    echo "Track a conversation with: pai-lite adapter claude-ai add <url> [label]"
+    echo "Track a conversation with: ludics adapter claude-ai add <url> [label]"
     return 0
   fi
 

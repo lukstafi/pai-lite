@@ -1,11 +1,11 @@
-# /pai-analyze-issue - GitHub Issue Analysis
+# /ludics-analyze-issue - GitHub Issue Analysis
 
 Analyze a GitHub issue and create a task file with inferred dependencies.
 
 ## Trigger
 
 This skill is invoked when:
-- The user runs `pai-lite mayor analyze <issue>`
+- The user runs `ludics mag analyze <issue>`
 - Automation detects a new issue in watched repos
 
 ## Arguments
@@ -14,8 +14,8 @@ This skill is invoked when:
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
 
 ## Process
 
@@ -48,7 +48,7 @@ This skill is invoked when:
    - Context tag based on repository/area
 
 6. **Create task file**:
-   Write `$PAI_LITE_STATE_PATH/tasks/task-<next_id>.md`
+   Write `$LUDICS_STATE_PATH/tasks/task-<next_id>.md`
 
 ## Output Format
 

@@ -119,7 +119,7 @@ export function flowReady(): void {
   const tasks = collectTasks();
 
   if (checkCycle(tasks)) {
-    console.error("pai-lite: dependency cycle detected in tasks");
+    console.error("ludics: dependency cycle detected in tasks");
   }
 
   const ready = tasks

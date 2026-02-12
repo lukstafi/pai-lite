@@ -1,0 +1,25 @@
+# ludics Mag keepalive service for Linux (systemd)
+#
+# Ensures the Mag tmux session is running:
+# - Starts on login (default.target)
+# - Checks every 15 minutes via companion timer
+# - Idempotent: exits early if already running
+#
+# Installation:
+#   1. Copy ludics-mag.service and ludics-mag.timer to ~/.config/systemd/user/
+#   2. Edit the ExecStart path if needed
+#   3. Run: systemctl --user enable --now ludics-mag.timer
+#
+# Or use: ludics triggers install
+
+[Unit]
+Description=ludics Mag session keepalive
+After=network.target
+
+[Service]
+Type=oneshot
+# Update this path to your ludics installation
+ExecStart=/usr/local/bin/ludics mag start
+
+[Install]
+WantedBy=default.target

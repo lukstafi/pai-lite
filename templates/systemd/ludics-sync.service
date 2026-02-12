@@ -1,0 +1,20 @@
+# ludics sync service for Linux (systemd)
+#
+# This service runs 'ludics tasks sync'.
+# It's triggered by ludics-sync.timer.
+#
+# Installation:
+#   1. Copy to ~/.config/systemd/user/
+#   2. Copy ludics-sync.timer too
+#   3. Run: systemctl --user enable ludics-sync.timer
+#   4. Run: systemctl --user start ludics-sync.timer
+#
+# Or use: ludics triggers install
+
+[Unit]
+Description=ludics task sync
+
+[Service]
+Type=oneshot
+# Update this path to your ludics installation
+ExecStart=/usr/local/bin/ludics tasks sync

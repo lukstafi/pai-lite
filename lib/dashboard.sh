@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Dashboard data generation for pai-lite
+# Dashboard data generation for ludics
 # Produces JSON files for the web dashboard from Markdown state
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,7 +12,7 @@ source "$script_dir/flow.sh"
 
 # Get dashboard data directory
 dashboard_data_dir() {
-  echo "$(pai_lite_state_harness_dir)/dashboard/data"
+  echo "$(ludics_state_harness_dir)/dashboard/data"
 }
 
 # Ensure dashboard data directory exists
@@ -24,7 +24,7 @@ dashboard_ensure_data_dir() {
 
 # Check required tools
 dashboard_require_tools() {
-  pai_lite_require_cmd jq
+  ludics_require_cmd jq
 }
 
 #------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ dashboard_generate_slots() {
   dashboard_require_tools
 
   local slots_file
-  slots_file="$(pai_lite_state_harness_dir)/slots.md"
+  slots_file="$(ludics_state_harness_dir)/slots.md"
 
   if [[ ! -f "$slots_file" ]]; then
     echo "[]"
@@ -243,7 +243,7 @@ dashboard_generate_notifications() {
   dashboard_require_tools
 
   local journal_dir log_file
-  journal_dir="$(pai_lite_state_harness_dir)/journal"
+  journal_dir="$(ludics_state_harness_dir)/journal"
   log_file="$journal_dir/notifications.jsonl"
 
   if [[ ! -f "$log_file" ]]; then
@@ -257,7 +257,7 @@ dashboard_generate_notifications() {
 }
 
 #------------------------------------------------------------------------------
-# Generate mayor.json
+# Generate mag.json
 # Schema:
 # {
 #   "status": "running" | "idle" | "unknown",
@@ -266,12 +266,12 @@ dashboard_generate_notifications() {
 #   "terminal": "http://localhost:7680"
 # }
 #------------------------------------------------------------------------------
-dashboard_generate_mayor() {
+dashboard_generate_mag() {
   dashboard_require_tools
 
   local harness_dir queue_file
-  harness_dir="$(pai_lite_state_harness_dir)"
-  queue_file="$harness_dir/mayor/queue.jsonl"
+  harness_dir="$(ludics_state_harness_dir)"
+  queue_file="$harness_dir/mag/queue.jsonl"
 
   # Count pending requests
   local pending=0
@@ -279,43 +279,43 @@ dashboard_generate_mayor() {
     pending=$(wc -l < "$queue_file" | tr -d ' ')
   fi
 
-  # Check for Mayor session status (look for tmux session or state file)
+  # Check for Mag session status (look for tmux session or state file)
   local status="unknown"
   local last_activity=""
   local terminal=""
 
-  # Get Mayor session name from config (default: pai-mayor)
-  local mayor_session
-  mayor_session=$(dashboard_get_mayor_session)
-  [[ -z "$mayor_session" ]] && mayor_session="pai-mayor"
+  # Get Mag session name from config (default: ludics-mag)
+  local mag_session
+  mag_session=$(dashboard_get_mag_session)
+  [[ -z "$mag_session" ]] && mag_session="ludics-mag"
 
-  # Check if Mayor tmux session exists
+  # Check if Mag tmux session exists
   if command -v tmux >/dev/null 2>&1; then
-    if tmux has-session -t "$mayor_session" 2>/dev/null; then
+    if tmux has-session -t "$mag_session" 2>/dev/null; then
       status="running"
     fi
   fi
 
-  # Get Mayor ttyd port from config (default: 7679)
-  local mayor_port
-  mayor_port=$(dashboard_get_mayor_ttyd_port)
-  [[ -z "$mayor_port" ]] && mayor_port="7679"
-  terminal="$(pai_lite_get_url "$mayor_port")"
+  # Get Mag ttyd port from config (default: 7679)
+  local mag_port
+  mag_port=$(dashboard_get_mag_ttyd_port)
+  [[ -z "$mag_port" ]] && mag_port="7679"
+  terminal="$(ludics_get_url "$mag_port")"
 
-  # Check for Mayor state file (from claude-code adapter pattern)
-  local mayor_state="$HOME/.config/pai-lite/mayor.state"
-  if [[ -f "$mayor_state" ]]; then
+  # Check for Mag state file (from claude-code adapter pattern)
+  local mag_state="$HOME/.config/ludics/mag.state"
+  if [[ -f "$mag_state" ]]; then
     local state_status
-    state_status=$(awk -F= '/^status=/ { print $2 }' "$mayor_state" 2>/dev/null || echo "")
+    state_status=$(awk -F= '/^status=/ { print $2 }' "$mag_state" 2>/dev/null || echo "")
     [[ -n "$state_status" ]] && status="$state_status"
 
     local state_activity
-    state_activity=$(awk -F= '/^last_activity=/ { print $2 }' "$mayor_state" 2>/dev/null || echo "")
+    state_activity=$(awk -F= '/^last_activity=/ { print $2 }' "$mag_state" 2>/dev/null || echo "")
     [[ -n "$state_activity" ]] && last_activity="$state_activity"
   fi
 
   # Check results directory for latest activity
-  local results_dir="$harness_dir/mayor/results"
+  local results_dir="$harness_dir/mag/results"
   if [[ -d "$results_dir" ]]; then
     local latest_result
     # shellcheck disable=SC2012 # ls -t for mtime sort; find has no native sort
@@ -343,21 +343,21 @@ dashboard_generate_mayor() {
     }'
 }
 
-# Get Mayor session name from config
-dashboard_get_mayor_session() {
+# Get Mag session name from config
+dashboard_get_mag_session() {
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return
 
   awk '
-    /^[[:space:]]*mayor:/ { in_mayor=1; next }
-    in_mayor && /^[[:space:]]*session:/ {
+    /^[[:space:]]*mag:/ { in_mag=1; next }
+    in_mag && /^[[:space:]]*session:/ {
       sub(/^[^:]+:[[:space:]]*/, "", $0)
       gsub(/[[:space:]]+$/, "", $0)
       print $0
       exit
     }
-    in_mayor && /^[^[:space:]]/ { in_mayor=0 }
+    in_mag && /^[^[:space:]]/ { in_mag=0 }
   ' "$config"
 }
 
@@ -366,7 +366,7 @@ dashboard_get_mayor_session() {
 dashboard_get_config() {
   local key="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   if [[ -f "$config" ]]; then
     local result
     result=$(yq eval ".dashboard.${key}" "$config" 2>/dev/null)
@@ -376,21 +376,21 @@ dashboard_get_config() {
   fi
 }
 
-# Get Mayor ttyd port from config
-dashboard_get_mayor_ttyd_port() {
+# Get Mag ttyd port from config
+dashboard_get_mag_ttyd_port() {
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return
 
   awk '
-    /^[[:space:]]*mayor:/ { in_mayor=1; next }
-    in_mayor && /^[[:space:]]*ttyd_port:/ {
+    /^[[:space:]]*mag:/ { in_mag=1; next }
+    in_mag && /^[[:space:]]*ttyd_port:/ {
       sub(/^[^:]+:[[:space:]]*/, "", $0)
       gsub(/[[:space:]]+$/, "", $0)
       print $0
       exit
     }
-    in_mayor && /^[^[:space:]]/ { in_mayor=0 }
+    in_mag && /^[^[:space:]]/ { in_mag=0 }
   ' "$config"
 }
 
@@ -408,7 +408,7 @@ dashboard_generate_briefing() {
   dashboard_require_tools
 
   local harness_dir briefing_file
-  harness_dir="$(pai_lite_state_harness_dir)"
+  harness_dir="$(ludics_state_harness_dir)"
   briefing_file="$harness_dir/briefing.md"
 
   if [[ ! -f "$briefing_file" ]]; then
@@ -446,24 +446,24 @@ dashboard_generate() {
   local data_dir
   data_dir="$(dashboard_data_dir)"
 
-  pai_lite_info "generating dashboard data..."
+  ludics_info "generating dashboard data..."
 
   dashboard_generate_slots > "$data_dir/slots.json"
-  pai_lite_info "  slots.json"
+  ludics_info "  slots.json"
 
   dashboard_generate_ready > "$data_dir/ready.json"
-  pai_lite_info "  ready.json"
+  ludics_info "  ready.json"
 
   dashboard_generate_notifications > "$data_dir/notifications.json"
-  pai_lite_info "  notifications.json"
+  ludics_info "  notifications.json"
 
-  dashboard_generate_mayor > "$data_dir/mayor.json"
-  pai_lite_info "  mayor.json"
+  dashboard_generate_mag > "$data_dir/mag.json"
+  ludics_info "  mag.json"
 
   dashboard_generate_briefing > "$data_dir/briefing.json"
-  pai_lite_info "  briefing.json"
+  ludics_info "  briefing.json"
 
-  pai_lite_info "dashboard data generated in $data_dir"
+  ludics_info "dashboard data generated in $data_dir"
 }
 
 #------------------------------------------------------------------------------
@@ -472,21 +472,21 @@ dashboard_generate() {
 dashboard_serve() {
   local port="${1:-7678}"
   local dashboard_dir
-  dashboard_dir="$(pai_lite_state_harness_dir)/dashboard"
+  dashboard_dir="$(ludics_state_harness_dir)/dashboard"
 
   if [[ ! -d "$dashboard_dir" ]]; then
-    pai_lite_die "dashboard not installed. Run: pai-lite dashboard install"
+    ludics_die "dashboard not installed. Run: ludics dashboard install"
   fi
 
   local server_script
-  server_script="$(pai_lite_root)/lib/dashboard_server.py"
+  server_script="$(ludics_root)/lib/dashboard_server.py"
 
   if [[ ! -f "$server_script" ]]; then
-    pai_lite_die "dashboard server script not found: $server_script"
+    ludics_die "dashboard server script not found: $server_script"
   fi
 
   local bin_path
-  bin_path="$(pai_lite_root)/bin/pai-lite"
+  bin_path="$(ludics_root)/bin/ludics"
 
   # Read TTL from config (default: 5 seconds)
   local ttl
@@ -498,9 +498,9 @@ dashboard_serve() {
   # Generate initial data so first page load is fast
   dashboard_generate
 
-  pai_lite_info "serving dashboard at $(pai_lite_get_url "$port")"
-  pai_lite_info "data regenerates lazily (TTL: ${ttl}s)"
-  pai_lite_info "press Ctrl+C to stop"
+  ludics_info "serving dashboard at $(ludics_get_url "$port")"
+  ludics_info "data regenerates lazily (TTL: ${ttl}s)"
+  ludics_info "press Ctrl+C to stop"
 
   python3 "$server_script" "$port" "$dashboard_dir" "$bin_path" "$ttl"
 }
@@ -510,15 +510,15 @@ dashboard_serve() {
 #------------------------------------------------------------------------------
 dashboard_install() {
   local root_dir template_dir dashboard_dir
-  root_dir="$(pai_lite_root)"
+  root_dir="$(ludics_root)"
   template_dir="$root_dir/templates/dashboard"
-  dashboard_dir="$(pai_lite_state_harness_dir)/dashboard"
+  dashboard_dir="$(ludics_state_harness_dir)/dashboard"
 
   if [[ ! -d "$template_dir" ]]; then
-    pai_lite_die "dashboard templates not found: $template_dir"
+    ludics_die "dashboard templates not found: $template_dir"
   fi
 
-  pai_lite_info "installing dashboard to $dashboard_dir"
+  ludics_info "installing dashboard to $dashboard_dir"
 
   mkdir -p "$dashboard_dir"
   cp -r "$template_dir"/* "$dashboard_dir/"
@@ -526,9 +526,9 @@ dashboard_install() {
   # Create data directory
   mkdir -p "$dashboard_dir/data"
 
-  pai_lite_info "dashboard installed"
-  pai_lite_info "  run: pai-lite dashboard generate"
-  pai_lite_info "  then: pai-lite dashboard serve"
+  ludics_info "dashboard installed"
+  ludics_info "  run: ludics dashboard generate"
+  ludics_info "  then: ludics dashboard serve"
 }
 
 #------------------------------------------------------------------------------
@@ -556,7 +556,7 @@ dashboard_main() {
       dashboard_install
       ;;
     *)
-      pai_lite_die "unknown dashboard command: $cmd (use: generate, serve, install)"
+      ludics_die "unknown dashboard command: $cmd (use: generate, serve, install)"
       ;;
   esac
 }
