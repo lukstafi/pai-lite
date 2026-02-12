@@ -1,24 +1,24 @@
-# /pai-techdebt - Technical Debt Review
+# /ludics-techdebt - Technical Debt Review
 
 End-of-day or end-of-week technical debt review.
 
 ## Trigger
 
 This skill is invoked when:
-- The user runs `pai-lite mayor techdebt`
+- The user runs `ludics mag techdebt`
 - Weekly automation (e.g., Friday 17:00)
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
 
 ## Process
 
 1. **Scan recent commits** (delegate to Haiku for speed):
    ```bash
    # Get commits from last 7 days across watched projects
-   for project in $(pai-lite config projects); do
+   for project in $(ludics config projects); do
      git -C "$project" log --since="7 days ago" --oneline
    done
    ```
@@ -105,5 +105,5 @@ This skill is invoked when:
 
 If high-priority items found:
 ```bash
-pai-lite notify pai "Tech debt review: 3 high-priority items found" 3 "Weekly Review"
+ludics notify pai "Tech debt review: 3 high-priority items found" 3 "Weekly Review"
 ```

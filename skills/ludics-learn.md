@@ -1,16 +1,16 @@
-# /pai-learn - Institutional Learning
+# /ludics-learn - Institutional Learning
 
-Update Mayor's memory from user corrections and feedback.
+Update Mag's memory from user corrections and feedback.
 
 ## Trigger
 
 This skill is invoked when:
-- The user provides a correction and says `/pai-learn`
-- Example: "Don't use yq -s on single files, it expects multiple" then `/pai-learn`
+- The user provides a correction and says `/ludics-learn`
+- Example: "Don't use yq -s on single files, it expects multiple" then `/ludics-learn`
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
+- `$LUDICS_STATE_PATH`: Path to the harness directory
 - Previous message context (the correction)
 
 ## Process
@@ -26,12 +26,12 @@ This skill is invoked when:
    - **Preference**: User's preferred style or approach
 
 3. **Write to corrections log**:
-   Append to `$PAI_LITE_STATE_PATH/mayor/memory/corrections.md`
+   Append to `$LUDICS_STATE_PATH/mag/memory/corrections.md`
 
 4. **Update structured memory** (if pattern is clear):
-   - Tools: `mayor/memory/tools.md`
-   - Workflows: `mayor/memory/workflows.md`
-   - Project: `mayor/memory/projects/<project>.md`
+   - Tools: `mag/memory/tools.md`
+   - Workflows: `mag/memory/workflows.md`
+   - Project: `mag/memory/projects/<project>.md`
 
 5. **Acknowledge the learning**
 
@@ -39,7 +39,7 @@ This skill is invoked when:
 
 ### Corrections Entry
 
-Append to `mayor/memory/corrections.md`:
+Append to `mag/memory/corrections.md`:
 
 ```markdown
 ## 2026-02-01: yq usage
@@ -65,7 +65,7 @@ yq eval '.' single-file.yaml
 
 ### Tools Memory Update
 
-If this is a tool-related learning, also update `mayor/memory/tools.md`:
+If this is a tool-related learning, also update `mag/memory/tools.md`:
 
 ```markdown
 ## yq
@@ -98,7 +98,7 @@ Added to: corrections.md, tools.md
 ## Memory Structure
 
 ```
-mayor/
+mag/
 ├── context.md           # Current understanding, project focus
 └── memory/
     ├── corrections.md   # Raw correction log (append-only)

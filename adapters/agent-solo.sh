@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pai-lite/adapters/agent-solo.sh - agent-solo (coder + reviewer) integration
+# ludics/adapters/agent-solo.sh - agent-solo (coder + reviewer) integration
 # Uses the same .peer-sync/ structure as agent-duo but with solo workflow
 set -euo pipefail
 
@@ -193,7 +193,7 @@ adapter_agent_solo_start() {
   fi
 
   echo "" >&2
-  echo "After starting, pai-lite will automatically detect sessions via .agent-sessions/" >&2
+  echo "After starting, ludics will automatically detect sessions via .agent-sessions/" >&2
   return 1
 }
 

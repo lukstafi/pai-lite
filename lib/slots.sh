@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Slot management for pai-lite
+# Slot management for ludics
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/common.sh"
 
-declare -gA PAI_LITE_SLOTS
+declare -gA LUDICS_SLOTS
 
 slots_file_path() {
-  pai_lite_ensure_state_repo
-  pai_lite_ensure_state_dir
-  echo "$(pai_lite_state_harness_dir)/slots.md"
+  ludics_ensure_state_repo
+  ludics_ensure_state_dir
+  echo "$(ludics_state_harness_dir)/slots.md"
 }
 
 slots_empty_block() {
@@ -39,9 +39,9 @@ slots_ensure_file() {
   local file count
   file="$(slots_file_path)"
   if [[ ! -f "$file" ]]; then
-    count="$(pai_lite_config_slots_count)"
+    count="$(ludics_config_slots_count)"
     [[ -n "$count" ]] || count=6
-    PAI_LITE_SLOTS=()
+    LUDICS_SLOTS=()
     slots_write_file "$count"
   fi
 }
@@ -49,13 +49,13 @@ slots_ensure_file() {
 slots_load_blocks() {
   local file line slot=0 block=""
   file="$1"
-  declare -gA PAI_LITE_SLOTS
-  PAI_LITE_SLOTS=()
+  declare -gA LUDICS_SLOTS
+  LUDICS_SLOTS=()
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" =~ ^##[[:space:]]+Slot[[:space:]]+([0-9]+) ]]; then
       if [[ $slot -ne 0 ]]; then
-        PAI_LITE_SLOTS["$slot"]="$block"
+        LUDICS_SLOTS["$slot"]="$block"
       fi
       slot="${BASH_REMATCH[1]}"
       block="$line"$'\n'
@@ -71,7 +71,7 @@ slots_load_blocks() {
   done < "$file"
 
   if [[ $slot -ne 0 ]]; then
-    PAI_LITE_SLOTS["$slot"]="$block"
+    LUDICS_SLOTS["$slot"]="$block"
   fi
 }
 
@@ -84,8 +84,8 @@ slots_write_file() {
     echo "# Slots"
     echo ""
     for ((i=1; i<=count; i++)); do
-      if [[ -n "${PAI_LITE_SLOTS[$i]:-}" ]]; then
-        printf "%s" "${PAI_LITE_SLOTS[$i]}"
+      if [[ -n "${LUDICS_SLOTS[$i]:-}" ]]; then
+        printf "%s" "${LUDICS_SLOTS[$i]}"
       else
         slots_empty_block "$i"
       fi
@@ -100,7 +100,7 @@ slots_write_file() {
 
 slots_count() {
   local count
-  count="$(pai_lite_config_slots_count)"
+  count="$(ludics_config_slots_count)"
   [[ -n "$count" ]] || count=6
   echo "$count"
 }
@@ -108,9 +108,9 @@ slots_count() {
 slot_validate_range() {
   local slot="$1"
   local count="$2"
-  [[ "$slot" =~ ^[0-9]+$ ]] || pai_lite_die "slot must be a number: $slot"
+  [[ "$slot" =~ ^[0-9]+$ ]] || ludics_die "slot must be a number: $slot"
   if (( slot < 1 || slot > count )); then
-    pai_lite_die "slot out of range: $slot (1-$count)"
+    ludics_die "slot out of range: $slot (1-$count)"
   fi
 }
 
@@ -194,7 +194,7 @@ slot_get_process() {
 task_file_path() {
   local task_id="$1"
   local tasks_dir
-  tasks_dir="$(pai_lite_state_harness_dir)/tasks"
+  tasks_dir="$(ludics_state_harness_dir)/tasks"
   echo "$tasks_dir/${task_id}.md"
 }
 
@@ -259,7 +259,7 @@ task_update_for_slot_assign() {
   local started="$4"
 
   if ! task_file_exists "$task_id"; then
-    pai_lite_warn "task file not found: $task_id (skipping task update)"
+    ludics_warn "task file not found: $task_id (skipping task update)"
     return 0
   fi
 
@@ -274,7 +274,7 @@ task_update_for_slot_clear() {
   local final_status="${2:-ready}"  # ready, done, or abandoned
 
   if ! task_file_exists "$task_id"; then
-    pai_lite_warn "task file not found: $task_id (skipping task update)"
+    ludics_warn "task file not found: $task_id (skipping task update)"
     return 0
   fi
 
@@ -362,13 +362,13 @@ slot_assign() {
 **Terminals:**
 
 **Runtime:**
-- Assigned via pai-lite
+- Assigned via ludics
 
 **Git:**
 BLOCK
 )
 
-  PAI_LITE_SLOTS["$slot"]="$block"$'\n'
+  LUDICS_SLOTS["$slot"]="$block"$'\n'
   slots_write_file "$count"
 
   # Update task file if we have a valid task ID
@@ -377,10 +377,10 @@ BLOCK
   fi
 
   # Journal entry
-  pai_lite_journal_append "slot" "Slot $slot assigned: $process (task=$task_id, adapter=$adapter)"
+  ludics_journal_append "slot" "Slot $slot assigned: $process (task=$task_id, adapter=$adapter)"
 
   # Auto-commit state change
-  pai_lite_state_commit "slot $slot: assign $task_or_desc"
+  ludics_state_commit "slot $slot: assign $task_or_desc"
 }
 
 #------------------------------------------------------------------------------
@@ -399,26 +399,26 @@ slot_clear() {
   slot_validate_range "$slot" "$count"
 
   # Get current task before clearing
-  block="${PAI_LITE_SLOTS[$slot]:-}"
+  block="${LUDICS_SLOTS[$slot]:-}"
   if [[ -n "$block" ]]; then
     task_id=$(slot_get_task "$block")
   else
     task_id="null"
   fi
 
-  PAI_LITE_SLOTS["$slot"]="$(slots_empty_block "$slot")"$'\n'
+  LUDICS_SLOTS["$slot"]="$(slots_empty_block "$slot")"$'\n'
   slots_write_file "$count"
 
   # Update task file if we had a valid task
   if [[ -n "$task_id" && "$task_id" != "null" ]]; then
     task_update_for_slot_clear "$task_id" "$final_status"
-    pai_lite_journal_append "slot" "Slot $slot cleared: task=$task_id status=$final_status"
+    ludics_journal_append "slot" "Slot $slot cleared: task=$task_id status=$final_status"
   else
-    pai_lite_journal_append "slot" "Slot $slot cleared"
+    ludics_journal_append "slot" "Slot $slot cleared"
   fi
 
   # Auto-commit state change
-  pai_lite_state_commit "slot $slot: cleared (status=$final_status)"
+  ludics_state_commit "slot $slot: cleared (status=$final_status)"
 }
 
 slot_add_note_block() {
@@ -462,11 +462,11 @@ slot_note() {
   count="$(slots_count)"
   slot_validate_range "$slot" "$count"
 
-  if [[ -z "${PAI_LITE_SLOTS[$slot]:-}" ]]; then
-    pai_lite_die "slot $slot not found"
+  if [[ -z "${LUDICS_SLOTS[$slot]:-}" ]]; then
+    ludics_die "slot $slot not found"
   fi
 
-  PAI_LITE_SLOTS["$slot"]="$(slot_add_note_block "${PAI_LITE_SLOTS[$slot]}" "$note")"
+  LUDICS_SLOTS["$slot"]="$(slot_add_note_block "${LUDICS_SLOTS[$slot]}" "$note")"
   slots_write_file "$count"
 }
 
@@ -482,22 +482,22 @@ slot_adapter_action() {
   slot_validate_range "$slot" "$(slots_count)"
   slots_ensure_file
   slots_load_blocks "$file"
-  block="${PAI_LITE_SLOTS[$slot]:-}"
-  [[ -n "$block" ]] || pai_lite_die "slot $slot not found"
+  block="${LUDICS_SLOTS[$slot]:-}"
+  [[ -n "$block" ]] || ludics_die "slot $slot not found"
 
   mode=$(slot_get_mode "$block")
   mode=$(printf "%s" "$mode" | awk '{$1=$1; print}')
-  [[ -n "$mode" && "$mode" != "null" ]] || pai_lite_die "slot $slot has no Mode"
+  [[ -n "$mode" && "$mode" != "null" ]] || ludics_die "slot $slot has no Mode"
 
-  root="$(pai_lite_root)"
+  root="$(ludics_root)"
   adapter_file="$root/adapters/$mode.sh"
-  [[ -f "$adapter_file" ]] || pai_lite_die "adapter not found: $mode"
+  [[ -f "$adapter_file" ]] || ludics_die "adapter not found: $mode"
   # shellcheck source=/dev/null
   source "$adapter_file"
 
   fn="adapter_${mode//-/_}_${action}"
   if ! declare -F "$fn" >/dev/null 2>&1; then
-    pai_lite_die "adapter missing function: $fn"
+    ludics_die "adapter missing function: $fn"
   fi
 
   # Extract slot metadata for adapter calls
@@ -531,13 +531,13 @@ slot_adapter_action() {
   # - claude-code, codex: session_name, project_dir, task_id
   # - claude-ai, chatgpt-com: url, label, task_id
   # - manual: slot_num
-  PAI_LITE_STATE_DIR="$(pai_lite_state_harness_dir)" \
-    PAI_LITE_STATE_REPO="$(pai_lite_state_repo_dir)" \
-    PAI_LITE_SLOT="$slot" \
-    PAI_LITE_TASK="$task_id" \
-    PAI_LITE_SESSION="$session" \
-    PAI_LITE_PROCESS="$process"
-  export PAI_LITE_STATE_DIR PAI_LITE_STATE_REPO PAI_LITE_SLOT PAI_LITE_TASK PAI_LITE_SESSION PAI_LITE_PROCESS
+  LUDICS_STATE_DIR="$(ludics_state_harness_dir)" \
+    LUDICS_STATE_REPO="$(ludics_state_repo_dir)" \
+    LUDICS_SLOT="$slot" \
+    LUDICS_TASK="$task_id" \
+    LUDICS_SESSION="$session" \
+    LUDICS_PROCESS="$process"
+  export LUDICS_STATE_DIR LUDICS_STATE_REPO LUDICS_SLOT LUDICS_TASK LUDICS_SESSION LUDICS_PROCESS
 
   case "$mode" in
     agent-duo|agent-solo)
@@ -557,15 +557,15 @@ slot_adapter_action() {
       ;;
     *)
       # Default: pass slot and harness dir for backwards compatibility
-      "$fn" "$slot" "$(pai_lite_state_harness_dir)"
+      "$fn" "$slot" "$(ludics_state_harness_dir)"
       ;;
   esac
 
   # Journal entry for start/stop
   if [[ "$action" == "start" ]]; then
-    pai_lite_journal_append "slot" "Slot $slot started (adapter=$mode)"
+    ludics_journal_append "slot" "Slot $slot started (adapter=$mode)"
   elif [[ "$action" == "stop" ]]; then
-    pai_lite_journal_append "slot" "Slot $slot stopped (adapter=$mode)"
+    ludics_journal_append "slot" "Slot $slot stopped (adapter=$mode)"
   fi
 }
 
@@ -591,14 +591,14 @@ slots_refresh() {
   local any_updated=0
 
   for ((i=1; i<=count; i++)); do
-    block="${PAI_LITE_SLOTS[$i]:-}"
+    block="${LUDICS_SLOTS[$i]:-}"
     [[ -n "$block" ]] || continue
 
     mode=$(slot_get_mode "$block")
     mode=$(printf "%s" "$mode" | awk '{$1=$1; print}')
     [[ -n "$mode" && "$mode" != "null" ]] || continue
 
-    root="$(pai_lite_root)"
+    root="$(ludics_root)"
     adapter_file="$root/adapters/$mode.sh"
     [[ -f "$adapter_file" ]] || continue
 
@@ -666,20 +666,20 @@ slots_refresh() {
 
     # Update the slot block with adapter information
     updated_block=$(slot_merge_adapter_state "$block" "$adapter_output")
-    PAI_LITE_SLOTS[$i]="$updated_block"
+    LUDICS_SLOTS[$i]="$updated_block"
     any_updated=1
-    pai_lite_info "refreshed slot $i ($mode)"
+    ludics_info "refreshed slot $i ($mode)"
   done
 
   if [[ $any_updated -eq 1 ]]; then
     slots_write_file "$count"
-    pai_lite_state_commit "slots refresh"
+    ludics_state_commit "slots refresh"
   fi
 
   # Also run session discovery to keep sessions.md up to date
   if declare -F sessions_discover_and_report >/dev/null 2>&1; then
     sessions_discover_and_report >/dev/null 2>&1 || true
-    pai_lite_state_commit "sessions discovery" 2>/dev/null || true
+    ludics_state_commit "sessions discovery" 2>/dev/null || true
   fi
 }
 

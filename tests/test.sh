@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite test script — shellcheck + smoke tests
+# ludics test script — shellcheck + smoke tests
 # Usage: ./tests/test.sh
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-pai="$root_dir/bin/pai-lite"
+pai="$root_dir/bin/ludics"
 
 pass=0
 fail=0
@@ -53,7 +53,7 @@ if ! command -v shellcheck &>/dev/null; then
 else
   # Collect all shell scripts
   scripts=()
-  scripts+=("$root_dir/bin/pai-lite")
+  scripts+=("$root_dir/bin/ludics")
   while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/lib" -name '*.sh' | sort)
   while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/adapters" -name '*.sh' | sort)
   while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/templates/hooks" -name '*.sh' 2>/dev/null | sort)
@@ -74,23 +74,23 @@ echo "${bold}Smoke tests${reset}"
 
 # help prints usage and exits 0
 if output=$("$pai" help 2>&1) && echo "$output" | grep -q "Usage:"; then
-  ok "pai-lite help"
+  ok "ludics help"
 else
-  fail "pai-lite help" "expected exit 0 with 'Usage:' in output"
+  fail "ludics help" "expected exit 0 with 'Usage:' in output"
 fi
 
 # doctor runs without config and exits 0
 if "$pai" doctor &>/dev/null; then
-  ok "pai-lite doctor"
+  ok "ludics doctor"
 else
-  fail "pai-lite doctor" "exited non-zero (tool missing?)"
+  fail "ludics doctor" "exited non-zero (tool missing?)"
 fi
 
 # unknown command should fail
 if "$pai" this-does-not-exist &>/dev/null; then
-  fail "pai-lite <unknown>" "expected non-zero exit"
+  fail "ludics <unknown>" "expected non-zero exit"
 else
-  ok "pai-lite <unknown> → non-zero exit"
+  ok "ludics <unknown> → non-zero exit"
 fi
 
 # ── Section: content_fingerprint ─────────────────────────────────────

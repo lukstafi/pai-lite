@@ -1,5 +1,5 @@
-# pai-lite configuration — exhaustive reference with all defaults
-# You can either copy this file wholesale to ~/.config/pai-lite/config.yaml,
+# ludics configuration — exhaustive reference with all defaults
+# You can either copy this file wholesale to ~/.config/ludics/config.yaml,
 # or cherry-pick only the settings you want to override (unset keys use
 # the defaults shown here).
 
@@ -40,12 +40,12 @@ adapters:
   manual:
     enabled: false        # Manual human work tracking
 
-# Mayor: Autonomous coordinator (Claude Opus in Claude Code)
+# Mag: Autonomous coordinator (Claude Opus in Claude Code)
 # Provides strategic thinking while automation handles reliable execution
-mayor:
+mag:
   enabled: false
   backend: tmux-ttyd        # tmux-ttyd (with web terminal) or tmux (no web terminal)
-  session: pai-mayor         # tmux session name
+  session: ludics-mag         # tmux session name
   ttyd_port: 7679            # Web terminal port (tmux-ttyd backend only)
 
   # Autonomy levels: auto | suggest | manual
@@ -74,7 +74,7 @@ notifications:
 
   # Topic names (use random suffixes for privacy without ntfy subscription)
   topics:
-    pai: your-username-pai           # Private strategic (Mayor)
+    pai: your-username-pai           # Private strategic (Mag)
     agents: your-username-agents     # Private operational (workers)
     public: your-username-public     # Public read-only (broadcasts)
 
@@ -105,7 +105,7 @@ triggers:
   # Run at system login
   startup:
     enabled: false
-    action: mayor briefing
+    action: mag briefing
 
   # Periodic sync (e.g., every hour)
   sync:
@@ -118,13 +118,13 @@ triggers:
     enabled: false
     hour: 8                   # 08:00
     minute: 0
-    action: mayor briefing
+    action: mag briefing
 
   # Periodic health check
   health:
     enabled: false
     interval: 14400           # 4 hours in seconds
-    action: mayor health-check
+    action: mag health-check
 
   # Dashboard server (long-running, KeepAlive/Restart)
   dashboard:
@@ -141,7 +141,7 @@ triggers:
     #   action: tasks sync
     # - paths:
     #     - ~/private-state/harness/tasks
-    #   action: mayor health-check
+    #   action: mag health-check
 
   # Federation heartbeat (multi-machine only)
   federation:

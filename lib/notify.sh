@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Notification system for pai-lite
+# Notification system for ludics
 # Three-tier ntfy.sh integration: pai (strategic), agents (operational), public (broadcasts)
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,14 +10,14 @@ source "$script_dir/common.sh"
 
 # Get notification config
 notify_get_provider() {
-  pai_lite_config_get "provider" 2>/dev/null || echo "ntfy"
+  ludics_config_get "provider" 2>/dev/null || echo "ntfy"
 }
 
 notify_get_topic() {
   local tier="$1"
   local config
-  config="$(pai_lite_config_path)"
-  [[ -f "$config" ]] || pai_lite_die "config not found: $config"
+  config="$(ludics_config_path)"
+  [[ -f "$config" ]] || ludics_die "config not found: $config"
 
   awk -v tier="$tier" '
     /^[[:space:]]*notifications:/ { in_notif=1; next }
@@ -36,7 +36,7 @@ notify_get_topic() {
 notify_get_priority() {
   local event="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return
 
   awk -v event="$event" '
@@ -55,7 +55,7 @@ notify_get_priority() {
 
 # Journal directory for local logging
 notify_journal_dir() {
-  echo "$(pai_lite_state_harness_dir)/journal"
+  echo "$(ludics_state_harness_dir)/journal"
 }
 
 # Log notification locally (for dashboard history)
@@ -87,8 +87,8 @@ notify_send() {
   local title="${4:-}"
   local tags="${5:-}"
 
-  [[ -n "$topic" ]] || pai_lite_die "notify_send: topic required"
-  [[ -n "$message" ]] || pai_lite_die "notify_send: message required"
+  [[ -n "$topic" ]] || ludics_die "notify_send: topic required"
+  [[ -n "$message" ]] || ludics_die "notify_send: message required"
 
   # Build curl args
   local curl_args=()
@@ -114,24 +114,24 @@ notify_send() {
   http_code=$(curl "${curl_args[@]}" "$url" 2>/dev/null) || http_code="000"
 
   if [[ "$http_code" != "200" ]]; then
-    pai_lite_warn "ntfy.sh notification failed (HTTP $http_code), logged locally"
+    ludics_warn "ntfy.sh notification failed (HTTP $http_code), logged locally"
   fi
 
   return 0
 }
 
-# Private strategic notifications (Mayor)
+# Private strategic notifications (Mag)
 # Usage: notify_pai <message> [priority] [title]
 notify_pai() {
   local message="$1"
   local priority="${2:-3}"
-  local title="${3:-pai-lite}"
+  local title="${3:-ludics}"
 
   local topic
   topic="$(notify_get_topic "pai")"
 
   if [[ -z "$topic" ]]; then
-    pai_lite_warn "pai topic not configured, logging locally only"
+    ludics_warn "pai topic not configured, logging locally only"
     notify_log "pai" "$message" "$priority" "$title"
     return 0
   fi
@@ -151,7 +151,7 @@ notify_agents() {
   topic="$(notify_get_topic "agents")"
 
   if [[ -z "$topic" ]]; then
-    pai_lite_warn "agents topic not configured, logging locally only"
+    ludics_warn "agents topic not configured, logging locally only"
     notify_log "agents" "$message" "$priority" "$title"
     return 0
   fi
@@ -171,7 +171,7 @@ notify_public() {
   topic="$(notify_get_topic "public")"
 
   if [[ -z "$topic" ]]; then
-    pai_lite_warn "public topic not configured, logging locally only"
+    ludics_warn "public topic not configured, logging locally only"
     notify_log "public" "$message" "$priority" "$title"
     return 0
   fi

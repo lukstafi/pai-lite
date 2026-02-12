@@ -18,7 +18,7 @@ function tasksYamlPath(): string {
 function tasksList(): void {
   const file = tasksYamlPath();
   if (!existsSync(file)) {
-    throw new Error(`tasks file not found: ${file} (run: pai-lite tasks sync)`);
+    throw new Error(`tasks file not found: ${file} (run: ludics tasks sync)`);
   }
 
   const content = readFileSync(file, "utf-8");
@@ -40,7 +40,7 @@ function tasksList(): void {
 function tasksShow(taskId: string): void {
   const file = tasksYamlPath();
   if (!existsSync(file)) {
-    throw new Error(`tasks file not found: ${file} (run: pai-lite tasks sync)`);
+    throw new Error(`tasks file not found: ${file} (run: ludics tasks sync)`);
   }
 
   const content = readFileSync(file, "utf-8");
@@ -97,7 +97,7 @@ completed: null
 
 ## Context
 
-Created manually via pai-lite.
+Created manually via ludics.
 
 ## Acceptance Criteria
 
@@ -115,7 +115,7 @@ Created manually via pai-lite.
 function tasksFilesList(): void {
   const dir = tasksDir();
   if (!existsSync(dir)) {
-    console.log("No task files yet (run: pai-lite tasks convert)");
+    console.log("No task files yet (run: ludics tasks convert)");
     return;
   }
 
@@ -185,7 +185,7 @@ completed: null
 
 ## Context
 
-Sample task for testing pai-lite flow engine.
+Sample task for testing ludics flow engine.
 
 ## Acceptance Criteria
 
@@ -300,7 +300,7 @@ function tasksDuplicates(): void {
     }
     const first = entries[0]!.id;
     const others = entries.slice(1).map((e) => e.id).join(" ");
-    console.log(`  -> pai-lite tasks merge ${first} ${others}`);
+    console.log(`  -> ludics tasks merge ${first} ${others}`);
     console.log("");
   }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Flow engine for pai-lite
+# Flow engine for ludics
 # Provides flow-based views: ready, blocked, critical, impact, context
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,13 +10,13 @@ source "$script_dir/common.sh"
 
 # Get the tasks directory (contains individual task-*.md files)
 flow_tasks_dir() {
-  echo "$(pai_lite_state_harness_dir)/tasks"
+  echo "$(ludics_state_harness_dir)/tasks"
 }
 
 # Check required commands
 flow_require_tools() {
-  pai_lite_require_cmd yq
-  pai_lite_require_cmd jq
+  ludics_require_cmd yq
+  ludics_require_cmd jq
 }
 
 # Collect all task frontmatter as JSON array
@@ -93,7 +93,7 @@ flow_ready() {
 
   # Check for cycles first
   if ! flow_check_cycle "$tasks_json"; then
-    pai_lite_warn "dependency cycle detected in tasks"
+    ludics_warn "dependency cycle detected in tasks"
   fi
 
   local today
@@ -208,7 +208,7 @@ flow_critical() {
 # Show what tasks would unblock if given task completes
 flow_impact() {
   local task_id="$1"
-  [[ -n "$task_id" ]] || pai_lite_die "task id required"
+  [[ -n "$task_id" ]] || ludics_die "task id required"
 
   flow_require_tools
   local tasks_json
@@ -252,10 +252,10 @@ flow_context() {
   flow_require_tools
 
   local slots_file
-  slots_file="$(pai_lite_state_harness_dir)/slots.md"
+  slots_file="$(ludics_state_harness_dir)/slots.md"
 
   if [[ ! -f "$slots_file" ]]; then
-    pai_lite_die "slots file not found: $slots_file"
+    ludics_die "slots file not found: $slots_file"
   fi
 
   local tasks_json
@@ -343,7 +343,7 @@ flow_main() {
       fi
       ;;
     *)
-      pai_lite_die "unknown flow command: $cmd (use: ready, blocked, critical, impact, context, check-cycle)"
+      ludics_die "unknown flow command: $cmd (use: ready, blocked, critical, impact, context, check-cycle)"
       ;;
   esac
 }

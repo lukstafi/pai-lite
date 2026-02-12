@@ -1,6 +1,6 @@
 # CLI Tools Knowledge
 
-This file contains learned knowledge about CLI tools used in pai-lite workflows.
+This file contains learned knowledge about CLI tools used in ludics workflows.
 
 ## yq (YAML processor)
 

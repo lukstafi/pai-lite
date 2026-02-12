@@ -35,7 +35,7 @@ function notifySend(topic: string, message: string, priority: number, title: str
   const result = Bun.spawnSync(curlArgs, { stdout: "pipe", stderr: "pipe" });
   const httpCode = result.stdout.toString().trim();
   if (httpCode !== "200") {
-    console.error(`pai-lite: ntfy.sh notification failed (HTTP ${httpCode}), logged locally`);
+    console.error(`ludics: ntfy.sh notification failed (HTTP ${httpCode}), logged locally`);
   }
 }
 
@@ -44,12 +44,12 @@ function getTopic(tier: string): string {
   return config.notifications?.topics?.[tier] ?? "";
 }
 
-export function notifyPai(message: string, priority: number = 3, title: string = "pai-lite"): void {
+export function notifyPai(message: string, priority: number = 3, title: string = "ludics"): void {
   const topic = getTopic("pai");
   notifyLog("pai", message, priority, title);
 
   if (!topic) {
-    console.error("pai-lite: pai topic not configured, logging locally only");
+    console.error("ludics: pai topic not configured, logging locally only");
     return;
   }
   notifySend(topic, message, priority, title, "robot_face");
@@ -60,7 +60,7 @@ export function notifyAgents(message: string, priority: number = 3, title: strin
   notifyLog("agents", message, priority, title);
 
   if (!topic) {
-    console.error("pai-lite: agents topic not configured, logging locally only");
+    console.error("ludics: agents topic not configured, logging locally only");
     return;
   }
   notifySend(topic, message, priority, title, "gear");
@@ -71,7 +71,7 @@ export function notifyPublic(message: string, priority: number = 3, title: strin
   notifyLog("public", message, priority, title);
 
   if (!topic) {
-    console.error("pai-lite: public topic not configured, logging locally only");
+    console.error("ludics: public topic not configured, logging locally only");
     return;
   }
   notifySend(topic, message, priority, title, "mega,tada");

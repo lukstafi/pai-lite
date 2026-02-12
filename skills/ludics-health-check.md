@@ -1,21 +1,21 @@
-# /pai-health-check - System Health Check
+# /ludics-health-check - System Health Check
 
 Detect stalled work, approaching deadlines, and other issues requiring attention.
 
 ## Trigger
 
 This skill is invoked when:
-- The user runs `pai-lite mayor health-check`
+- The user runs `ludics mag health-check`
 - Periodic automation (every 4h via launchd)
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
 
 ## Process
 
-0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
+0. **Check inbox**: Run `ludics mag inbox` to see any pending messages.
    Factor any messages into the health check assessment.
 
 1. **Check for stalled tasks**:
@@ -31,16 +31,16 @@ This skill is invoked when:
 3. **Check slot health**:
    - Read `slots.md`
    - Identify slots that have been active > 24h without status update
-   - Run `pai-lite sessions report` and check for orphaned/unclassified sessions
+   - Run `ludics sessions report` and check for orphaned/unclassified sessions
      (sessions with no slot match in `sessions.md`)
 
 4. **Check queue health**:
-   - Read `mayor/queue.jsonl`
+   - Read `mag/queue.jsonl`
    - Flag if requests have been pending > 1h
 
 5. **Report task elaboration status**:
-   - Run `pai-lite tasks needs-elaboration` to count unprocessed tasks
-   - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `tasks_sync()` — no need to enqueue here
+   - Run `ludics tasks needs-elaboration` to count unprocessed tasks
+   - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `tasks_sync()` -- no need to enqueue here
 
 6. **Generate report**:
    - Categorize issues by severity
@@ -48,7 +48,7 @@ This skill is invoked when:
 
 7. **Send notifications** for critical issues:
    ```bash
-   pai-lite notify pai "Critical: task-042 deadline in 2 days" 5 "Health Check"
+   ludics notify pai "Critical: task-042 deadline in 2 days" 5 "Health Check"
    ```
 
 ## Output Format
@@ -74,7 +74,7 @@ This skill is invoked when:
 - Tasks needing elaboration: 5
 
 ## Elaboration Status
-- 2 tasks awaiting elaboration (queued automatically by mayor keepalive)
+- 2 tasks awaiting elaboration (queued automatically by mag keepalive)
 
 ## Recommendations
 1. Prioritize task-042 - deadline is imminent

@@ -1,4 +1,4 @@
-# pai-lite Implementation Plan
+# ludics Implementation Plan
 
 This document tracks implementation tasks based on the architecture described in [ARCHITECTURE.md](ARCHITECTURE.md) and the current repo state.
 
@@ -23,19 +23,19 @@ This document tracks implementation tasks based on the architecture described in
 
 ### 1.2 Queue-Based Communication
 
-- [x] `pai_lite_queue_request()` - Queue requests for Mayor
-- [x] `pai_lite_queue_pop()` - Read and remove requests (for stop hook)
-- [x] `pai_lite_queue_pending()` - Check if queue has requests
-- [x] `pai_lite_wait_for_result()` - Wait for Mayor's result files
-- [x] `pai_lite_write_result()` - Write result files (for Mayor)
+- [x] `ludics_queue_request()` - Queue requests for Mag
+- [x] `ludics_queue_pop()` - Read and remove requests (for stop hook)
+- [x] `ludics_queue_pending()` - Check if queue has requests
+- [x] `ludics_wait_for_result()` - Wait for Mag's result files
+- [x] `ludics_write_result()` - Write result files (for Mag)
 
 ### 1.3 State Repository Management
 
-- [x] `pai_lite_state_commit()` - Commit changes to state repo
-- [x] `pai_lite_state_push()` - Push to remote
-- [x] `pai_lite_state_sync()` - Commit and push
-- [ ] `pai_lite_state_pull()` - Pull latest state (with safe conflict handling)
-- [ ] `pai-lite state sync` (or `pai-lite sync`) - Pull before writes (slots/tasks/notify)
+- [x] `ludics_state_commit()` - Commit changes to state repo
+- [x] `ludics_state_push()` - Push to remote
+- [x] `ludics_state_sync()` - Commit and push
+- [ ] `ludics_state_pull()` - Pull latest state (with safe conflict handling)
+- [ ] `ludics state sync` (or `ludics sync`) - Pull before writes (slots/tasks/notify)
 
 ### 1.4 Slot/Task Integration + slots.md Parity
 
@@ -63,7 +63,7 @@ This document tracks implementation tasks based on the architecture described in
 
 ### 2.2 Adapter Integration Gaps
 
-- [ ] `pai-lite adapter <name> <action>` CLI to expose adapter helpers (add/list/update/doctor/restart/start-ttyd/list-sessions)
+- [ ] `ludics adapter <name> <action>` CLI to expose adapter helpers (add/list/update/doctor/restart/start-ttyd/list-sessions)
 - [ ] Normalize adapter start/stop/read_state signatures for slot-driven usage
 - [ ] Add adapter-facing docs (`docs/ADAPTERS.md`) and usage examples
 
@@ -75,58 +75,58 @@ This document tracks implementation tasks based on the architecture described in
 
 ---
 
-## 3. Mayor System
+## 3. Mag System
 
-### 3.1 Mayor Request Queue (CLI)
+### 3.1 Mag Request Queue (CLI)
 
-- [x] `pai-lite mayor briefing|suggest|analyze|elaborate|health-check` queue requests
-- [x] `pai-lite mayor queue` - Show pending requests
+- [x] `ludics mag briefing|suggest|analyze|elaborate|health-check` queue requests
+- [x] `ludics mag queue` - Show pending requests
 
-### 3.2 Mayor Session Management
+### 3.2 Mag Session Management
 
-- [ ] `pai-lite mayor start` - Start Mayor tmux session with Claude Code
-- [ ] `pai-lite mayor stop` - Stop Mayor session gracefully
-- [ ] `pai-lite mayor status` - Show Mayor session status
-- [ ] `pai-lite mayor attach` - Attach to Mayor tmux session
-- [ ] `pai-lite mayor logs` - View Mayor session logs
+- [ ] `ludics mag start` - Start Mag tmux session with Claude Code
+- [ ] `ludics mag stop` - Stop Mag session gracefully
+- [ ] `ludics mag status` - Show Mag session status
+- [ ] `ludics mag attach` - Attach to Mag tmux session
+- [ ] `ludics mag logs` - View Mag session logs
 
 ### 3.3 Stop Hook
 
-- [x] `templates/hooks/pai-lite-on-stop.sh` - Template for Claude Code stop hook
-- [x] `pai-lite init` installs the stop hook to `~/.local/bin/pai-lite-on-stop`
-- [x] Stop hook delegates to `pai-lite mayor queue-pop` for action mapping
+- [x] `templates/hooks/ludics-on-stop.sh` - Template for Claude Code stop hook
+- [x] `ludics init` installs the stop hook to `~/.local/bin/ludics-on-stop`
+- [x] Stop hook delegates to `ludics mag queue-pop` for action mapping
 
-### 3.4 Mayor Skills (Claude Code skill files)
+### 3.4 Mag Skills (Claude Code skill files)
 
-Architecture describes these Mayor-invokable skills:
+Architecture describes these Mag-invokable skills:
 
-- [ ] `/pai-briefing` - Generate morning briefing with strategic suggestions
-- [ ] `/pai-suggest` - Suggest next tasks based on flow state
-- [ ] `/pai-analyze-issue <repo> <issue>` - Analyze GitHub issue, create task file
-- [ ] `/pai-elaborate <task-id>` - Elaborate task into detailed specification
-- [ ] `/pai-health-check` - Detect stalled work, approaching deadlines
-- [ ] `/pai-learn` - Update institutional memory from corrections
-- [ ] `/pai-sync-learnings` - Consolidate scattered learnings into structured knowledge
-- [ ] `/pai-techdebt` - End-of-day/week technical debt review (ancillary)
+- [ ] `/ludics-briefing` - Generate morning briefing with strategic suggestions
+- [ ] `/ludics-suggest` - Suggest next tasks based on flow state
+- [ ] `/ludics-analyze-issue <repo> <issue>` - Analyze GitHub issue, create task file
+- [ ] `/ludics-elaborate <task-id>` - Elaborate task into detailed specification
+- [ ] `/ludics-health-check` - Detect stalled work, approaching deadlines
+- [ ] `/ludics-learn` - Update institutional memory from corrections
+- [ ] `/ludics-sync-learnings` - Consolidate scattered learnings into structured knowledge
+- [ ] `/ludics-techdebt` - End-of-day/week technical debt review (ancillary)
 
 **Implementation approach:**
 Skills should be Markdown files in `skills/` directory that can be installed to `~/.claude/skills/` or used via a custom skills path. Format follows Claude Code skill specification.
 
-### 3.5 Mayor Memory System
+### 3.5 Mag Memory System
 
-- [ ] Create `templates/mayor/` directory structure
-- [ ] `mayor/context.md` - Current operating context for the Mayor
-- [ ] `mayor/memory/corrections.md` - Recent corrections from user feedback
-- [ ] `mayor/memory/corrections-archive.md` - Archived/processed corrections
-- [ ] `mayor/memory/tools.md` - CLI tool gotchas and patterns
-- [ ] `mayor/memory/workflows.md` - Process patterns
-- [ ] `mayor/memory/projects/*.md` - Project-specific knowledge
+- [ ] Create `templates/mag/` directory structure
+- [ ] `mag/context.md` - Current operating context for Mag
+- [ ] `mag/memory/corrections.md` - Recent corrections from user feedback
+- [ ] `mag/memory/corrections-archive.md` - Archived/processed corrections
+- [ ] `mag/memory/tools.md` - CLI tool gotchas and patterns
+- [ ] `mag/memory/workflows.md` - Process patterns
+- [ ] `mag/memory/projects/*.md` - Project-specific knowledge
 
-### 3.6 Mayor Outputs + Briefing Integration
+### 3.6 Mag Outputs + Briefing Integration
 
-- [ ] `pai-lite briefing` should queue Mayor, wait for result, and render `briefing.md`
-- [ ] `pai-lite status` should include flow summary (ready/critical) and Mayor status
-- [ ] `pai-lite mayor wait <id>` helper to read result files
+- [ ] `ludics briefing` should queue Mag, wait for result, and render `briefing.md`
+- [ ] `ludics status` should include flow summary (ready/critical) and Mag status
+- [ ] `ludics mag wait <id>` helper to read result files
 
 ---
 
@@ -140,16 +140,16 @@ Skills should be Markdown files in `skills/` directory that can be installed to 
 
 ### 4.2 Dashboard Data Generation
 
-- [ ] `pai-lite dashboard generate` - Generate JSON data files from state
+- [ ] `ludics dashboard generate` - Generate JSON data files from state
   - [ ] Generate `data/slots.json` from slots.md
   - [ ] Generate `data/ready.json` from flow ready
   - [ ] Generate `data/notifications.json` from journal/notifications.jsonl
-  - [ ] Generate `data/mayor.json` from Mayor session status
+  - [ ] Generate `data/mag.json` from Mag session status
 
 ### 4.3 Dashboard Serving
 
-- [ ] `pai-lite dashboard serve` - Start local HTTP server for dashboard
-- [ ] `pai-lite dashboard install` - Copy dashboard to state repo
+- [ ] `ludics dashboard serve` - Start local HTTP server for dashboard
+- [ ] `ludics dashboard install` - Copy dashboard to state repo
 
 ### 4.4 Terminal Grid View
 
@@ -179,30 +179,30 @@ Architecture describes a separate terminal grid view:
 
 ## 6. Installation and Setup
 
-### 6.1 Current `pai-lite init`
+### 6.1 Current `ludics init`
 
-- [x] Install pai-lite to `~/.local/pai-lite`
+- [x] Install ludics to `~/.local/ludics`
 - [x] Create symlink in `~/.local/bin`
-- [x] Copy example config to `~/.config/pai-lite/config.yaml`
+- [x] Copy example config to `~/.config/ludics/config.yaml`
 - [x] Clone state repo if configured
 - [x] Initialize harness directory structure
 
 ### 6.2 Missing Init Features
 
-- [x] Install stop hook via `pai-lite init --hooks`
-- [ ] Offer to install Mayor skills to `~/.claude/skills/`
-- [ ] Create Mayor memory directory structure in harness
+- [x] Install stop hook via `ludics init --hooks`
+- [ ] Offer to install Mag skills to `~/.claude/skills/`
+- [ ] Create Mag memory directory structure in harness
 - [ ] Copy dashboard files to state repo's `dashboard/` directory
 - [ ] Validate required tools (yq, jq, gh, tmux) with helpful messages
 
 ### 6.3 Dependency Checks
 
-- [ ] `pai-lite doctor` - Comprehensive health check
+- [ ] `ludics doctor` - Comprehensive health check
   - [ ] Check for required commands (yq, jq, gh, tmux, tsort)
   - [ ] Check for optional commands (graphviz/dot, ntfy-cli)
   - [ ] Check Claude Code installation
   - [ ] Check state repo accessibility
-  - [ ] Check Mayor session status
+  - [ ] Check Mag session status
 
 ---
 
@@ -221,10 +221,10 @@ Architecture describes a separate terminal grid view:
 Per architecture, these config sections are described but not implemented:
 
 ```yaml
-mayor:
+mag:
   enabled: true
   backend: tmux-ttyd
-  session: pai-mayor
+  session: ludics-mag
   ttyd_port: 7690
   autonomy_level:
     analyze_issues: auto
@@ -263,8 +263,8 @@ notifications:
 Additional alignment tasks:
 
 - [ ] Decide whether to remove `slots.count` (hardcoded 6) or update ARCHITECTURE to allow config
-- [ ] Extend config templates to include `mayor` and `notifications` sections
-- [ ] Add parser helpers for `mayor.*` fields (backend/session/schedule)
+- [ ] Extend config templates to include `mag` and `notifications` sections
+- [ ] Add parser helpers for `mag.*` fields (backend/session/schedule)
 
 ---
 
@@ -299,8 +299,8 @@ Additional alignment tasks:
 - [ ] Morning briefing trigger (specific time, e.g., 08:00)
 - [ ] Repo change trigger (launchd WatchPaths)
 - [ ] Health check trigger (periodic, e.g., every 4h)
-- [ ] `pai-lite triggers status` - Show installed trigger status
-- [ ] `pai-lite triggers uninstall` - Remove installed triggers
+- [ ] `ludics triggers status` - Show installed trigger status
+- [ ] `ludics triggers uninstall` - Remove installed triggers
 
 ---
 
@@ -308,7 +308,7 @@ Additional alignment tasks:
 
 - [ ] `adapters/github-actions.sh` - Poll for CI failures
 - [ ] Deduplication via `ci-failures-seen.txt`
-- [ ] Queue `analyze-ci-failure` requests for Mayor
+- [ ] Queue `analyze-ci-failure` requests for Mag
 
 ---
 
@@ -323,7 +323,7 @@ Additional alignment tasks:
 
 - [ ] Daily journal files in `journal/YYYY-MM-DD.md`
 - [ ] Append slot events (assign/clear/start/stop) to journal
-- [ ] Append adapter phase changes + Mayor summaries to journal
+- [ ] Append adapter phase changes + Mag summaries to journal
 
 ---
 
@@ -332,27 +332,27 @@ Additional alignment tasks:
 ### Phase 1: Slot/Adapter Parity + Briefing Loop
 1. Slots/task integration and `slots.md` format parity
 2. `slots refresh` + adapter monitoring basics
-3. `pai-lite briefing` queue + wait + notify integration
+3. `ludics briefing` queue + wait + notify integration
 
-### Phase 2: Core Mayor Functionality
-1. Mayor session management commands (start, stop, status)
-2. Stop hook installation in `pai-lite init`
-3. Basic Mayor skills (/pai-briefing, /pai-suggest, /pai-health-check)
+### Phase 2: Core Mag Functionality
+1. Mag session management commands (start, stop, status)
+2. Stop hook installation in `ludics init`
+3. Basic Mag skills (/ludics-briefing, /ludics-suggest, /ludics-health-check)
 
 ### Phase 3: Dashboard Completion
-1. `pai-lite dashboard generate` command
-2. `pai-lite dashboard serve` command
+1. `ludics dashboard generate` command
+2. `ludics dashboard serve` command
 3. Terminal grid view
 
 ### Phase 4: Configuration + Reliability
-1. Mayor + notifications config section parsing + templates
-2. `pai-lite doctor` command
+1. Mag + notifications config section parsing + templates
+2. `ludics doctor` command
 3. Trigger schedule expansion (morning/health/watchpaths)
 4. State repo pull/sync safeguards
 
 ### Phase 5: Ancillary Features
 1. CI failure integration
-2. /pai-techdebt skill
+2. /ludics-techdebt skill
 3. Graph visualization + agenda generation
 4. Read-only slot mode
 5. Journal/audit trail

@@ -1,4 +1,4 @@
-# Codex App: Integration Ideas for pai-lite & agent-duo
+# Codex App: Integration Ideas for ludics & agent-duo
 
 *Research notes from 2026-02-09. Based on https://developers.openai.com/codex/app/ and related docs.*
 
@@ -100,7 +100,7 @@ The `thread/list` method has a `sourceKinds` filter accepting: `cli`, `vscode`, 
    │ Codex App   │  │ codex CLI  │  │ app-server   │
    │ (GUI)       │  │ (tmux/tty) │  │ (JSON-RPC)   │
    │             │  │            │  │              │
-   │ human views │  │ ttyd →     │  │ pai-lite →   │
+   │ human views │  │ ttyd →     │  │ ludics →   │
    │ & interacts │  │ tailscale  │  │ codex-app.sh │
    └─────────────┘  └────────────┘  └──────────────┘
 ```
@@ -182,8 +182,8 @@ What you get for free: App's visual diff review, inline comments, thread browsin
 
 ### Task dispatch stays simple
 
-pai-lite Mayor dispatches tasks via shell commands — `agent-duo start`, `agent-solo start`,
-etc. No app-server protocol needed in pai-lite. If Codex App dispatch integration is
+ludics Mag dispatches tasks via shell commands — `agent-duo start`, `agent-solo start`,
+etc. No app-server protocol needed in ludics. If Codex App dispatch integration is
 desired (e.g., app-server for more reliable Codex management), that responsibility
 belongs in the **agent-duo project**.
 
@@ -194,7 +194,7 @@ belongs in the **agent-duo project**.
 agent-duo currently launches `codex --yolo` via `tmux send-keys` and uses fragile buffer
 scraping (`get_codex_resume_key()`) for crash recovery.
 
-### Potential app-server integration (agent-duo's concern, not pai-lite's)
+### Potential app-server integration (agent-duo's concern, not ludics's)
 
 | Responsibility | agent-duo today | With app-server |
 |---|---|---|
@@ -211,14 +211,14 @@ branches). The `cwd` turn override tells app-server where to work.
 
 ## Cross-System Integration Ideas
 
-### 1. pai-lite MCP Server (optional, lower priority)
+### 1. ludics MCP Server (optional, lower priority)
 
-Expose pai-lite as an MCP server so any Codex/Claude thread can self-serve:
+Expose ludics as an MCP server so any Codex/Claude thread can self-serve:
 
 ```toml
 # ~/.codex/config.toml
-[mcp_servers.pai-lite]
-command = "pai-lite"
+[mcp_servers.ludics]
+command = "ludics"
 args = ["mcp-server"]
 ```
 
@@ -232,34 +232,34 @@ directory. A human using the App GUI can invoke `/duo-work` in a thread. The app
 
 ### 3. Thread ID as Universal Handle
 
-If pai-lite adapters learn to read `~/.codex/sessions/`, the thread ID becomes a
+If ludics adapters learn to read `~/.codex/sessions/`, the thread ID becomes a
 universal handle. Any client (App, CLI, SDK) can resume or inspect a thread that
-pai-lite is tracking in its slot view.
+ludics is tracking in its slot view.
 
 ---
 
 ## Revised Design Philosophy
 
-### pai-lite's two roles: monitor everything, dispatch simply
+### ludics's two roles: monitor everything, dispatch simply
 
-**Monitoring** should be pervasive and automatic — pai-lite discovers and tracks all
+**Monitoring** should be pervasive and automatic — ludics discovers and tracks all
 agentic sessions running on the system (or across Tailscale machines), regardless of
 how they were started. The adapter is an **observer**, not a launcher.
 
-**Dispatch** should not require much pai-lite infra. Mayor already executes shell
+**Dispatch** should not require much ludics infra. Mag already executes shell
 commands — it can run `agent-duo start`, `agent-solo start`, etc. If Codex App
 dispatch integration is desired (e.g., via app-server), that belongs in the
-**agent-duo project**, not in pai-lite.
+**agent-duo project**, not in ludics.
 
 ### Implications
 
-1. **No `codex-app.sh` adapter needed for dispatch** — Mayor dispatches via
+1. **No `codex-app.sh` adapter needed for dispatch** — Mag dispatches via
    `agent-duo` / `agent-solo` CLI commands, which handle all session setup
 2. **The adapter becomes a session discoverer** — reads `~/.codex/sessions/`,
    `~/.claude/projects/`, `.peer-sync/`, tmux sessions, etc.
 3. **Agent-duo owns Codex App integration** — if agent-duo wants to use app-server
    for more reliable Codex management, that's agent-duo's concern
-4. **pai-lite stays thin** — its value is the unified view across all agents,
+4. **ludics stays thin** — its value is the unified view across all agents,
    not reimplementing each agent's session management
 
 ### CLI-first, App as read/review layer
@@ -274,12 +274,12 @@ management conflict, no cleanup risk, full remote access retained.
 
 | Priority | What | Owner | Why |
 |---|---|---|---|
-| **1** | Pervasive session discovery in adapters | pai-lite | Track all sessions automatically |
-| **2** | Read `~/.codex/sessions/` for Codex thread state | pai-lite | Observe CLI/App/Extension sessions |
-| **3** | Read `~/.claude/projects/` for Claude Code state | pai-lite | Observe all Claude sessions |
-| **4** | Cross-machine session discovery via Tailscale | pai-lite | Federation-aware monitoring |
+| **1** | Pervasive session discovery in adapters | ludics | Track all sessions automatically |
+| **2** | Read `~/.codex/sessions/` for Codex thread state | ludics | Observe CLI/App/Extension sessions |
+| **3** | Read `~/.claude/projects/` for Claude Code state | ludics | Observe all Claude sessions |
+| **4** | Cross-machine session discovery via Tailscale | ludics | Federation-aware monitoring |
 | **5** | App-server integration for Codex dispatch | agent-duo | Eliminate fragile TUI mgmt |
-| **6** | pai-lite MCP server | pai-lite | Self-aware agents (optional) |
+| **6** | ludics MCP server | ludics | Self-aware agents (optional) |
 
 ---
 
@@ -356,7 +356,7 @@ Mixed staged/unstaged in same file is supported.
 
 **Requirement**: project must be a Git repo.
 
-**Implications for pai-lite/agent-duo**:
+**Implications for ludics/agent-duo**:
 - The review pane shows all uncommitted changes, not just Codex's — this means
   agent-duo's peer-review workflow (where one agent reviews the other's worktree)
   could be visualized in the Codex App if the agent's worktree is added as a project.
@@ -384,12 +384,12 @@ Don't pin runs unless you want to preserve worktrees permanently.
 
 **No programmatic API** for creating automations — UI only.
 
-**Implications for pai-lite**:
-- Automations overlap with pai-lite's trigger system (periodic health checks, syncs)
-- The "Triage" inbox is analogous to Mayor's inbox/queue
-- A pai-lite trigger could prompt a Codex automation result check, pulling findings
+**Implications for ludics**:
+- Automations overlap with ludics's trigger system (periodic health checks, syncs)
+- The "Triage" inbox is analogous to Mag's inbox/queue
+- A ludics trigger could prompt a Codex automation result check, pulling findings
   into the briefing system
-- Limitation: no API means automations can't be created programmatically by pai-lite —
+- Limitation: no API means automations can't be created programmatically by ludics —
   they're a human-configured feature
 
 ### Worktrees (from /codex/app/worktrees)
@@ -436,12 +436,12 @@ builds). Custom icons supported. OS-specific variants available.
 
 **Configuration**: stored in `.codex` folder at project root. Version-controllable.
 
-**Implications for pai-lite**:
+**Implications for ludics**:
 - The `.codex/` project config folder is analogous to `.claude/` — both are
   project-level agent configuration.
-- pai-lite could generate `.codex/` setup scripts as part of task elaboration,
+- ludics could generate `.codex/` setup scripts as part of task elaboration,
   ensuring Codex threads have the right environment.
-- Action shortcuts could be defined to run pai-lite commands
+- Action shortcuts could be defined to run ludics commands
   (e.g., "Claim next task", "Report status").
 
 ### Troubleshooting (from /codex/app/troubleshooting)
@@ -461,7 +461,7 @@ builds). Custom icons supported. OS-specific variants available.
 - Worktrees inherit only Git-tracked files — need setup scripts for deps
 - Terminal stuck: close (Cmd+J), run basic commands, restart app if needed
 
-**Implications for pai-lite**:
+**Implications for ludics**:
 - `~/.codex/sessions/*.jsonl` is the thread store — `codex-app.sh` adapter could
   read these directly for status without needing app-server, as a fallback
 - Log location useful for `adapter_codex_app_doctor()` health checks
@@ -474,7 +474,7 @@ builds). Custom icons supported. OS-specific variants available.
 
 ### Adapter as Universal Observer
 
-The key architectural shift: pai-lite adapters should **discover sessions** rather than
+The key architectural shift: ludics adapters should **discover sessions** rather than
 **create them**. Data sources for pervasive monitoring:
 
 | Source | What it reveals | Agent |
@@ -492,18 +492,18 @@ poll remote machines for their `~/.codex/sessions/` and tmux state.
 
 ### Worktree Conflict: Non-Issue
 
-Since pai-lite doesn't create Codex sessions and agent-duo manages its own worktrees,
+Since ludics doesn't create Codex sessions and agent-duo manages its own worktrees,
 the Codex App's worktree scheme (`~/.codex/worktrees/`, detached HEAD, auto-cleanup)
 is irrelevant. CLI-started sessions use whatever `cwd` they were launched in.
 The App sees those threads read-only without creating conflicting worktrees.
 
 ### Automations as Complement to Triggers
 
-Codex App automations are human-configured, scheduled, GUI-only. pai-lite triggers are
+Codex App automations are human-configured, scheduled, GUI-only. ludics triggers are
 programmatic, event-driven, scriptable. They complement rather than compete:
-- pai-lite triggers for: task sync, health checks, Mayor keepalive, file watching
+- ludics triggers for: task sync, health checks, Mag keepalive, file watching
 - Codex automations for: "scan telemetry for errors daily", "generate weekly report"
-- Bridge: pai-lite briefing could ingest Codex automation triage results
+- Bridge: ludics briefing could ingest Codex automation triage results
 
 ### Review Pane as agent-duo Visualization
 
@@ -514,15 +514,15 @@ the human gets visual diff review instead of reading markdown review files.
 ### `.codex/` Project Config
 
 Teams could version-control `.codex/` alongside `.claude/` for consistent agent setup.
-pai-lite's task elaboration could generate setup scripts and actions in `.codex/`.
+ludics's task elaboration could generate setup scripts and actions in `.codex/`.
 
 ### Responsibility Split
 
 | Concern | Owner | Mechanism |
 |---|---|---|
-| Session monitoring | pai-lite adapters | Read session stores, tmux, .peer-sync |
-| Task dispatch | pai-lite Mayor | Shell commands: `agent-duo start`, etc. |
+| Session monitoring | ludics adapters | Read session stores, tmux, .peer-sync |
+| Task dispatch | ludics Mag | Shell commands: `agent-duo start`, etc. |
 | Codex App integration | agent-duo | app-server protocol (if/when needed) |
 | Worktree management | agent-duo | `git worktree add` (own scheme) |
 | Skills & MCP config | Shared | `~/.codex/config.toml`, `~/.codex/skills/` |
-| Remote access | pai-lite + agent-duo | tmux/ttyd/tailscale |
+| Remote access | ludics + agent-duo | tmux/ttyd/tailscale |

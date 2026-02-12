@@ -1,28 +1,28 @@
-# /pai-suggest - Task Suggestions
+# /ludics-suggest - Task Suggestions
 
 Provide intelligent task suggestions based on current flow state.
 
 ## Trigger
 
 This skill is invoked when:
-- The user runs `pai-lite mayor suggest`
+- The user runs `ludics mag suggest`
 - The user asks "what should I work on?"
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
 
 ## Process
 
-0. **Check inbox**: Run `pai-lite mayor inbox` to see any pending messages.
+0. **Check inbox**: Run `ludics mag inbox` to see any pending messages.
    Factor any messages into task suggestions and priority reasoning.
 
 1. **Analyze flow state**:
    ```bash
-   pai-lite flow ready      # Get ready tasks
-   pai-lite flow critical   # Get urgent items
-   pai-lite flow context    # Get context distribution
+   ludics flow ready      # Get ready tasks
+   ludics flow critical   # Get urgent items
+   ludics flow context    # Get context distribution
    ```
 
 2. **Consider factors**:

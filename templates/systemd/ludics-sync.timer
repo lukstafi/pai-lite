@@ -1,0 +1,27 @@
+# ludics sync timer for Linux (systemd)
+#
+# This timer triggers ludics-sync.service periodically.
+#
+# Installation:
+#   1. Copy to ~/.config/systemd/user/
+#   2. Copy ludics-sync.service too
+#   3. Run: systemctl --user enable ludics-sync.timer
+#   4. Run: systemctl --user start ludics-sync.timer
+#
+# Or use: ludics triggers install
+
+[Unit]
+Description=ludics task sync timer
+
+[Timer]
+# Run 60 seconds after boot
+OnBootSec=60
+
+# Then run every hour
+OnUnitActiveSec=1h
+
+# Persist timer across reboots
+Persistent=true
+
+[Install]
+WantedBy=timers.target

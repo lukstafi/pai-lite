@@ -72,7 +72,7 @@ export function generateMarkdownReport(result: DiscoveryResult): string {
   if (result.unclassified.length > 0) {
     lines.push("## Unclassified Sessions");
     lines.push("");
-    lines.push("*These sessions could not be matched to any slot. Mayor action needed.*");
+    lines.push("*These sessions could not be matched to any slot. Mag action needed.*");
     lines.push("");
     for (const session of result.unclassified) {
       lines.push(formatSessionMarkdown(session, "unclassified"));

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/lib/mayor.sh - Mayor session management
-# The Mayor is a persistent Claude Code instance running in a dedicated tmux session
+# ludics/lib/mag.sh - Mag session management
+# The Mag is a persistent Claude Code instance running in a dedicated tmux session
 
 #------------------------------------------------------------------------------
 # Constants
 #------------------------------------------------------------------------------
 
-MAYOR_SESSION_NAME="${PAI_LITE_MAYOR_SESSION:-pai-mayor}"
-MAYOR_DEFAULT_PORT="${PAI_LITE_MAYOR_PORT:-7679}"
+MAG_SESSION_NAME="${LUDICS_MAG_SESSION:-ludics-mag}"
+MAG_DEFAULT_PORT="${LUDICS_MAG_PORT:-7679}"
 
 #------------------------------------------------------------------------------
 # Helper: Send a skill command (slash command) to a tmux session
@@ -27,84 +27,84 @@ trigger_skill() {
 }
 
 #------------------------------------------------------------------------------
-# Helper: Get Mayor state directory
+# Helper: Get Mag state directory
 #------------------------------------------------------------------------------
 
-mayor_state_dir() {
+mag_state_dir() {
   local harness_dir
-  harness_dir="$(pai_lite_state_harness_dir)"
-  echo "$harness_dir/mayor"
+  harness_dir="$(ludics_state_harness_dir)"
+  echo "$harness_dir/mag"
 }
 
 #------------------------------------------------------------------------------
-# Helper: Get Mayor state file
+# Helper: Get Mag state file
 #------------------------------------------------------------------------------
 
-mayor_state_file() {
-  echo "$(mayor_state_dir)/session.state"
+mag_state_file() {
+  echo "$(mag_state_dir)/session.state"
 }
 
 #------------------------------------------------------------------------------
-# Helper: Get Mayor status file
+# Helper: Get Mag status file
 #------------------------------------------------------------------------------
 
-mayor_status_file() {
-  echo "$(mayor_state_dir)/session.status"
+mag_status_file() {
+  echo "$(mag_state_dir)/session.status"
 }
 
 #------------------------------------------------------------------------------
-# Helper: Check if Mayor session is running
+# Helper: Check if Mag session is running
 #------------------------------------------------------------------------------
 
-mayor_is_running() {
+mag_is_running() {
   if ! command -v tmux >/dev/null 2>&1; then
     return 1
   fi
-  tmux has-session -t "$MAYOR_SESSION_NAME" 2>/dev/null
+  tmux has-session -t "$MAG_SESSION_NAME" 2>/dev/null
 }
 
 #------------------------------------------------------------------------------
-# Helper: Ensure ttyd is running for the Mayor session
+# Helper: Ensure ttyd is running for Mag session
 # Spawns ttyd under the tmux server's process tree so launchd can't kill it.
 #------------------------------------------------------------------------------
 
-mayor_ensure_ttyd() {
+mag_ensure_ttyd() {
   if ! command -v ttyd >/dev/null 2>&1; then
-    pai_lite_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
+    ludics_warn "ttyd not installed; skipping web access (use --no-ttyd to suppress this warning)"
     return 0
   fi
 
   # Check if ttyd is already running for this session
-  if pgrep -f "ttyd.*$MAYOR_SESSION_NAME" >/dev/null 2>&1; then
+  if pgrep -f "ttyd.*$MAG_SESSION_NAME" >/dev/null 2>&1; then
     return 0
   fi
 
   local ttyd_port
-  ttyd_port=$(pai_lite_config_get_nested "mayor" "ttyd_port" 2>/dev/null)
-  ttyd_port="${ttyd_port:-$MAYOR_DEFAULT_PORT}"
+  ttyd_port=$(ludics_config_get_nested "mag" "ttyd_port" 2>/dev/null)
+  ttyd_port="${ttyd_port:-$MAG_DEFAULT_PORT}"
 
-  local ttyd_log="$HOME/Library/Logs/pai-lite-ttyd.log"
-  [[ -d "$HOME/Library/Logs" ]] || ttyd_log="/tmp/pai-lite-ttyd.log"
+  local ttyd_log="$HOME/Library/Logs/ludics-ttyd.log"
+  [[ -d "$HOME/Library/Logs" ]] || ttyd_log="/tmp/ludics-ttyd.log"
 
   local ttyd_bin
   ttyd_bin="$(command -v ttyd)"
 
-  pai_lite_info "Starting ttyd on port $ttyd_port..."
+  ludics_info "Starting ttyd on port $ttyd_port..."
 
   # Spawn ttyd via tmux run-shell so it lives under the tmux server's process
   # tree, not the caller's.  This prevents launchd/systemd from killing it
   # when the one-shot job exits.
-  tmux run-shell -b -t "$MAYOR_SESSION_NAME" \
-    "$ttyd_bin -W -p $ttyd_port tmux attach -t $MAYOR_SESSION_NAME >>$ttyd_log 2>&1"
+  tmux run-shell -b -t "$MAG_SESSION_NAME" \
+    "$ttyd_bin -W -p $ttyd_port tmux attach -t $MAG_SESSION_NAME >>$ttyd_log 2>&1"
 
-  echo "Web access available at: $(pai_lite_get_url "$ttyd_port")"
+  echo "Web access available at: $(ludics_get_url "$ttyd_port")"
 }
 
 #------------------------------------------------------------------------------
-# Mayor start: Create/restart the Mayor tmux session
+# Mag start: Create/restart Mag tmux session
 #------------------------------------------------------------------------------
 
-mayor_start() {
+mag_start() {
   local state_dir working_dir state_file
   local use_ttyd=true
   local skip_federation=false
@@ -127,164 +127,164 @@ mayor_start() {
   done
 
   if ! command -v tmux >/dev/null 2>&1; then
-    pai_lite_die "mayor start: tmux is required but not installed"
+    ludics_die "mag start: tmux is required but not installed"
   fi
 
-  # Check federation - only leader should start Mayor
+  # Check federation - only leader should start Mag
   if [[ "$skip_federation" != "true" ]]; then
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [[ -f "$script_dir/federation.sh" ]]; then
       # shellcheck source=lib/federation.sh
       source "$script_dir/federation.sh"
-      if ! federation_should_run_mayor 2>/dev/null; then
-        pai_lite_warn "Mayor blocked: not the federation leader"
+      if ! federation_should_run_mag 2>/dev/null; then
+        ludics_warn "Mag blocked: not the federation leader"
         echo "Current leader: $(federation_current_leader 2>/dev/null || echo 'unknown')"
-        echo "Run 'pai-lite federation status' for details"
+        echo "Run 'ludics federation status' for details"
         echo ""
-        echo "To override, use: pai-lite mayor start --skip-federation"
+        echo "To override, use: ludics mag start --skip-federation"
         return 0
       fi
     fi
   fi
 
   # Check if session already exists
-  if mayor_is_running; then
+  if mag_is_running; then
     # Keepalive path: session exists, ensure ttyd is alive
     if [[ "$use_ttyd" == "true" ]]; then
-      mayor_ensure_ttyd
+      mag_ensure_ttyd
     fi
-    # Queue is drained by the Stop hook when Mayor finishes a turn.
-    # If Mayor is idle and items were queued after its last turn, nudge it
+    # Queue is drained by the Stop hook when Mag finishes a turn.
+    # If Mag is idle and items were queued after its last turn, nudge it
     # so the Stop hook fires and picks them up.
     local queue_file
-    queue_file="$(pai_lite_queue_file)"
+    queue_file="$(ludics_queue_file)"
     if [[ -s "$queue_file" ]]; then
-      trigger_skill "$MAYOR_SESSION_NAME" "Continue. (pai-lite automatic message, current time: $(date '+%Y-%m-%d %H:%M %Z'))"
+      trigger_skill "$MAG_SESSION_NAME" "Continue. (ludics automatic message, current time: $(date '+%Y-%m-%d %H:%M %Z'))"
     fi
     return 0
   fi
 
   # Ensure state directory exists
-  state_dir="$(mayor_state_dir)"
+  state_dir="$(mag_state_dir)"
   mkdir -p "$state_dir"
   mkdir -p "$state_dir/memory"
   mkdir -p "$state_dir/memory/projects"
 
   # Get working directory (harness dir by default)
-  working_dir="$(pai_lite_state_harness_dir)"
+  working_dir="$(ludics_state_harness_dir)"
 
   # Create state file
-  state_file="$(mayor_state_file)"
+  state_file="$(mag_state_file)"
   cat > "$state_file" <<EOF
-session=$MAYOR_SESSION_NAME
+session=$MAG_SESSION_NAME
 started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 working_dir=$working_dir
 status=starting
 EOF
 
   # Create tmux session
-  pai_lite_info "Creating Mayor tmux session '$MAYOR_SESSION_NAME' in $working_dir"
-  tmux new-session -d -s "$MAYOR_SESSION_NAME" -c "$working_dir"
+  ludics_info "Creating Mag tmux session '$MAG_SESSION_NAME' in $working_dir"
+  tmux new-session -d -s "$MAG_SESSION_NAME" -c "$working_dir"
 
   # Update status
-  mayor_signal "running" "session started"
+  mag_signal "running" "session started"
 
   # Start Claude Code CLI if available (with -c to continue previous session, fallback to new)
   if command -v claude >/dev/null 2>&1; then
-    tmux send-keys -t "$MAYOR_SESSION_NAME" "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions"
-    tmux send-keys -t "$MAYOR_SESSION_NAME" C-m
-    pai_lite_info "Started Claude Code in Mayor session"
+    tmux send-keys -t "$MAG_SESSION_NAME" "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions"
+    tmux send-keys -t "$MAG_SESSION_NAME" C-m
+    ludics_info "Started Claude Code in Mag session"
   else
-    pai_lite_warn "claude CLI not found; session started without Claude Code"
+    ludics_warn "claude CLI not found; session started without Claude Code"
   fi
 
-  echo "Mayor session started. Attach with: tmux attach -t $MAYOR_SESSION_NAME"
+  echo "Mag session started. Attach with: tmux attach -t $MAG_SESSION_NAME"
 
   # Start ttyd by default unless --no-ttyd was passed
   if [[ "$use_ttyd" == "true" ]]; then
-    mayor_ensure_ttyd
+    mag_ensure_ttyd
   fi
 
-  # Drain any queued requests (e.g. briefing queued at startup before Mayor was up)
+  # Drain any queued requests (e.g. briefing queued at startup before Mag was up)
   local skill_cmd
-  skill_cmd="$(mayor_queue_pop_skill)"
+  skill_cmd="$(mag_queue_pop_skill)"
   if [[ -n "$skill_cmd" ]]; then
     # Give Claude Code a moment to initialize before sending the command
     sleep 5
-    pai_lite_info "Mayor fresh start, sending queued request: $skill_cmd"
-    trigger_skill "$MAYOR_SESSION_NAME" "$skill_cmd"
+    ludics_info "Mag fresh start, sending queued request: $skill_cmd"
+    trigger_skill "$MAG_SESSION_NAME" "$skill_cmd"
   fi
 
   return 0
 }
 
 #------------------------------------------------------------------------------
-# Mayor stop: Gracefully stop the Mayor session
+# Mag stop: Gracefully stop Mag session
 #------------------------------------------------------------------------------
 
-mayor_stop() {
+mag_stop() {
   if ! command -v tmux >/dev/null 2>&1; then
-    pai_lite_die "mayor stop: tmux is not available"
+    ludics_die "mag stop: tmux is not available"
   fi
 
-  if ! mayor_is_running; then
-    pai_lite_warn "Mayor session '$MAYOR_SESSION_NAME' is not running"
+  if ! mag_is_running; then
+    ludics_warn "Mag session '$MAG_SESSION_NAME' is not running"
     return 0
   fi
 
   # Update status before stopping
-  mayor_signal "stopped" "session stopped by user"
+  mag_signal "stopped" "session stopped by user"
 
   # Kill any ttyd processes attached to this session
   local ttyd_pids
-  ttyd_pids=$(pgrep -f "ttyd.*$MAYOR_SESSION_NAME" 2>/dev/null || true)
+  ttyd_pids=$(pgrep -f "ttyd.*$MAG_SESSION_NAME" 2>/dev/null || true)
   if [[ -n "$ttyd_pids" ]]; then
-    pai_lite_info "Stopping ttyd process(es)..."
+    ludics_info "Stopping ttyd process(es)..."
     echo "$ttyd_pids" | xargs kill 2>/dev/null || true
   fi
 
-  pai_lite_info "Stopping Mayor tmux session '$MAYOR_SESSION_NAME'..."
-  tmux kill-session -t "$MAYOR_SESSION_NAME"
+  ludics_info "Stopping Mag tmux session '$MAG_SESSION_NAME'..."
+  tmux kill-session -t "$MAG_SESSION_NAME"
 
   # Update state file
   local state_file
-  state_file="$(mayor_state_file)"
+  state_file="$(mag_state_file)"
   if [[ -f "$state_file" ]]; then
     # Append stopped timestamp
     echo "stopped=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$state_file"
   fi
 
-  echo "Mayor session stopped."
+  echo "Mag session stopped."
   return 0
 }
 
 #------------------------------------------------------------------------------
-# Mayor status: Show Mayor session status
+# Mag status: Show Mag session status
 #------------------------------------------------------------------------------
 
-mayor_status() {
+mag_status() {
   local state_dir state_file status_file
 
-  state_dir="$(mayor_state_dir)"
-  state_file="$(mayor_state_file)"
-  status_file="$(mayor_status_file)"
+  state_dir="$(mag_state_dir)"
+  state_file="$(mag_state_file)"
+  status_file="$(mag_status_file)"
 
-  echo "=== Mayor Status ==="
+  echo "=== Mag Status ==="
   echo ""
 
   # Check if session is running
-  if mayor_is_running; then
-    echo "Session: $MAYOR_SESSION_NAME (running)"
+  if mag_is_running; then
+    echo "Session: $MAG_SESSION_NAME (running)"
   else
-    echo "Session: $MAYOR_SESSION_NAME (not running)"
+    echo "Session: $MAG_SESSION_NAME (not running)"
     if [[ -f "$state_file" ]] && grep -q '^stopped=' "$state_file" 2>/dev/null; then
       local stopped
       stopped=$(grep '^stopped=' "$state_file" | tail -n1 | cut -d= -f2-)
       echo "Last stopped: $stopped"
     fi
     echo ""
-    echo "Start with: pai-lite mayor start"
+    echo "Start with: ludics mag start"
     return 0
   fi
 
@@ -330,7 +330,7 @@ mayor_status() {
   # Show queue status
   echo ""
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
   if [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]; then
     local pending_count
     pending_count=$(wc -l < "$queue_file" | tr -d ' ')
@@ -372,38 +372,38 @@ mayor_status() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor attach: Attach to the Mayor tmux session
+# Mag attach: Attach to Mag tmux session
 #------------------------------------------------------------------------------
 
-mayor_attach() {
+mag_attach() {
   if ! command -v tmux >/dev/null 2>&1; then
-    pai_lite_die "mayor attach: tmux is not available"
+    ludics_die "mag attach: tmux is not available"
   fi
 
-  if ! mayor_is_running; then
-    pai_lite_die "Mayor session '$MAYOR_SESSION_NAME' is not running. Start with: pai-lite mayor start"
+  if ! mag_is_running; then
+    ludics_die "Mag session '$MAG_SESSION_NAME' is not running. Start with: ludics mag start"
   fi
 
-  exec tmux attach -t "$MAYOR_SESSION_NAME"
+  exec tmux attach -t "$MAG_SESSION_NAME"
 }
 
 #------------------------------------------------------------------------------
-# Mayor logs: Show recent Mayor activity from tmux pane
+# Mag logs: Show recent Mag activity from tmux pane
 #------------------------------------------------------------------------------
 
-mayor_logs() {
+mag_logs() {
   local lines="${1:-100}"
 
   if ! command -v tmux >/dev/null 2>&1; then
-    pai_lite_die "mayor logs: tmux is not available"
+    ludics_die "mag logs: tmux is not available"
   fi
 
-  if ! mayor_is_running; then
-    pai_lite_warn "Mayor session '$MAYOR_SESSION_NAME' is not running"
+  if ! mag_is_running; then
+    ludics_warn "Mag session '$MAG_SESSION_NAME' is not running"
 
     # Show results from completed requests if available
     local results_dir
-    results_dir="$(pai_lite_results_dir)"
+    results_dir="$(ludics_results_dir)"
     if [[ -d "$results_dir" ]]; then
       echo "Recent results:"
       find "$results_dir" -name "*.json" -type f -mtime -1 -exec sh -c 'echo "---"; cat "$1"' _ {} \; 2>/dev/null | head -n 50
@@ -411,22 +411,22 @@ mayor_logs() {
     return 0
   fi
 
-  echo "=== Mayor Session Logs (last $lines lines) ==="
+  echo "=== Mag Session Logs (last $lines lines) ==="
   echo ""
-  tmux capture-pane -t "$MAYOR_SESSION_NAME" -p -S "-$lines"
+  tmux capture-pane -t "$MAG_SESSION_NAME" -p -S "-$lines"
 }
 
 #------------------------------------------------------------------------------
-# Mayor signal: Update Mayor status
+# Mag signal: Update Mag status
 #------------------------------------------------------------------------------
 
-mayor_signal() {
+mag_signal() {
   local status="$1"
   local message="${2:-}"
 
   local status_file state_dir
-  state_dir="$(mayor_state_dir)"
-  status_file="$(mayor_status_file)"
+  state_dir="$(mag_state_dir)"
+  status_file="$(mag_status_file)"
 
   # Ensure state directory exists
   mkdir -p "$state_dir"
@@ -438,14 +438,14 @@ mayor_signal() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor queue-pop-skill: Pop next request from queue and output skill command
+# Mag queue-pop-skill: Pop next request from queue and output skill command
 # Outputs the plain skill command to stdout; nothing if queue is empty.
-# Used by the keepalive path and mayor start to send commands via tmux.
+# Used by the keepalive path and mag start to send commands via tmux.
 #------------------------------------------------------------------------------
 
-mayor_queue_pop_skill() {
+mag_queue_pop_skill() {
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
 
   # Exit silently if no queue or empty
   [[ -f "$queue_file" ]] || return 0
@@ -459,7 +459,7 @@ mayor_queue_pop_skill() {
 
   # Bail if parsing failed
   if [[ -z "$action" || "$action" == "null" ]]; then
-    echo "mayor queue-pop: invalid request in queue (no action), leaving in queue" >&2
+    echo "mag queue-pop: invalid request in queue (no action), leaving in queue" >&2
     return 0
   fi
 
@@ -468,36 +468,36 @@ mayor_queue_pop_skill() {
   tail -n +2 "$queue_file" > "$tmp" && mv "$tmp" "$queue_file"
 
   # Export request info for skills to use
-  export PAI_LITE_REQUEST_ID="$request_id"
-  PAI_LITE_STATE_PATH="$(pai_lite_state_harness_dir)"
-  export PAI_LITE_STATE_PATH
-  PAI_LITE_RESULTS_DIR="$(pai_lite_results_dir)"
-  export PAI_LITE_RESULTS_DIR
-  mkdir -p "$PAI_LITE_RESULTS_DIR"
+  export LUDICS_REQUEST_ID="$request_id"
+  LUDICS_STATE_PATH="$(ludics_state_harness_dir)"
+  export LUDICS_STATE_PATH
+  LUDICS_RESULTS_DIR="$(ludics_results_dir)"
+  export LUDICS_RESULTS_DIR
+  mkdir -p "$LUDICS_RESULTS_DIR"
 
   # Map action to skill command
   local skill_command=""
   case "$action" in
     briefing)
       briefing_precompute_context
-      skill_command="/pai-briefing"
+      skill_command="/ludics-briefing"
       ;;
-    suggest)        skill_command="/pai-suggest" ;;
+    suggest)        skill_command="/ludics-suggest" ;;
     analyze-issue)
       local issue
       issue=$(echo "$request" | jq -r '.issue' 2>/dev/null)
-      skill_command="/pai-analyze-issue $issue" ;;
+      skill_command="/ludics-analyze-issue $issue" ;;
     elaborate)
       local task
       task=$(echo "$request" | jq -r '.task' 2>/dev/null)
-      skill_command="/pai-elaborate $task" ;;
-    health-check)   skill_command="/pai-health-check" ;;
-    learn)          skill_command="/pai-learn" ;;
-    sync-learnings) skill_command="/pai-sync-learnings" ;;
-    techdebt)       skill_command="/pai-techdebt" ;;
-    message)        skill_command="/pai-read-inbox" ;;
+      skill_command="/ludics-elaborate $task" ;;
+    health-check)   skill_command="/ludics-health-check" ;;
+    learn)          skill_command="/ludics-learn" ;;
+    sync-learnings) skill_command="/ludics-sync-learnings" ;;
+    techdebt)       skill_command="/ludics-techdebt" ;;
+    message)        skill_command="/ludics-read-inbox" ;;
     *)
-      echo "mayor queue-pop: unknown queue action: $action" >&2
+      echo "mag queue-pop: unknown queue action: $action" >&2
       return 0
       ;;
   esac
@@ -506,26 +506,26 @@ mayor_queue_pop_skill() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor queue-pop: Pop next request and output Stop hook JSON
-# Used by the Claude Code Stop hook (pai-lite-on-stop).
+# Mag queue-pop: Pop next request and output Stop hook JSON
+# Used by the Claude Code Stop hook (ludics-on-stop).
 # Returns JSON with decision:"block" and the skill command as reason,
 # which tells Claude Code to continue with that command as its instruction.
 #------------------------------------------------------------------------------
 
-mayor_queue_pop() {
+mag_queue_pop() {
   local cwd="${1:-}"
 
-  # Only process queue for the Mayor session (cwd must be inside the harness dir)
+  # Only process queue for Mag session (cwd must be inside the harness dir)
   if [[ -n "$cwd" ]]; then
     local harness_dir
-    harness_dir="$(pai_lite_state_harness_dir)"
+    harness_dir="$(ludics_state_harness_dir)"
     if [[ "$cwd" != "$harness_dir"* ]]; then
       return 0
     fi
   fi
 
   local skill_command
-  skill_command="$(mayor_queue_pop_skill)"
+  skill_command="$(mag_queue_pop_skill)"
 
   if [[ -n "$skill_command" ]]; then
     jq -n --arg reason "$skill_command" '{"decision": "block", "reason": $reason}'
@@ -533,28 +533,28 @@ mayor_queue_pop() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor send: Send a command to the Mayor (for automation)
+# Mag send: Send a command to Mag (for automation)
 #------------------------------------------------------------------------------
 
-mayor_send() {
+mag_send() {
   local command="$1"
 
-  if ! mayor_is_running; then
-    pai_lite_die "Mayor session is not running. Start with: pai-lite mayor start"
+  if ! mag_is_running; then
+    ludics_die "Mag session is not running. Start with: ludics mag start"
   fi
 
-  trigger_skill "$MAYOR_SESSION_NAME" "$command"
-  pai_lite_info "Sent command to Mayor: $command"
+  trigger_skill "$MAG_SESSION_NAME" "$command"
+  ludics_info "Sent command to Mag: $command"
 }
 
 #------------------------------------------------------------------------------
-# Mayor doctor: Health check for Mayor setup
+# Mag doctor: Health check for Mag setup
 #------------------------------------------------------------------------------
 
-mayor_doctor() {
+mag_doctor() {
   local all_ok=true
 
-  echo "=== Mayor Health Check ==="
+  echo "=== Mag Health Check ==="
   echo ""
 
   # Check tmux
@@ -593,15 +593,15 @@ mayor_doctor() {
   echo ""
 
   # Check session status
-  if mayor_is_running; then
-    echo "Mayor session: running"
+  if mag_is_running; then
+    echo "Mag session: running"
   else
-    echo "Mayor session: not running"
+    echo "Mag session: not running"
   fi
 
   # Check state directory
   local state_dir
-  state_dir="$(mayor_state_dir)"
+  state_dir="$(mag_state_dir)"
   if [[ -d "$state_dir" ]]; then
     echo "State directory: $state_dir"
   else
@@ -610,7 +610,7 @@ mayor_doctor() {
 
   # Check queue file
   local queue_file
-  queue_file="$(pai_lite_queue_file)"
+  queue_file="$(ludics_queue_file)"
   if [[ -f "$queue_file" ]]; then
     local pending
     pending=$(wc -l < "$queue_file" | tr -d ' ')
@@ -622,15 +622,15 @@ mayor_doctor() {
   # Check stop hook
   echo ""
   echo "Stop hook locations to check:"
-  echo "  - ~/.claude/hooks/pai-lite-on-stop.sh"
-  echo "  - ~/.config/claude-code/hooks/pai-lite-on-stop.sh"
+  echo "  - ~/.claude/hooks/ludics-on-stop.sh"
+  echo "  - ~/.config/claude-code/hooks/ludics-on-stop.sh"
 
-  if [[ -f "$HOME/.claude/hooks/pai-lite-on-stop.sh" ]]; then
-    echo "  Found: ~/.claude/hooks/pai-lite-on-stop.sh"
-  elif [[ -f "$HOME/.config/claude-code/hooks/pai-lite-on-stop.sh" ]]; then
-    echo "  Found: ~/.config/claude-code/hooks/pai-lite-on-stop.sh"
+  if [[ -f "$HOME/.claude/hooks/ludics-on-stop.sh" ]]; then
+    echo "  Found: ~/.claude/hooks/ludics-on-stop.sh"
+  elif [[ -f "$HOME/.config/claude-code/hooks/ludics-on-stop.sh" ]]; then
+    echo "  Found: ~/.config/claude-code/hooks/ludics-on-stop.sh"
   else
-    echo "  Not found - install with: pai-lite init --hooks"
+    echo "  Not found - install with: ludics init --hooks"
     all_ok=false
   fi
 
@@ -646,67 +646,67 @@ mayor_doctor() {
 }
 
 #------------------------------------------------------------------------------
-# Mayor briefing: Request a briefing and wait for result
+# Mag briefing: Request a briefing and wait for result
 #------------------------------------------------------------------------------
 
-mayor_briefing() {
+mag_briefing() {
   local wait="${1:-true}"
   local timeout="${2:-300}"
 
   # Queue the briefing request
   local request_id
-  request_id=$(pai_lite_queue_request "briefing")
+  request_id=$(ludics_queue_request "briefing")
   echo "Queued briefing request: $request_id"
 
   if [[ "$wait" != "true" ]]; then
-    echo "Mayor will process when ready"
+    echo "Mag will process when ready"
     return 0
   fi
 
-  # Check if Mayor is running
-  if ! mayor_is_running; then
-    pai_lite_warn "Mayor session is not running. Start with: pai-lite mayor start"
-    pai_lite_warn "Or process manually: the request is queued"
+  # Check if Mag is running
+  if ! mag_is_running; then
+    ludics_warn "Mag session is not running. Start with: ludics mag start"
+    ludics_warn "Or process manually: the request is queued"
     return 1
   fi
 
-  echo "Waiting for Mayor to process (timeout: ${timeout}s)..."
+  echo "Waiting for Mag to process (timeout: ${timeout}s)..."
 
   # Wait for result
   local result
-  if result=$(pai_lite_wait_for_result "$request_id" "$timeout"); then
+  if result=$(ludics_wait_for_result "$request_id" "$timeout"); then
     echo ""
     echo "=== Briefing Result ==="
     echo "$result" | jq -r '.output // "No output"' 2>/dev/null || echo "$result"
 
     # Send notification
     if command -v notify_pai >/dev/null 2>&1; then
-      notify_pai "Briefing ready" 3 "pai-lite briefing"
+      notify_pai "Briefing ready" 3 "ludics briefing"
     fi
 
     return 0
   else
-    pai_lite_warn "Timeout waiting for briefing result"
+    ludics_warn "Timeout waiting for briefing result"
     return 1
   fi
 }
 
 #------------------------------------------------------------------------------
 # Pre-compute briefing context: gather all data into briefing-context.md
-# so the /pai-briefing skill can focus on strategic reasoning.
+# so the /ludics-briefing skill can focus on strategic reasoning.
 #------------------------------------------------------------------------------
 
 briefing_precompute_context() {
   local harness_dir
-  harness_dir="$(pai_lite_state_harness_dir)"
-  local context_file="$harness_dir/mayor/briefing-context.md"
+  harness_dir="$(ludics_state_harness_dir)"
+  local context_file="$harness_dir/mag/briefing-context.md"
   local timestamp
   timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  mkdir -p "$harness_dir/mayor"
+  mkdir -p "$harness_dir/mag"
 
   # 1. Slots refresh (also triggers session discovery via sessions_discover_and_report)
-  pai_lite_info "briefing pre-compute: refreshing slots and sessions..."
+  ludics_info "briefing pre-compute: refreshing slots and sessions..."
   slots_refresh 2>/dev/null || true
 
   # 2. Capture slots list
@@ -736,14 +736,14 @@ briefing_precompute_context() {
 
   # 6. Inbox (consume: pull remote, print, archive, clear)
   local inbox_output
-  inbox_output="$(pai_lite_inbox_consume 2>/dev/null)" || inbox_output=""
+  inbox_output="$(ludics_inbox_consume 2>/dev/null)" || inbox_output=""
   if [[ -z "$inbox_output" ]]; then
     inbox_output="No pending messages."
   fi
 
   # 7. Recent journal
   local journal_output
-  journal_output="$(pai_lite_journal_recent 20 2>/dev/null)" || journal_output="(no journal entries)"
+  journal_output="$(ludics_journal_recent 20 2>/dev/null)" || journal_output="(no journal entries)"
 
   # 8. Same-day check: compare existing briefing date with today
   local sameday_status="new" existing_date="none"
@@ -802,5 +802,5 @@ $journal_output
 CONTEXT_EOF
   mv "${context_file}.tmp" "$context_file"
 
-  pai_lite_info "briefing context written to $context_file"
+  ludics_info "briefing context written to $context_file"
 }

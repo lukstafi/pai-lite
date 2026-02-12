@@ -1,0 +1,25 @@
+# ludics Mag keepalive timer for Linux (systemd)
+#
+# Triggers ludics-mag.service:
+# - On boot/login (Persistent=true catches up if missed)
+# - Every 15 minutes thereafter
+#
+# Installation:
+#   1. Copy ludics-mag.service and ludics-mag.timer to ~/.config/systemd/user/
+#   2. Run: systemctl --user enable --now ludics-mag.timer
+#
+# Or use: ludics triggers install
+
+[Unit]
+Description=ludics Mag keepalive timer
+
+[Timer]
+# Run on boot/login
+OnBootSec=10s
+# Then every 15 minutes
+OnUnitActiveSec=15min
+# Catch up if timer was missed (e.g., laptop was asleep)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

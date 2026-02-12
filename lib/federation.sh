@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/lib/federation.sh - Mayor federation with seniority-based leader election
-# Enables multiple machines to coordinate Mayor responsibilities via heartbeats
+# ludics/lib/federation.sh - Mag federation with seniority-based leader election
+# Enables multiple machines to coordinate Mag responsibilities via heartbeats
 # and automatic leader election based on a configured seniority order.
 
 #------------------------------------------------------------------------------
 # Constants
 #------------------------------------------------------------------------------
 
-HEARTBEAT_TIMEOUT="${PAI_LITE_HEARTBEAT_TIMEOUT:-900}"    # 15 minutes = stale
+HEARTBEAT_TIMEOUT="${LUDICS_HEARTBEAT_TIMEOUT:-900}"    # 15 minutes = stale
 
 #------------------------------------------------------------------------------
 # Directory helpers
 #------------------------------------------------------------------------------
 
 federation_dir() {
-  echo "$(pai_lite_state_harness_dir)/federation"
+  echo "$(ludics_state_harness_dir)/federation"
 }
 
 federation_heartbeats_dir() {
@@ -35,15 +35,15 @@ federation_leader_file() {
 # Usage: federation_heartbeat_publish
 federation_heartbeat_publish() {
   local node_name
-  node_name="$(pai_lite_network_current_node 2>/dev/null || echo "")"
+  node_name="$(ludics_network_current_node 2>/dev/null || echo "")"
 
   if [[ -z "$node_name" ]]; then
     # If we can't determine node name, try to use tailscale hostname directly
     local ts_hostname
-    ts_hostname="$(pai_lite_network_hostname_tailscale 2>/dev/null || echo "")"
+    ts_hostname="$(ludics_network_hostname_tailscale 2>/dev/null || echo "")"
     if [[ -z "$ts_hostname" ]]; then
-      pai_lite_warn "federation: cannot determine current node name"
-      pai_lite_warn "  - ensure tailscale is running and this machine is in network.nodes config"
+      ludics_warn "federation: cannot determine current node name"
+      ludics_warn "  - ensure tailscale is running and this machine is in network.nodes config"
       return 1
     fi
     # Use hostname as node name if not in config
@@ -55,13 +55,13 @@ federation_heartbeat_publish() {
   mkdir -p "$heartbeats_dir"
   heartbeat_file="$heartbeats_dir/${node_name}.json"
 
-  # Check if Mayor is running locally
-  local mayor_running="false"
+  # Check if Mag is running locally
+  local mag_running="false"
   if command -v tmux >/dev/null 2>&1; then
-    local mayor_session
-    mayor_session="${PAI_LITE_MAYOR_SESSION:-pai-mayor}"
-    if tmux has-session -t "$mayor_session" 2>/dev/null; then
-      mayor_running="true"
+    local mag_session
+    mag_session="${LUDICS_MAG_SESSION:-ludics-mag}"
+    if tmux has-session -t "$mag_session" 2>/dev/null; then
+      mag_running="true"
     fi
   fi
 
@@ -75,21 +75,21 @@ federation_heartbeat_publish() {
       --arg node "$node_name" \
       --arg timestamp "$timestamp" \
       --argjson epoch "$epoch" \
-      --argjson mayor_running "$mayor_running" \
+      --argjson mag_running "$mag_running" \
       '{
         node: $node,
         timestamp: $timestamp,
         epoch: $epoch,
-        mayor_running: $mayor_running
+        mag_running: $mag_running
       }' > "$heartbeat_file"
   else
     # Fallback without jq
     cat > "$heartbeat_file" <<EOF
-{"node":"$node_name","timestamp":"$timestamp","epoch":$epoch,"mayor_running":$mayor_running}
+{"node":"$node_name","timestamp":"$timestamp","epoch":$epoch,"mag_running":$mag_running}
 EOF
   fi
 
-  pai_lite_info "federation: published heartbeat for $node_name"
+  ludics_info "federation: published heartbeat for $node_name"
   return 0
 }
 
@@ -115,27 +115,27 @@ federation_heartbeat_is_fresh() {
   [[ $age -lt $HEARTBEAT_TIMEOUT ]]
 }
 
-# Check if a node has Mayor running
-# Usage: federation_node_has_mayor <node_name>
-federation_node_has_mayor() {
+# Check if a node has Mag running
+# Usage: federation_node_has_mag <node_name>
+federation_node_has_mag() {
   local node_name="$1"
   local heartbeat_file
   heartbeat_file="$(federation_heartbeats_dir)/${node_name}.json"
 
   [[ -f "$heartbeat_file" ]] || return 1
 
-  local mayor_running
+  local mag_running
   if command -v jq >/dev/null 2>&1; then
-    mayor_running=$(jq -r '.mayor_running // false' "$heartbeat_file" 2>/dev/null)
+    mag_running=$(jq -r '.mag_running // false' "$heartbeat_file" 2>/dev/null)
   else
     # Fallback
-    if grep -q '"mayor_running":true' "$heartbeat_file" 2>/dev/null; then
-      mayor_running="true"
+    if grep -q '"mag_running":true' "$heartbeat_file" 2>/dev/null; then
+      mag_running="true"
     else
-      mayor_running="false"
+      mag_running="false"
     fi
   fi
-  [[ "$mayor_running" == "true" ]]
+  [[ "$mag_running" == "true" ]]
 }
 
 # Get list of online nodes (fresh heartbeats)
@@ -166,7 +166,7 @@ federation_compute_leader() {
   local nodes=()
   while IFS= read -r node; do
     [[ -n "$node" ]] && nodes+=("$node")
-  done < <(pai_lite_network_nodes)
+  done < <(ludics_network_nodes)
 
   # If no nodes configured, no federation
   if [[ ${#nodes[@]} -eq 0 ]]; then
@@ -249,10 +249,10 @@ federation_update_leader() {
 EOF
     fi
 
-    pai_lite_info "federation: new leader elected: $new_leader (term $term)"
+    ludics_info "federation: new leader elected: $new_leader (term $term)"
 
     # Journal the leadership change
-    pai_lite_journal_append "federation" "leader changed to $new_leader (term $term)" 2>/dev/null || true
+    ludics_journal_append "federation" "leader changed to $new_leader (term $term)" 2>/dev/null || true
 
     return 0
   fi
@@ -267,7 +267,7 @@ federation_elect() {
     federation_update_leader "$new_leader" || true
     echo "$new_leader"
   else
-    pai_lite_warn "federation: no online nodes available for leader election"
+    ludics_warn "federation: no online nodes available for leader election"
     return 1
   fi
 }
@@ -275,19 +275,19 @@ federation_elect() {
 # Check if current node is the leader
 federation_is_leader() {
   local current_node current_leader
-  current_node="$(pai_lite_network_current_node 2>/dev/null || echo "")"
+  current_node="$(ludics_network_current_node 2>/dev/null || echo "")"
   [[ -z "$current_node" ]] && return 1
 
   current_leader="$(federation_current_leader 2>/dev/null || echo "")"
   [[ "$current_node" == "$current_leader" ]]
 }
 
-# Check if current node should start/stop Mayor based on leadership
-# Returns 0 if should run Mayor, 1 if should not
-federation_should_run_mayor() {
-  # If federation not configured (no nodes), always allow Mayor
+# Check if current node should start/stop Mag based on leadership
+# Returns 0 if should run Mag, 1 if should not
+federation_should_run_mag() {
+  # If federation not configured (no nodes), always allow Mag
   local node_count
-  node_count=$(pai_lite_network_nodes | wc -l | tr -d ' ')
+  node_count=$(ludics_network_nodes | wc -l | tr -d ' ')
   [[ "$node_count" -eq 0 ]] && return 0
 
   federation_is_leader
@@ -298,10 +298,10 @@ federation_should_run_mayor() {
 #------------------------------------------------------------------------------
 
 federation_tick() {
-  pai_lite_info "federation: running tick..."
+  ludics_info "federation: running tick..."
 
   # Sync state from remote first
-  pai_lite_state_pull 2>/dev/null || true
+  ludics_state_pull 2>/dev/null || true
 
   # Publish our heartbeat
   federation_heartbeat_publish || true
@@ -309,14 +309,14 @@ federation_tick() {
   # Run election
   local leader
   if leader=$(federation_elect 2>/dev/null); then
-    pai_lite_info "federation: current leader is $leader"
+    ludics_info "federation: current leader is $leader"
   fi
 
   # Commit and push changes
-  pai_lite_state_commit "federation heartbeat" 2>/dev/null || true
-  pai_lite_state_push 2>/dev/null || true
+  ludics_state_commit "federation heartbeat" 2>/dev/null || true
+  ludics_state_push 2>/dev/null || true
 
-  pai_lite_info "federation: tick complete"
+  ludics_info "federation: tick complete"
 }
 
 #------------------------------------------------------------------------------
@@ -329,7 +329,7 @@ federation_status() {
 
   # Current node
   local current_node
-  current_node="$(pai_lite_network_current_node 2>/dev/null || echo "unknown")"
+  current_node="$(ludics_network_current_node 2>/dev/null || echo "unknown")"
   echo "Current node: $current_node"
 
   # Current leader
@@ -369,8 +369,8 @@ federation_status() {
 
       if federation_heartbeat_is_fresh "$node"; then
         status="online"
-        if federation_node_has_mayor "$node"; then
-          status="online (mayor running)"
+        if federation_node_has_mag "$node"; then
+          status="online (mag running)"
         fi
         local mins=$((age / 60))
         heartbeat_age=" [${mins}m ago]"
@@ -384,19 +384,19 @@ federation_status() {
     [[ "$node" == "$current_leader" ]] && leader_marker=" *LEADER*"
 
     echo "  $rank. $node - $status$heartbeat_age$leader_marker"
-  done < <(pai_lite_network_nodes)
+  done < <(ludics_network_nodes)
 
   if [[ $rank -eq 0 ]]; then
     echo "  (no nodes configured in network.nodes)"
     echo ""
-    echo "Federation is disabled - Mayor will run on any machine."
+    echo "Federation is disabled - Mag will run on any machine."
   fi
 
-  # Show should-run-mayor status
+  # Show should-run-mag status
   echo ""
-  if federation_should_run_mayor 2>/dev/null; then
-    echo "Mayor permission: ALLOWED (this node should run Mayor)"
+  if federation_should_run_mag 2>/dev/null; then
+    echo "Mag permission: ALLOWED (this node should run Mag)"
   else
-    echo "Mayor permission: BLOCKED (defer to leader)"
+    echo "Mag permission: BLOCKED (defer to leader)"
   fi
 }

@@ -2,28 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  pai-lite Mayor keepalive agent
+  ludics Mag keepalive agent
 
-  Ensures the Mayor tmux session is running:
+  Ensures Mag tmux session is running:
   - Starts on login (RunAtLoad)
   - Checks every 15 minutes (StartInterval)
   - Idempotent: exits early if already running
 
   Installation:
     1. Copy to ~/Library/LaunchAgents/
-    2. Edit the path to pai-lite
-    3. Run: launchctl load ~/Library/LaunchAgents/pai-lite-mayor.plist
+    2. Edit the path to ludics
+    3. Run: launchctl load ~/Library/LaunchAgents/ludics-mag.plist
 
-  Or use: pai-lite triggers install
+  Or use: ludics triggers install
 -->
 <dict>
   <key>Label</key>
-  <string>com.pai-lite.mayor</string>
+  <string>com.ludics.mag</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>/path/to/pai-lite</string>
-    <string>mayor</string>
+    <string>/path/to/ludics</string>
+    <string>mag</string>
     <string>start</string>
   </array>
 
@@ -32,7 +32,7 @@
   <true/>
 
   <!-- Check every 15 minutes (900 seconds) -->
-  <!-- Idempotent: pai-lite mayor start exits early if session exists -->
+  <!-- Idempotent: ludics mag start exits early if session exists -->
   <key>StartInterval</key>
   <integer>900</integer>
 
@@ -45,8 +45,8 @@
 
   <!-- Logging -->
   <key>StandardOutPath</key>
-  <string>/tmp/pai-lite-mayor.out.log</string>
+  <string>/tmp/ludics-mag.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/pai-lite-mayor.err.log</string>
+  <string>/tmp/ludics-mag.err.log</string>
 </dict>
 </plist>

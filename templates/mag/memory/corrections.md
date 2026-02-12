@@ -1,8 +1,8 @@
 # Corrections Log
 
-This file records corrections and learnings from user feedback. The Mayor updates this file when `/pai-learn` is invoked.
+This file records corrections and learnings from user feedback. The Mag updates this file when `/ludics-learn` is invoked.
 
-Entries are periodically consolidated into structured memory files via `/pai-sync-learnings`.
+Entries are periodically consolidated into structured memory files via `/ludics-sync-learnings`.
 
 ---
 

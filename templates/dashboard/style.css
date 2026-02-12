@@ -1,4 +1,4 @@
-/* pai-lite Dashboard Styles */
+/* ludics Dashboard Styles */
 
 :root {
     --bg-primary: #1a1a2e;
@@ -289,23 +289,23 @@ main {
     font-size: 0.875rem;
 }
 
-/* Mayor Status */
-.mayor-status #mayor-info p {
+/* Mag Status */
+.mag-status #mag-info p {
     font-size: 0.875rem;
     margin-bottom: 0.5rem;
 }
 
-.mayor-links {
+.mag-links {
     margin-top: 0.75rem;
 }
 
-.mayor-links a {
+.mag-links a {
     font-size: 0.875rem;
     color: var(--accent);
     text-decoration: none;
 }
 
-.mayor-links a:hover {
+.mag-links a:hover {
     text-decoration: underline;
 }
 

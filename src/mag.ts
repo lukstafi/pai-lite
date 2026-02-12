@@ -1,30 +1,30 @@
-// Mayor session management — start/stop/status/attach/logs/doctor/briefing/queue
+// Mag session management — start/stop/status/attach/logs/doctor/briefing/queue
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from "fs";
 import { join } from "path";
 import { harnessDir, loadConfigSync } from "./config.ts";
 import { queueRequest, queuePop, queuePending } from "./queue.ts";
 import { getUrl } from "./network.ts";
-import { federationShouldRunMayor } from "./federation.ts";
+import { federationShouldRunMag } from "./federation.ts";
 import { journalAppend } from "./journal.ts";
 
-const MAYOR_SESSION_NAME = process.env.PAI_LITE_MAYOR_SESSION ?? "pai-mayor";
-const MAYOR_DEFAULT_PORT = process.env.PAI_LITE_MAYOR_PORT ?? "7679";
+const MAG_SESSION_NAME = process.env.LUDICS_MAG_SESSION ?? "ludics-mag";
+const MAG_DEFAULT_PORT = process.env.LUDICS_MAG_PORT ?? "7679";
 
-function mayorStateDir(): string {
-  return join(harnessDir(), "mayor");
+function magStateDir(): string {
+  return join(harnessDir(), "mag");
 }
 
-function mayorStateFile(): string {
-  return join(mayorStateDir(), "session.state");
+function magStateFile(): string {
+  return join(magStateDir(), "session.state");
 }
 
-function mayorStatusFile(): string {
-  return join(mayorStateDir(), "session.status");
+function magStatusFile(): string {
+  return join(magStateDir(), "session.status");
 }
 
-function mayorIsRunning(): boolean {
-  const result = Bun.spawnSync(["tmux", "has-session", "-t", MAYOR_SESSION_NAME], {
+function magIsRunning(): boolean {
+  const result = Bun.spawnSync(["tmux", "has-session", "-t", MAG_SESSION_NAME], {
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -44,28 +44,28 @@ function triggerSkill(session: string, cmd: string): void {
   });
 }
 
-function mayorSignal(status: string, message: string = ""): void {
-  const dir = mayorStateDir();
+function magSignal(status: string, message: string = ""): void {
+  const dir = magStateDir();
   mkdirSync(dir, { recursive: true });
   const epoch = Math.floor(Date.now() / 1000);
-  writeFileSync(mayorStatusFile(), `${status}|${epoch}|${message}\n`);
+  writeFileSync(magStatusFile(), `${status}|${epoch}|${message}\n`);
 }
 
 function getTtydPort(): string {
   const config = loadConfigSync();
-  const mayor = config.mayor as Record<string, unknown> | undefined;
-  return String(mayor?.ttyd_port ?? MAYOR_DEFAULT_PORT);
+  const mag =config.mag as Record<string, unknown> | undefined;
+  return String(mag?.ttyd_port ?? MAG_DEFAULT_PORT);
 }
 
 function ensureTtyd(): void {
   const hasTtyd = Bun.spawnSync(["which", "ttyd"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
   if (!hasTtyd) {
-    console.error("pai-lite: ttyd not installed; skipping web access");
+    console.error("ludics: ttyd not installed; skipping web access");
     return;
   }
 
   // Check if already running
-  const pgrep = Bun.spawnSync(["pgrep", "-f", `ttyd.*${MAYOR_SESSION_NAME}`], {
+  const pgrep = Bun.spawnSync(["pgrep", "-f", `ttyd.*${MAG_SESSION_NAME}`], {
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -75,17 +75,17 @@ function ensureTtyd(): void {
   const ttydBin = Bun.spawnSync(["which", "ttyd"], { stdout: "pipe", stderr: "pipe" })
     .stdout.toString().trim();
 
-  console.error(`pai-lite: Starting ttyd on port ${port}...`);
+  console.error(`ludics: Starting ttyd on port ${port}...`);
 
   const logDir = existsSync(join(process.env.HOME!, "Library/Logs"))
     ? join(process.env.HOME!, "Library/Logs")
     : "/tmp";
-  const logFile = join(logDir, "pai-lite-ttyd.log");
+  const logFile = join(logDir, "ludics-ttyd.log");
 
   Bun.spawnSync(
     [
-      "tmux", "run-shell", "-b", "-t", MAYOR_SESSION_NAME,
-      `${ttydBin} -W -p ${port} tmux attach -t ${MAYOR_SESSION_NAME} >>${logFile} 2>&1`,
+      "tmux", "run-shell", "-b", "-t", MAG_SESSION_NAME,
+      `${ttydBin} -W -p ${port} tmux attach -t ${MAG_SESSION_NAME} >>${logFile} 2>&1`,
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -96,7 +96,7 @@ function ensureTtyd(): void {
 // --- Queue pop for skills ---
 
 function queuePopSkill(): string | null {
-  const queueFile = join(harnessDir(), "mayor", "queue.jsonl");
+  const queueFile = join(harnessDir(), "mag", "queue.jsonl");
   if (!existsSync(queueFile)) return null;
 
   const content = readFileSync(queueFile, "utf-8").trim();
@@ -113,7 +113,7 @@ function queuePopSkill(): string | null {
     action = String(request.action ?? "");
     requestId = String(request.id ?? "");
   } catch {
-    console.error("pai-lite: mayor queue-pop: invalid request in queue");
+    console.error("ludics: mag queue-pop: invalid request in queue");
     return null;
   }
 
@@ -126,29 +126,29 @@ function queuePopSkill(): string | null {
   switch (action) {
     case "briefing":
       briefingPrecomputeContext();
-      return "/pai-briefing";
+      return "/ludics-briefing";
     case "suggest":
-      return "/pai-suggest";
+      return "/ludics-suggest";
     case "analyze-issue": {
       const issue = String(request.issue ?? "");
-      return `/pai-analyze-issue ${issue}`;
+      return `/ludics-analyze-issue ${issue}`;
     }
     case "elaborate": {
       const task = String(request.task ?? "");
-      return `/pai-elaborate ${task}`;
+      return `/ludics-elaborate ${task}`;
     }
     case "health-check":
-      return "/pai-health-check";
+      return "/ludics-health-check";
     case "learn":
-      return "/pai-learn";
+      return "/ludics-learn";
     case "sync-learnings":
-      return "/pai-sync-learnings";
+      return "/ludics-sync-learnings";
     case "techdebt":
-      return "/pai-techdebt";
+      return "/ludics-techdebt";
     case "message":
-      return "/pai-read-inbox";
+      return "/ludics-read-inbox";
     default:
-      console.error(`pai-lite: mayor queue-pop: unknown action: ${action}`);
+      console.error(`ludics: mag queue-pop: unknown action: ${action}`);
       return null;
   }
 }
@@ -157,8 +157,8 @@ function queuePopSkill(): string | null {
 
 function briefingPrecomputeContext(): void {
   const harness = harnessDir();
-  const contextFile = join(harness, "mayor", "briefing-context.md");
-  mkdirSync(join(harness, "mayor"), { recursive: true });
+  const contextFile = join(harness, "mag", "briefing-context.md");
+  mkdirSync(join(harness, "mag"), { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
@@ -254,12 +254,12 @@ ${journalOutput}
 
   writeFileSync(contextFile + ".tmp", contextContent);
   renameSync(contextFile + ".tmp", contextFile);
-  console.error(`pai-lite: briefing context written to ${contextFile}`);
+  console.error(`ludics: briefing context written to ${contextFile}`);
 }
 
-// --- Mayor CLI commands ---
+// --- Mag CLI commands ---
 
-export function mayorStart(args: string[]): void {
+export function magStart(args: string[]): void {
   let useTtyd = true;
   let skipFederation = false;
 
@@ -269,31 +269,31 @@ export function mayorStart(args: string[]): void {
   }
 
   const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mayor start: tmux is required but not installed");
+  if (!hasTmux) throw new Error("mag start: tmux is required but not installed");
 
   // Check federation
   if (!skipFederation) {
-    if (!federationShouldRunMayor()) {
-      console.error("pai-lite: Mayor blocked: not the federation leader");
-      console.log("To override, use: pai-lite mayor start --skip-federation");
+    if (!federationShouldRunMag()) {
+      console.error("ludics: Mag blocked: not the federation leader");
+      console.log("To override, use: ludics mag start --skip-federation");
       return;
     }
   }
 
   // Session already exists - keepalive path
-  if (mayorIsRunning()) {
+  if (magIsRunning()) {
     if (useTtyd) ensureTtyd();
 
     // Nudge if queue has items
     if (queuePending()) {
       const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      triggerSkill(MAYOR_SESSION_NAME, `Continue. (pai-lite automatic message, current time: ${now})`);
+      triggerSkill(MAG_SESSION_NAME, `Continue. (ludics automatic message, current time: ${now})`);
     }
     return;
   }
 
   // Create state directory
-  const stateDir = mayorStateDir();
+  const stateDir = magStateDir();
   mkdirSync(stateDir, { recursive: true });
   mkdirSync(join(stateDir, "memory"), { recursive: true });
   mkdirSync(join(stateDir, "memory", "projects"), { recursive: true });
@@ -302,30 +302,30 @@ export function mayorStart(args: string[]): void {
 
   // Write state file
   const started = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  writeFileSync(mayorStateFile(), `session=${MAYOR_SESSION_NAME}\nstarted=${started}\nworking_dir=${workingDir}\nstatus=starting\n`);
+  writeFileSync(magStateFile(), `session=${MAG_SESSION_NAME}\nstarted=${started}\nworking_dir=${workingDir}\nstatus=starting\n`);
 
   // Create tmux session
-  console.error(`pai-lite: Creating Mayor tmux session '${MAYOR_SESSION_NAME}' in ${workingDir}`);
-  Bun.spawnSync(["tmux", "new-session", "-d", "-s", MAYOR_SESSION_NAME, "-c", workingDir], {
+  console.error(`ludics: Creating Mag tmux session '${MAG_SESSION_NAME}' in ${workingDir}`);
+  Bun.spawnSync(["tmux", "new-session", "-d", "-s", MAG_SESSION_NAME, "-c", workingDir], {
     stdout: "pipe",
     stderr: "pipe",
   });
 
-  mayorSignal("running", "session started");
+  magSignal("running", "session started");
 
   // Start Claude Code
   const hasClaude = Bun.spawnSync(["which", "claude"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
   if (hasClaude) {
     Bun.spawnSync(
-      ["tmux", "send-keys", "-t", MAYOR_SESSION_NAME, "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions", "C-m"],
+      ["tmux", "send-keys", "-t", MAG_SESSION_NAME, "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions", "C-m"],
       { stdout: "pipe", stderr: "pipe" },
     );
-    console.error("pai-lite: Started Claude Code in Mayor session");
+    console.error("ludics: Started Claude Code in Mag session");
   } else {
-    console.error("pai-lite: claude CLI not found; session started without Claude Code");
+    console.error("ludics: claude CLI not found; session started without Claude Code");
   }
 
-  console.log(`Mayor session started. Attach with: tmux attach -t ${MAYOR_SESSION_NAME}`);
+  console.log(`Mag session started. Attach with: tmux attach -t ${MAG_SESSION_NAME}`);
 
   if (useTtyd) ensureTtyd();
 
@@ -333,70 +333,70 @@ export function mayorStart(args: string[]): void {
   const skillCmd = queuePopSkill();
   if (skillCmd) {
     Bun.spawnSync(["sleep", "5"], { stdout: "pipe", stderr: "pipe" });
-    console.error(`pai-lite: Mayor fresh start, sending queued request: ${skillCmd}`);
-    triggerSkill(MAYOR_SESSION_NAME, skillCmd);
+    console.error(`ludics: Mag fresh start, sending queued request: ${skillCmd}`);
+    triggerSkill(MAG_SESSION_NAME, skillCmd);
   }
 }
 
-export function mayorStop(): void {
+export function magStop(): void {
   const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mayor stop: tmux is not available");
+  if (!hasTmux) throw new Error("mag stop: tmux is not available");
 
-  if (!mayorIsRunning()) {
-    console.error(`pai-lite: Mayor session '${MAYOR_SESSION_NAME}' is not running`);
+  if (!magIsRunning()) {
+    console.error(`ludics: Mag session '${MAG_SESSION_NAME}' is not running`);
     return;
   }
 
-  mayorSignal("stopped", "session stopped by user");
+  magSignal("stopped", "session stopped by user");
 
   // Kill ttyd
-  const pgrep = Bun.spawnSync(["pgrep", "-f", `ttyd.*${MAYOR_SESSION_NAME}`], {
+  const pgrep = Bun.spawnSync(["pgrep", "-f", `ttyd.*${MAG_SESSION_NAME}`], {
     stdout: "pipe",
     stderr: "pipe",
   });
   if (pgrep.exitCode === 0) {
     const pids = pgrep.stdout.toString().trim();
     if (pids) {
-      console.error("pai-lite: Stopping ttyd process(es)...");
+      console.error("ludics: Stopping ttyd process(es)...");
       Bun.spawnSync(["kill", ...pids.split("\n")], { stdout: "pipe", stderr: "pipe" });
     }
   }
 
-  console.error(`pai-lite: Stopping Mayor tmux session '${MAYOR_SESSION_NAME}'...`);
-  Bun.spawnSync(["tmux", "kill-session", "-t", MAYOR_SESSION_NAME], {
+  console.error(`ludics: Stopping Mag tmux session '${MAG_SESSION_NAME}'...`);
+  Bun.spawnSync(["tmux", "kill-session", "-t", MAG_SESSION_NAME], {
     stdout: "pipe",
     stderr: "pipe",
   });
 
   // Append stopped timestamp
-  const stateFile = mayorStateFile();
+  const stateFile = magStateFile();
   if (existsSync(stateFile)) {
     const stopped = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
     const content = readFileSync(stateFile, "utf-8");
     writeFileSync(stateFile, content + `stopped=${stopped}\n`);
   }
 
-  console.log("Mayor session stopped.");
+  console.log("Mag session stopped.");
 }
 
-export function mayorStatusCmd(): void {
-  const stateFile = mayorStateFile();
-  const statusFile = mayorStatusFile();
+export function magStatusCmd(): void {
+  const stateFile = magStateFile();
+  const statusFile = magStatusFile();
 
-  console.log("=== Mayor Status ===");
+  console.log("=== Mag Status ===");
   console.log("");
 
-  if (mayorIsRunning()) {
-    console.log(`Session: ${MAYOR_SESSION_NAME} (running)`);
+  if (magIsRunning()) {
+    console.log(`Session: ${MAG_SESSION_NAME} (running)`);
   } else {
-    console.log(`Session: ${MAYOR_SESSION_NAME} (not running)`);
+    console.log(`Session: ${MAG_SESSION_NAME} (not running)`);
     if (existsSync(stateFile)) {
       const content = readFileSync(stateFile, "utf-8");
       const stoppedMatch = content.match(/^stopped=(.+)$/m);
       if (stoppedMatch) console.log(`Last stopped: ${stoppedMatch[1]}`);
     }
     console.log("");
-    console.log("Start with: pai-lite mayor start");
+    console.log("Start with: ludics mag start");
     return;
   }
 
@@ -433,7 +433,7 @@ export function mayorStatusCmd(): void {
 
   // Queue status
   console.log("");
-  const queueFile = join(harnessDir(), "mayor", "queue.jsonl");
+  const queueFile = join(harnessDir(), "mag", "queue.jsonl");
   if (existsSync(queueFile)) {
     const content = readFileSync(queueFile, "utf-8").trim();
     const pending = content ? content.split("\n").length : 0;
@@ -444,7 +444,7 @@ export function mayorStatusCmd(): void {
 
   // Memory status
   console.log("");
-  const memDir = join(mayorStateDir(), "memory");
+  const memDir = join(magStateDir(), "memory");
   if (existsSync(memDir)) {
     console.log("Memory:");
     if (existsSync(join(memDir, "corrections.md"))) {
@@ -463,27 +463,27 @@ export function mayorStatusCmd(): void {
   }
 
   // Context file
-  if (existsSync(join(mayorStateDir(), "context.md"))) {
+  if (existsSync(join(magStateDir(), "context.md"))) {
     console.log("");
     console.log("Context file: present");
   }
 }
 
-export function mayorAttach(): void {
-  if (!mayorIsRunning()) {
-    throw new Error(`Mayor session '${MAYOR_SESSION_NAME}' is not running. Start with: pai-lite mayor start`);
+export function magAttach(): void {
+  if (!magIsRunning()) {
+    throw new Error(`Mag session '${MAG_SESSION_NAME}' is not running. Start with: ludics mag start`);
   }
   // exec replaces the process - use Bun.spawnSync with inherit
-  Bun.spawnSync(["tmux", "attach", "-t", MAYOR_SESSION_NAME], { stdio: ["inherit", "inherit", "inherit"] });
+  Bun.spawnSync(["tmux", "attach", "-t", MAG_SESSION_NAME], { stdio: ["inherit", "inherit", "inherit"] });
 }
 
-export function mayorLogs(lines: number = 100): void {
+export function magLogs(lines: number = 100): void {
   const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mayor logs: tmux is not available");
+  if (!hasTmux) throw new Error("mag logs: tmux is not available");
 
-  if (!mayorIsRunning()) {
-    console.error(`pai-lite: Mayor session '${MAYOR_SESSION_NAME}' is not running`);
-    const resultsDir = join(harnessDir(), "mayor", "results");
+  if (!magIsRunning()) {
+    console.error(`ludics: Mag session '${MAG_SESSION_NAME}' is not running`);
+    const resultsDir = join(harnessDir(), "mag", "results");
     if (existsSync(resultsDir)) {
       console.log("Recent results:");
       const files = readdirSync(resultsDir)
@@ -500,10 +500,10 @@ export function mayorLogs(lines: number = 100): void {
     return;
   }
 
-  console.log(`=== Mayor Session Logs (last ${lines} lines) ===`);
+  console.log(`=== Mag Session Logs (last ${lines} lines) ===`);
   console.log("");
   const result = Bun.spawnSync(
-    ["tmux", "capture-pane", "-t", MAYOR_SESSION_NAME, "-p", "-S", `-${lines}`],
+    ["tmux", "capture-pane", "-t", MAG_SESSION_NAME, "-p", "-S", `-${lines}`],
     { stdout: "pipe", stderr: "pipe" },
   );
   if (result.exitCode === 0) {
@@ -511,10 +511,10 @@ export function mayorLogs(lines: number = 100): void {
   }
 }
 
-export function mayorDoctor(): void {
+export function magDoctor(): void {
   let allOk = true;
 
-  console.log("=== Mayor Health Check ===");
+  console.log("=== Mag Health Check ===");
   console.log("");
 
   // tmux
@@ -559,20 +559,20 @@ export function mayorDoctor(): void {
 
   console.log("");
 
-  if (mayorIsRunning()) {
-    console.log("Mayor session: running");
+  if (magIsRunning()) {
+    console.log("Mag session: running");
   } else {
-    console.log("Mayor session: not running");
+    console.log("Mag session: not running");
   }
 
-  const stateDir = mayorStateDir();
+  const stateDir = magStateDir();
   if (existsSync(stateDir)) {
     console.log(`State directory: ${stateDir}`);
   } else {
     console.log(`State directory: ${stateDir} (not created yet)`);
   }
 
-  const queueFile = join(harnessDir(), "mayor", "queue.jsonl");
+  const queueFile = join(harnessDir(), "mag", "queue.jsonl");
   if (existsSync(queueFile)) {
     const content = readFileSync(queueFile, "utf-8").trim();
     const pending = content ? content.split("\n").length : 0;
@@ -583,12 +583,12 @@ export function mayorDoctor(): void {
 
   console.log("");
   console.log("Stop hook locations to check:");
-  console.log("  - ~/.claude/hooks/pai-lite-on-stop.sh");
-  console.log("  - ~/.config/claude-code/hooks/pai-lite-on-stop.sh");
+  console.log("  - ~/.claude/hooks/ludics-on-stop.sh");
+  console.log("  - ~/.config/claude-code/hooks/ludics-on-stop.sh");
 
   const hookLocations = [
-    join(process.env.HOME!, ".claude/hooks/pai-lite-on-stop.sh"),
-    join(process.env.HOME!, ".config/claude-code/hooks/pai-lite-on-stop.sh"),
+    join(process.env.HOME!, ".claude/hooks/ludics-on-stop.sh"),
+    join(process.env.HOME!, ".config/claude-code/hooks/ludics-on-stop.sh"),
   ];
   let hookFound = false;
   for (const loc of hookLocations) {
@@ -599,7 +599,7 @@ export function mayorDoctor(): void {
     }
   }
   if (!hookFound) {
-    console.log("  Not found - install with: pai-lite init --hooks");
+    console.log("  Not found - install with: ludics init --hooks");
     allOk = false;
   }
 
@@ -612,25 +612,25 @@ export function mayorDoctor(): void {
   }
 }
 
-export function mayorBriefing(wait: boolean = true, timeout: number = 300): void {
+export function magBriefing(wait: boolean = true, timeout: number = 300): void {
   const requestId = queueRequest("briefing");
   console.log(`Queued briefing request: ${requestId}`);
 
   if (!wait) {
-    console.log("Mayor will process when ready");
+    console.log("Mag will process when ready");
     return;
   }
 
-  if (!mayorIsRunning()) {
-    console.error("pai-lite: Mayor session is not running. Start with: pai-lite mayor start");
-    console.error("pai-lite: Or process manually: the request is queued");
+  if (!magIsRunning()) {
+    console.error("ludics: Mag session is not running. Start with: ludics mag start");
+    console.error("ludics: Or process manually: the request is queued");
     return;
   }
 
-  console.log(`Waiting for Mayor to process (timeout: ${timeout}s)...`);
+  console.log(`Waiting for Mag to process (timeout: ${timeout}s)...`);
 
   // Wait for result
-  const resultsDir = join(harnessDir(), "mayor", "results");
+  const resultsDir = join(harnessDir(), "mag", "results");
   const resultFile = join(resultsDir, `${requestId}.json`);
   const deadline = Date.now() + timeout * 1000;
 
@@ -650,26 +650,26 @@ export function mayorBriefing(wait: boolean = true, timeout: number = 300): void
     Bun.sleepSync(2000);
   }
 
-  console.error("pai-lite: Timeout waiting for briefing result");
+  console.error("ludics: Timeout waiting for briefing result");
 }
 
-function mayorMessage(text: string): void {
-  const inboxFile = join(harnessDir(), "mayor", "inbox.md");
-  mkdirSync(join(harnessDir(), "mayor"), { recursive: true });
+function magMessage(text: string): void {
+  const inboxFile = join(harnessDir(), "mag", "inbox.md");
+  mkdirSync(join(harnessDir(), "mag"), { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
   const entry = `\n## Message - ${timestamp}\n\n${text}\n`;
 
-  const existing = existsSync(inboxFile) ? readFileSync(inboxFile, "utf-8") : "# Mayor Inbox\n";
+  const existing = existsSync(inboxFile) ? readFileSync(inboxFile, "utf-8") : "# Mag Inbox\n";
   writeFileSync(inboxFile, existing + entry);
 
   // Queue a message action
   queueRequest("message");
-  console.log("Message sent to Mayor inbox");
+  console.log("Message sent to Mag inbox");
 }
 
-function mayorInbox(): void {
-  const inboxFile = join(harnessDir(), "mayor", "inbox.md");
+function magInbox(): void {
+  const inboxFile = join(harnessDir(), "mag", "inbox.md");
   if (!existsSync(inboxFile)) {
     console.log("No pending messages");
     return;
@@ -677,36 +677,36 @@ function mayorInbox(): void {
   console.log(readFileSync(inboxFile, "utf-8"));
 }
 
-function mayorContext(): void {
+function magContext(): void {
   briefingPrecomputeContext();
 }
 
-export async function runMayor(args: string[]): Promise<void> {
+export async function runMag(args: string[]): Promise<void> {
   const sub = args[0] ?? "";
 
   switch (sub) {
     case "start":
-      mayorStart(args.slice(1));
+      magStart(args.slice(1));
       break;
     case "stop":
-      mayorStop();
+      magStop();
       break;
     case "status":
-      mayorStatusCmd();
+      magStatusCmd();
       break;
     case "attach":
-      mayorAttach();
+      magAttach();
       break;
     case "logs": {
       const lines = args[1] ? parseInt(args[1], 10) : 100;
-      mayorLogs(lines);
+      magLogs(lines);
       break;
     }
     case "doctor":
-      mayorDoctor();
+      magDoctor();
       break;
     case "briefing":
-      mayorBriefing();
+      magBriefing();
       break;
     case "suggest":
       queueRequest("suggest");
@@ -733,11 +733,11 @@ export async function runMayor(args: string[]): Promise<void> {
     case "message": {
       const text = args.slice(1).join(" ");
       if (!text) throw new Error("message text required");
-      mayorMessage(text);
+      magMessage(text);
       break;
     }
     case "inbox":
-      mayorInbox();
+      magInbox();
       break;
     case "queue":
       // Reuse the existing queueShow
@@ -745,7 +745,7 @@ export async function runMayor(args: string[]): Promise<void> {
       queueShow();
       break;
     case "context":
-      mayorContext();
+      magContext();
       break;
     case "queue-pop": {
       // Called by the stop hook to check if there's a queued skill to run
@@ -753,7 +753,7 @@ export async function runMayor(args: string[]): Promise<void> {
       if (cwd) {
         const harness = harnessDir();
         if (!cwd.startsWith(harness)) {
-          // Not the Mayor session — silently exit
+          // Not Mag session — silently exit
           break;
         }
       }
@@ -764,6 +764,6 @@ export async function runMayor(args: string[]): Promise<void> {
       break;
     }
     default:
-      throw new Error(`unknown mayor command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context)`);
+      throw new Error(`unknown mag command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context)`);
   }
 }

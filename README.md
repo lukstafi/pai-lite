@@ -20,16 +20,16 @@ Inspired by Daniel Miessler's Personal AI Infrastructure, by Steve Yegge's Gas T
 curl -fsSL https://bun.sh/install | bash
 
 # 2. Clone and build
-gh repo clone lukstafi/pai-lite
-cd pai-lite
+gh repo clone lukstafi/ludics
+cd ludics
 bun install
-bun run build    # compiles bin/pai-lite
+bun run build    # compiles bin/ludics
 
 # 3. Add to PATH (if not already)
 export PATH="$PATH:$(pwd)/bin"
 ```
 
-> **Note:** `pai-lite init` (automated setup of state repo, hooks, skills, and triggers)
+> **Note:** `ludics init` (automated setup of state repo, hooks, skills, and triggers)
 > is not yet migrated to TypeScript. For now, set up your state repo manually and run
 > migrated commands directly. See the Configuration section below.
 
@@ -42,10 +42,10 @@ export PATH="$PATH:$(pwd)/bin"
 curl -fsSL https://bun.sh/install | bash
 ```
 
-Then build the pai-lite binary:
+Then build the ludics binary:
 
 ```bash
-cd pai-lite
+cd ludics
 bun install
 bun run build
 ```
@@ -63,19 +63,19 @@ sudo apt install jq tmux
 - `bun` — TypeScript runtime and build tool (required)
 - `gh` — GitHub CLI (for cloning state repo and fetching issues)
 - `jq` — JSON filtering (used by some adapters and triggers)
-- `tmux` — terminal multiplexer (Mayor runs in a tmux session)
-- `ttyd` — optional, for web access to Mayor's terminal
+- `tmux` — terminal multiplexer (Mag runs in a tmux session)
+- `ttyd` — optional, for web access to Mag's terminal
 
 ## Quickstart Tutorial
 
-This tutorial walks through setting up pai-lite and using it to manage your work.
+This tutorial walks through setting up ludics and using it to manage your work.
 
 ### Step 1: Configure your state repository
 
-pai-lite stores state (slots, tasks) in a separate private repository. Edit the pointer config:
+ludics stores state (slots, tasks) in a separate private repository. Edit the pointer config:
 
 ```bash
-${EDITOR:-vi} ~/.config/pai-lite/config.yaml
+${EDITOR:-vi} ~/.config/ludics/config.yaml
 ```
 
 Set your state repo:
@@ -87,7 +87,7 @@ state_path: harness
 
 ### Step 2: Configure your projects
 
-The full configuration lives in your state repo at `harness/config.yaml`. Create it manually (or use `pai-lite init` once it's migrated):
+The full configuration lives in your state repo at `harness/config.yaml`. Create it manually (or use `ludics init` once it's migrated):
 
 ```bash
 ${EDITOR:-vi} ~/your-private-repo/harness/config.yaml
@@ -115,42 +115,42 @@ triggers:
 ### Step 3: Sync tasks from your projects
 
 ```bash
-pai-lite tasks sync
+ludics tasks sync
 ```
 
 This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, then automatically converts them to individual `.md` task files in `harness/tasks/` with YAML frontmatter for priority, dependencies, status, etc. The flow engine reads these task files.
 
 ### Step 4: Verify triggers
 
-Triggers automate Mayor startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mayor is enabled in your config, a keepalive trigger also starts the Mayor at login and checks every 15 minutes. Install them with:
+Triggers automate Mag startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mag is enabled in your config, a keepalive trigger also starts Mag at login and checks every 15 minutes. Install them with:
 
 Verify with:
 
 ```bash
-pai-lite triggers status
+ludics triggers status
 ```
 
 To reinstall or update triggers separately:
 
 ```bash
-pai-lite triggers install
+ludics triggers install
 ```
 
 ### Step 5: Get an overview
 
 ```bash
 # Quick status
-pai-lite status
+ludics status
 
 # Full briefing
-pai-lite briefing
+ludics briefing
 ```
 
 ## Configuration
 
-pai-lite uses a two-tier config:
+ludics uses a two-tier config:
 
-1. **Pointer config** (`~/.config/pai-lite/config.yaml`): minimal, just points to state repo:
+1. **Pointer config** (`~/.config/ludics/config.yaml`): minimal, just points to state repo:
    ```yaml
    state_repo: your-username/your-private-repo
    state_path: harness   # optional, defaults to "harness"
@@ -170,7 +170,7 @@ projects:
     repo: your-username/my-app
     issues: true
 
-mayor:
+mag:
   enabled: true
 
 adapters:
@@ -184,7 +184,7 @@ adapters:
 triggers:
   startup:
     enabled: true
-    action: mayor briefing
+    action: mag briefing
   sync:
     enabled: true
     interval: 3600
@@ -197,7 +197,7 @@ triggers:
 notifications:
   provider: ntfy
   topics:
-    pai: your-username-pai        # Strategic (Mayor)
+    pai: your-username-pai        # Strategic (Mag)
     agents: your-username-agents  # Operational (workers)
     public: your-username-public  # Public broadcasts
 ```
@@ -207,70 +207,70 @@ notifications:
 ### Task management
 
 ```bash
-pai-lite tasks sync              # Aggregate tasks and convert to task files
-pai-lite tasks list              # Show unified task list
-pai-lite tasks show <id>         # Show task details
-pai-lite tasks convert           # Convert tasks.yaml to task files (also run by sync)
-pai-lite tasks create <title>    # Create a new task manually
-pai-lite tasks files             # List individual task files
+ludics tasks sync              # Aggregate tasks and convert to task files
+ludics tasks list              # Show unified task list
+ludics tasks show <id>         # Show task details
+ludics tasks convert           # Convert tasks.yaml to task files (also run by sync)
+ludics tasks create <title>    # Create a new task manually
+ludics tasks files             # List individual task files
 ```
 
 ### Flow engine
 
 ```bash
-pai-lite flow ready              # Priority-sorted ready tasks
-pai-lite flow blocked            # What's blocked and why
-pai-lite flow critical           # Deadlines + stalled + high-priority
-pai-lite flow impact <id>        # What this task unblocks
-pai-lite flow context            # Context distribution across slots
-pai-lite flow check-cycle        # Check for dependency cycles
+ludics flow ready              # Priority-sorted ready tasks
+ludics flow blocked            # What's blocked and why
+ludics flow critical           # Deadlines + stalled + high-priority
+ludics flow impact <id>        # What this task unblocks
+ludics flow context            # Context distribution across slots
+ludics flow check-cycle        # Check for dependency cycles
 ```
 
 ### Slot management
 
 ```bash
-pai-lite slots                   # Show all slots
-pai-lite slot <n>                # Show slot n details
-pai-lite slot <n> assign <task>  # Assign a task to slot n
-pai-lite slot <n> clear          # Clear slot n
-pai-lite slot <n> start          # Start agent session (adapter)
-pai-lite slot <n> stop           # Stop agent session (adapter)
-pai-lite slot <n> note "text"    # Add runtime note to slot n
+ludics slots                   # Show all slots
+ludics slot <n>                # Show slot n details
+ludics slot <n> assign <task>  # Assign a task to slot n
+ludics slot <n> clear          # Clear slot n
+ludics slot <n> start          # Start agent session (adapter)
+ludics slot <n> stop           # Stop agent session (adapter)
+ludics slot <n> note "text"    # Add runtime note to slot n
 ```
 
 ### Notifications
 
 ```bash
-pai-lite notify pai <msg>        # Send strategic notification
-pai-lite notify agents <msg>     # Send operational notification
-pai-lite notify public <msg>     # Send public broadcast
-pai-lite notify recent [n]       # Show recent notifications
+ludics notify pai <msg>        # Send strategic notification
+ludics notify agents <msg>     # Send operational notification
+ludics notify public <msg>     # Send public broadcast
+ludics notify recent [n]       # Show recent notifications
 ```
 
-### Mayor (autonomous coordinator)
+### Mag (autonomous coordinator)
 
 ```bash
-pai-lite mayor briefing          # Request morning briefing
-pai-lite mayor suggest           # Get task suggestions
-pai-lite mayor analyze <issue>   # Analyze GitHub issue
-pai-lite mayor elaborate <id>    # Elaborate task into detailed spec
-pai-lite mayor health-check      # Check for stalled work, deadlines
-pai-lite mayor queue             # Show pending requests
+ludics mag briefing          # Request morning briefing
+ludics mag suggest           # Get task suggestions
+ludics mag analyze <issue>   # Analyze GitHub issue
+ludics mag elaborate <id>    # Elaborate task into detailed spec
+ludics mag health-check      # Check for stalled work, deadlines
+ludics mag queue             # Show pending requests
 ```
 
 ### Using skills directly
 
-You don't need Mayor to use pai-lite skills. Clone your harness repository and run Claude Code in the harness directory — skills like `pai-briefing`, `pai-elaborate`, and others work directly. This is useful for read-only tasks (checking status, getting briefings) or when you need something done immediately without waiting for the Mayor queue.
+You don't need Mag to use ludics skills. Clone your harness repository and run Claude Code in the harness directory — skills like `ludics-briefing`, `ludics-elaborate`, and others work directly. This is useful for read-only tasks (checking status, getting briefings) or when you need something done immediately without waiting for Mag queue.
 
 ### Overview and setup
 
 ```bash
-pai-lite status                  # Overview of slots + tasks
-pai-lite briefing                # Morning briefing
-pai-lite init                    # Full install/update: binary, skills, hooks, triggers
-pai-lite triggers install        # Reinstall launchd/systemd triggers only
-pai-lite doctor                  # Check environment and dependencies
-pai-lite help                    # Show help
+ludics status                  # Overview of slots + tasks
+ludics briefing                # Morning briefing
+ludics init                    # Full install/update: binary, skills, hooks, triggers
+ludics triggers install        # Reinstall launchd/systemd triggers only
+ludics doctor                  # Check environment and dependencies
+ludics help                    # Show help
 ```
 
 ## Adapters
@@ -291,40 +291,40 @@ Adapters are thin integrations that translate external state into slot format:
 
 Triggers automate periodic actions:
 
-- **macOS**: launchd agents for `startup`, `sync`, and Mayor keepalive
+- **macOS**: launchd agents for `startup`, `sync`, and Mag keepalive
 - **Linux (Ubuntu)**: systemd user units and timers
 
-If `mayor.enabled` is `true` in your config, `triggers install` also creates a Mayor keepalive service that starts the Mayor at login and checks every 15 minutes.
+If `mag.enabled` is `true` in your config, `triggers install` also creates a Mag keepalive service that starts Mag at login and checks every 15 minutes.
 
-Configure in `config.yaml` under `triggers:` and `mayor:`. Then run:
+Configure in `config.yaml` under `triggers:` and `mag:`. Then run:
 
 ```bash
-pai-lite triggers install
+ludics triggers install
 ```
 
 ## Multi-machine setup
 
-pai-lite supports running across multiple machines. All state lives in a git repository, so any machine with access can read slots, tasks, and flow views. For coordinating Mayor (so only one instance runs at a time), pai-lite provides federation with Tailscale networking.
+ludics supports running across multiple machines. All state lives in a git repository, so any machine with access can read slots, tasks, and flow views. For coordinating Mag (so only one instance runs at a time), ludics provides federation with Tailscale networking.
 
 ### How it works
 
 - **Git-backed state**: every machine clones the same harness repo. Pull to see the latest state, push to share yours.
 - **Tailscale networking**: optional MagicDNS-based hostname resolution for cross-machine URLs. Configure `network.mode: tailscale` in your harness config.
-- **Seniority-based leader election**: nodes are listed in your config in priority order. The highest-priority node with a fresh heartbeat (< 15 min) becomes the Mayor leader. If the leader goes offline, the next node takes over automatically.
+- **Seniority-based leader election**: nodes are listed in your config in priority order. The highest-priority node with a fresh heartbeat (< 15 min) becomes Mag leader. If the leader goes offline, the next node takes over automatically.
 - **Heartbeats**: each node publishes a heartbeat every 5 minutes to `federation/heartbeats/`. The federation trigger handles this.
 
 ### Typical deployment
 
-An always-on machine (e.g., Mac Mini) runs Mayor 24/7 via launchd, while your laptop pulls state via git and runs worker slots. Any machine can also run pai-lite skills directly by opening Claude Code in the harness directory.
+An always-on machine (e.g., Mac Mini) runs Mag 24/7 via launchd, while your laptop pulls state via git and runs worker slots. Any machine can also run ludics skills directly by opening Claude Code in the harness directory.
 
 ### Federation commands
 
 ```bash
-pai-lite network status              # Show network configuration
-pai-lite federation status           # Show leader, nodes, heartbeats
-pai-lite federation tick             # Publish heartbeat + run election
-pai-lite federation elect            # Run leader election only
-pai-lite federation heartbeat        # Publish heartbeat only
+ludics network status              # Show network configuration
+ludics federation status           # Show leader, nodes, heartbeats
+ludics federation tick             # Publish heartbeat + run election
+ludics federation elect            # Run leader election only
+ludics federation heartbeat        # Publish heartbeat only
 ```
 
 Enable federation in your harness `config.yaml`:
@@ -351,7 +351,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, including:
 
 - Slot model and lifecycle
 - Flow engine design
-- Mayor (autonomous Claude Opus coordinator)
+- Mag (autonomous Claude Opus coordinator)
 - Queue-based communication
 - Notification tiers
 - Multi-machine federation and deployment
@@ -361,7 +361,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, including:
 ```bash
 bun install            # Install dependencies
 bun run typecheck      # Type-check (tsc --noEmit)
-bun run build          # Compile to bin/pai-lite
+bun run build          # Compile to bin/ludics
 bun run dev            # Run directly from source (no compile)
 ```
 

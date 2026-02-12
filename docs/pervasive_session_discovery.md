@@ -4,11 +4,11 @@
 
 ## Motivation
 
-Today, pai-lite adapters are **launchers** — they create tmux sessions, manage state files,
-track PIDs. This means pai-lite only sees sessions it started. Sessions started via VS Code
+Today, ludics adapters are **launchers** — they create tmux sessions, manage state files,
+track PIDs. This means ludics only sees sessions it started. Sessions started via VS Code
 extensions, the Codex App GUI, bare CLI invocations, or other tools are invisible.
 
-The goal: pai-lite should automatically discover and track **all** agentic sessions running
+The goal: ludics should automatically discover and track **all** agentic sessions running
 on the system, regardless of how they were started. The adapter becomes an **observer**.
 
 ## Key Insight: Shared Session Stores
@@ -66,15 +66,15 @@ Similarly, an agent-duo orchestrated Codex session should not produce both an ag
 slot entry and a standalone codex slot entry. When a discovered session matches an
 agent-duo session (same cwd), the agent-duo adapter claims it.
 
-## Mayor's Role: Auto-Categorization
+## Mag's Role: Auto-Categorization
 
 When the session watcher detects a new session that doesn't match any existing slot or
 orchestration context:
 
-1. Mayor is notified (queue message or direct)
-2. Mayor categorizes: project, likely task, appropriate slot
-3. If a slot is available, Mayor assigns the session
-4. If not, Mayor logs it for the briefing
+1. Mag is notified (queue message or direct)
+2. Mag categorizes: project, likely task, appropriate slot
+3. If a slot is available, Mag assigns the session
+4. If not, Mag logs it for the briefing
 
 This replaces the current model where slots must be manually assigned before work begins.
 Sessions that are already part of an agent-duo/solo workflow get assigned to their
@@ -83,7 +83,7 @@ existing slot automatically.
 ## What This Replaces
 
 The current codex.sh adapter's `adapter_codex_start()` creates tmux sessions, writes
-`~/.config/pai-lite/codex/*.state` files, manages PIDs. Most of this becomes unnecessary:
+`~/.config/ludics/codex/*.state` files, manages PIDs. Most of this becomes unnecessary:
 
 - **State files** (`*.state`, `*.status`): replaced by reading `~/.codex/sessions/`
 - **tmux session creation**: still available for dispatch, but not required for tracking
@@ -91,19 +91,19 @@ The current codex.sh adapter's `adapter_codex_start()` creates tmux sessions, wr
 - **`adapter_codex_signal()`**: could be replaced by reading thread completion from
   the session store, but remains useful for agent-duo's explicit status protocol
 
-The `start()` and `stop()` functions remain for Mayor-dispatched work (via
+The `start()` and `stop()` functions remain for Mag-dispatched work (via
 `agent-duo start` etc.), but `read_state()` becomes the primary interface and draws
 from the shared session stores.
 
 ## Task Dispatch: Stays Simple
 
-pai-lite Mayor dispatches tasks via shell commands:
+ludics Mag dispatches tasks via shell commands:
 - `agent-duo start <feature> --auto-run`
 - `agent-solo start <feature> --auto-run`
 - Or just `codex` / `claude` in a tmux session
 
 No app-server protocol, no SDK integration. The dispatch tools (agent-duo, agent-solo)
-handle all session setup. pai-lite's job is to **observe the results**, not to replicate
+handle all session setup. ludics's job is to **observe the results**, not to replicate
 the setup logic.
 
 ## Cross-Machine Discovery (Future)

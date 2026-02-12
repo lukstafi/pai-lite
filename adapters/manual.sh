@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/adapters/manual.sh - Manual/human work tracking
+# ludics/adapters/manual.sh - Manual/human work tracking
 # Track human work without an AI agent (just notes and status)
 
 #------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 adapter_manual_state_dir() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/manual"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/manual"
   else
-    echo "$HOME/.config/pai-lite/manual"
+    echo "$HOME/.config/ludics/manual"
   fi
 }
 
@@ -70,7 +70,7 @@ adapter_manual_read_state() {
   else
     echo "**Status:** not initialized"
     echo ""
-    echo "Use 'pai-lite slot $slot_num start' to begin tracking manual work."
+    echo "Use 'ludics slot $slot_num start' to begin tracking manual work."
     return 1
   fi
 
@@ -120,7 +120,7 @@ adapter_manual_start() {
   } > "$slot_file"
 
   echo "Manual tracking initialized for slot $slot_num"
-  echo "Add notes with: pai-lite slot $slot_num note \"your note\""
+  echo "Add notes with: ludics slot $slot_num note \"your note\""
   return 0
 }
 
@@ -185,7 +185,7 @@ adapter_manual_note() {
 
   if [[ ! -f "$status_file" ]]; then
     echo "No manual tracking found for slot $slot_num"
-    echo "Start with: pai-lite slot $slot_num start"
+    echo "Start with: ludics slot $slot_num start"
     return 1
   fi
 

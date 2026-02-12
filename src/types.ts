@@ -1,4 +1,4 @@
-// Shared types for pai-lite TypeScript migration
+// Shared types for ludics TypeScript migration
 
 // --- Session Discovery ---
 
@@ -54,7 +54,7 @@ export interface DiscoveryResult {
 
 // --- Config (minimal for Phase 1, expanded in Phase 2) ---
 
-export interface PaiLiteConfig {
+export interface LudicsConfig {
   state_repo: string;
   state_path: string;
   staleThresholdSeconds: number;

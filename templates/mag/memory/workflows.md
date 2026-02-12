@@ -1,6 +1,6 @@
 # Workflow Patterns
 
-This file contains learned workflow patterns for common pai-lite operations.
+This file contains learned workflow patterns for common ludics operations.
 
 ## Task Elaboration
 

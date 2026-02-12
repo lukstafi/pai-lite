@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pai-lite/adapters/agent-duo.sh - agent-duo (claude + codex) integration
+# ludics/adapters/agent-duo.sh - agent-duo (claude + codex) integration
 set -euo pipefail
 
 #------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ adapter_agent_duo_start() {
   fi
 
   echo "" >&2
-  echo "After starting, pai-lite will automatically detect sessions via .agent-sessions/" >&2
+  echo "After starting, ludics will automatically detect sessions via .agent-sessions/" >&2
   return 1
 }
 

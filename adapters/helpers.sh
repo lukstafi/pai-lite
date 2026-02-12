@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pai-lite/adapters/helpers.sh - Shared functions for agent-duo and agent-solo adapters
+# ludics/adapters/helpers.sh - Shared functions for agent-duo and agent-solo adapters
 #
 # This file provides common functionality for adapters that use the .peer-sync/
 # state format and .agent-sessions/ parallel task registry.
@@ -171,7 +171,7 @@ adapter_output_terminals() {
 
     while IFS='=' read -r key value; do
       if [[ -n "${labels[$key]:-}" ]]; then
-        echo "- ${labels[$key]}: $(pai_lite_get_url "$value")"
+        echo "- ${labels[$key]}: $(ludics_get_url "$value")"
       fi
     done < "$ports_file"
   fi
@@ -204,7 +204,7 @@ adapter_all_terminals() {
     if [[ -f "$ports_file" ]]; then
       while IFS='=' read -r key value; do
         if [[ -n "${labels[$key]:-}" ]]; then
-          echo "$feature ${labels[$key]}|$(pai_lite_get_url "$value")"
+          echo "$feature ${labels[$key]}|$(ludics_get_url "$value")"
         fi
       done < "$ports_file"
     fi

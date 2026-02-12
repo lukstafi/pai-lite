@@ -112,7 +112,7 @@ export function writeTaskFile(
 
   // Skip if file already exists (don't overwrite user edits)
   if (existsSync(file)) {
-    console.error(`pai-lite: skipping existing: ${id}`);
+    console.error(`ludics: skipping existing: ${id}`);
     return false;
   }
 
@@ -168,6 +168,6 @@ ${url ? `Source: ${url}\n` : ""}${labels ? `Labels: ${labels}\n` : ""}
 `;
 
   writeFileSync(file, content);
-  console.error(`pai-lite: created: ${id}`);
+  console.error(`ludics: created: ${id}`);
   return true;
 }

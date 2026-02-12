@@ -1,4 +1,4 @@
-# pai-lite harness configuration (private repo)
+# ludics harness configuration (private repo)
 
 state_repo: lukstafi/self-improve
 state_path: harness
@@ -31,11 +31,11 @@ adapters:
   claude-ai:
     enabled: true
 
-# Mayor: Autonomous coordinator (Claude Opus 4.5 in Claude Code)
-mayor:
+# Mag: Autonomous coordinator (Claude Opus 4.5 in Claude Code)
+mag:
   enabled: true
   backend: tmux-ttyd
-  session: pai-mayor
+  session: ludics-mag
   ttyd_port: 7679
 
   autonomy_level:
@@ -83,7 +83,7 @@ notifications:
 triggers:
   startup:
     enabled: true
-    action: mayor briefing
+    action: mag briefing
 
   sync:
     enabled: true
@@ -94,19 +94,19 @@ triggers:
     enabled: true
     hour: 8
     minute: 0
-    action: mayor briefing
+    action: mag briefing
 
   health:
     enabled: true
     interval: 14400
-    action: mayor health-check
+    action: mag health-check
 
   watch:
     - paths:
         - ~/repos/ocannl/README.md
       action: tasks sync
 
-  # Federation heartbeat (for multi-machine Mayor setup)
+  # Federation heartbeat (for multi-machine Mag setup)
   federation:
     enabled: false
     interval: 300
@@ -122,7 +122,7 @@ network:
   hostname: ""
 
   # Node definitions for federation (seniority order: first = highest priority)
-  # The highest-seniority online node becomes the Mayor leader
+  # The highest-seniority online node becomes Mag leader
   nodes: []
   # Example:
   #   - name: mac-mini

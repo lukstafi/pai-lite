@@ -1,9 +1,9 @@
 {
-  "name": "pai-lite",
+  "name": "ludics",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "bun build --compile src/index.ts --outfile bin/pai-lite",
+    "build": "bun build --compile src/index.ts --outfile bin/ludics",
     "typecheck": "bun x tsc --noEmit",
     "dev": "bun run src/index.ts"
   },

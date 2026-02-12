@@ -1,18 +1,18 @@
-# /pai-briefing - Strategic Morning Briefing
+# /ludics-briefing - Strategic Morning Briefing
 
 Generate a comprehensive strategic briefing for the user.
 
 ## Trigger
 
-This skill is invoked by the pai-lite automation when:
-- The user runs `pai-lite briefing` or `pai-lite mayor briefing`
+This skill is invoked by the ludics automation when:
+- The user runs `ludics briefing` or `ludics mag briefing`
 - A morning trigger fires (e.g., 08:00 via launchd)
 
 ## Inputs
 
-- `$PAI_LITE_STATE_PATH`: Path to the harness directory
-- `$PAI_LITE_REQUEST_ID`: Request ID for writing results
-- `$PAI_LITE_RESULTS_DIR`: Directory for writing result JSON
+- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_RESULTS_DIR`: Directory for writing result JSON
 
 ## Pre-computed Context
 
@@ -21,10 +21,10 @@ journal, same-day check) has been done by bash before this skill runs.
 
 Read the context file:
 ```
-cat $PAI_LITE_STATE_PATH/mayor/briefing-context.md
+cat $LUDICS_STATE_PATH/mag/briefing-context.md
 ```
 
-If the file is missing, run `pai-lite mayor context` to generate it.
+If the file is missing, run `ludics mag context` to generate it.
 If that also fails, escalate to the user.
 
 The context file contains these sections:
@@ -37,16 +37,16 @@ The context file contains these sections:
 - **Tasks Needing Elaboration**: Task IDs that lack elaboration
 - **Recent Journal**: Last 20 journal entries
 
-Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
+Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 
 ## Process
 
-1. **Read context**: Read `$PAI_LITE_STATE_PATH/mayor/briefing-context.md`
+1. **Read context**: Read `$LUDICS_STATE_PATH/mag/briefing-context.md`
 
 2. **Check same-day status**: Look at the `## Same-Day Status` section.
    - If `Status: amend`: do a light-touch update only:
      - Skim the context for changes since the last briefing
-     - Update affected sections of `$PAI_LITE_STATE_PATH/briefing.md` only
+     - Update affected sections of `$LUDICS_STATE_PATH/briefing.md` only
      - Run a lightweight slot reassignment (only newly-empty slots
        or newly-ready high-priority tasks)
      - Do not re-elaborate tasks or redo the full analysis
@@ -56,22 +56,22 @@ Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
 3. **Elaborate unprocessed tasks**:
    - Check the `## Tasks Needing Elaboration` section
    - For tasks that appear in the ready queue or are high-priority:
-     - Use the Task tool to invoke `/pai-elaborate <task-id>` (parallel)
+     - Use the Task tool to invoke `/ludics-elaborate <task-id>` (parallel)
 
 4. **Analyze, merge, and split work**:
    - Identify high-priority ready tasks, approaching deadlines (7 days),
      stalled work (in-progress > 7 days), slot utilization
    - Factor in inbox messages as high-priority context
-   - Check for duplicate/overlapping tasks: merge any confirmed duplicates with `pai-lite tasks merge <target> <source...>`
-     - `pai-lite tasks duplicates` can help but it only checks exact title match
+   - Check for duplicate/overlapping tasks: merge any confirmed duplicates with `ludics tasks merge <target> <source...>`
+     - `ludics tasks duplicates` can help but it only checks exact title match
    - Check whether tasks or projects should be split into finer-grained units:
      - Multiple git worktrees under the same repo → separate sub-projects
        (exception: worktrees from the same agent-duo feature are one unit)
      - Large tasks with independent acceptance criteria → sub-tasks
    - Mechanical outcomes:
-     - Sub-projects: `pai-lite slot N assign "<project>" -a <adapter> -p <path>`
-     - Sub-tasks: `pai-lite tasks create "<title>" <project> <priority>` or
-       `/pai-elaborate <task-id>` to break into children
+     - Sub-projects: `ludics slot N assign "<project>" -a <adapter> -p <path>`
+     - Sub-tasks: `ludics tasks create "<title>" <project> <priority>` or
+       `/ludics-elaborate <task-id>` to break into children
 
 5. **(Re)Assign slots**:
 
@@ -88,21 +88,21 @@ Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
    - If an unclassified session is running on a project path, reserve the slot
    - When all slots occupied: weigh eviction cost vs. new task priority
    - Commands:
-     - Project reservation: `pai-lite slot N assign "<project> development" -a <adapter> -p <path>`
-     - Task assignment: `pai-lite slot N assign <task-id> -a <adapter> -p <path>`
+     - Project reservation: `ludics slot N assign "<project> development" -a <adapter> -p <path>`
+     - Task assignment: `ludics slot N assign <task-id> -a <adapter> -p <path>`
 
    **Execute or suggest (autonomy-dependent):**
-   - Check: `yq eval '.mayor.autonomy_level.assign_to_slots' "$PAI_LITE_STATE_PATH/config.yaml"`
-   - **auto**: execute via Bash (`pai-lite slot N clear ready`, `pai-lite slot N assign ...`)
+   - Check: `yq eval '.mag.autonomy_level.assign_to_slots' "$LUDICS_STATE_PATH/config.yaml"`
+   - **auto**: execute via Bash (`ludics slot N clear ready`, `ludics slot N assign ...`)
    - **suggest**: include ready-to-run commands in the briefing
    - **manual**: include observations only
 
 6. **Write result**:
-   - Write briefing to `$PAI_LITE_STATE_PATH/briefing.md`
-   - Write result JSON to `$PAI_LITE_RESULTS_DIR/$PAI_LITE_REQUEST_ID.json`
+   - Write briefing to `$LUDICS_STATE_PATH/briefing.md`
+   - Write result JSON to `$LUDICS_RESULTS_DIR/$LUDICS_REQUEST_ID.json`
 
 7. **Commit and push state**:
-   - Run `pai-lite sync` to commit and push to remote
+   - Run `ludics sync` to commit and push to remote
 
 ## Output Format
 
@@ -121,7 +121,7 @@ Also read `$PAI_LITE_STATE_PATH/tasks/*.md` for full task details.
 - Slot 4: <- ocannl project (unclassified claude-code session on ~/repos/ocannl/)
 - Slot 5: cleared task-089 (stalled 12 days) <- task-067 "Update CHANGES.md" (release blocker)
 - [If autonomy=suggest, include ready-to-run commands:]
-  `pai-lite slot 2 assign task-101 -a agent-duo -p ~/repos/ocannl`
+  `ludics slot 2 assign task-101 -a agent-duo -p ~/repos/ocannl`
 
 ## Ready to Start (Priority Order)
 1. **task-101** (A): [title] - [reason this is high priority]
@@ -155,13 +155,13 @@ Current context focus: [einsum/ocannl] - switching to [other] would incur contex
 ## Delegation Strategy
 
 - **Pre-computed data** in `briefing-context.md` (no CLI commands needed for data gathering)
-- **Task tool** to invoke `/pai-elaborate` for unprocessed tasks (parallel)
-- **CLI tools** for slot operations (`pai-lite slot N assign`, `pai-lite slot N clear`)
+- **Task tool** to invoke `/ludics-elaborate` for unprocessed tasks (parallel)
+- **CLI tools** for slot operations (`ludics slot N assign`, `ludics slot N clear`)
 - **Direct analysis** for strategic reasoning, slot assignment trade-offs, suggestions
 
 ## Error Handling
 
 If state files are missing or malformed:
 - Write partial briefing with warnings
-- Include "run pai-lite tasks sync" suggestion
+- Include "run ludics tasks sync" suggestion
 - Still write result JSON with status "partial"

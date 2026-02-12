@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/adapters/claude-code.sh - Claude Code CLI integration
+# ludics/adapters/claude-code.sh - Claude Code CLI integration
 # Manages Claude Code sessions in tmux with state tracking
 
 #------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 adapter_claude_code_state_dir() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/claude-code"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/claude-code"
   else
-    echo "$HOME/.config/pai-lite/claude-code"
+    echo "$HOME/.config/ludics/claude-code"
   fi
 }
 
@@ -108,7 +108,7 @@ adapter_claude_code_signal() {
 }
 
 #------------------------------------------------------------------------------
-# Adapter interface for pai-lite
+# Adapter interface for ludics
 #------------------------------------------------------------------------------
 
 adapter_claude_code_read_state() {

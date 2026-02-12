@@ -99,9 +99,9 @@ export async function runSessions(args: string[]): Promise<void> {
         printJson(result);
       } else {
         printSummary(result);
-        console.error(`pai-lite: sessions report written to ${reportPath}`);
+        console.error(`ludics: sessions report written to ${reportPath}`);
         const jsonPath = reportPath.replace(/\.md$/, ".json");
-        console.error(`pai-lite: sessions JSON written to ${jsonPath}`);
+        console.error(`ludics: sessions JSON written to ${jsonPath}`);
         console.log(reportPath);
       }
       break;
@@ -117,7 +117,7 @@ export async function runSessions(args: string[]): Promise<void> {
         printJson(result);
       } else {
         printSummary(result);
-        console.error(`pai-lite: sessions refreshed`);
+        console.error(`ludics: sessions refreshed`);
       }
       break;
     }

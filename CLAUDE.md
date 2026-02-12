@@ -4,7 +4,7 @@ Instructions for AI agents working on this repository.
 
 ## Project Overview
 
-pai-lite is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), aggregates tasks, and triggers actions on events.
+ludics is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), aggregates tasks, and triggers actions on events.
 
 ## Key Concepts
 
@@ -26,8 +26,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 ## Directory Structure
 
 ```
-pai-lite/
-├── bin/pai-lite          # Main CLI entry point
+ludics/
+├── bin/ludics            # Main CLI entry point
 ├── lib/                  # Core functionality
 │   ├── slots.sh
 │   ├── tasks.sh
@@ -55,7 +55,7 @@ When making changes:
 
 1. Add to `lib/triggers.sh`
 2. Create template plist in `templates/launchd/` if launchd-based
-3. Update `pai-lite triggers install`
+3. Update `ludics triggers install`
 
 ## Important Notes
 

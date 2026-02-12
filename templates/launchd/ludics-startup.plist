@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.pai-lite.startup</string>
+  <string>com.ludics.startup</string>
   <key>RunAtLoad</key>
   <true/>
   <key>ProgramArguments</key>
   <array>
-    <string>/path/to/pai-lite</string>
+    <string>/path/to/ludics</string>
     <string>briefing</string>
   </array>
 </dict>

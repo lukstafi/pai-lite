@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/adapters/codex.sh - OpenAI Codex integration
+# ludics/adapters/codex.sh - OpenAI Codex integration
 # Supports both tmux-based CLI sessions and API-based usage
 
 #------------------------------------------------------------------------------
@@ -9,10 +9,10 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 adapter_codex_state_dir() {
-  if [[ -n "${PAI_LITE_STATE_DIR:-}" ]]; then
-    echo "$PAI_LITE_STATE_DIR/codex"
+  if [[ -n "${LUDICS_STATE_DIR:-}" ]]; then
+    echo "$LUDICS_STATE_DIR/codex"
   else
-    echo "$HOME/.config/pai-lite/codex"
+    echo "$HOME/.config/ludics/codex"
   fi
 }
 
@@ -108,7 +108,7 @@ adapter_codex_signal() {
 }
 
 #------------------------------------------------------------------------------
-# Adapter interface for pai-lite
+# Adapter interface for ludics
 #------------------------------------------------------------------------------
 
 adapter_codex_read_state() {
@@ -276,7 +276,7 @@ adapter_codex_read_state() {
         echo ""
         echo "**Web Terminal:**"
         echo "- ttyd running on port $ttyd_port (PID: $ttyd_pid)"
-        echo "- URL: $(pai_lite_get_url "$ttyd_port")"
+        echo "- URL: $(ludics_get_url "$ttyd_port")"
       fi
     fi
   fi
@@ -520,7 +520,7 @@ adapter_codex_start_ttyd() {
   fi
 
   echo "ttyd server started (PID: $ttyd_pid)"
-  echo "Access web terminal at: $(pai_lite_get_url "$port")"
+  echo "Access web terminal at: $(ludics_get_url "$port")"
   return 0
 }
 
@@ -795,7 +795,7 @@ adapter_codex_list_sessions() {
       ttyd_pid=$(grep '^ttyd_pid=' "$state_file" | cut -d= -f2-)
       ttyd_port=$(grep '^ttyd_port=' "$state_file" 2>/dev/null | cut -d= -f2-)
       if kill -0 "$ttyd_pid" 2>/dev/null; then
-        echo "  Web terminal: $(pai_lite_get_url "$ttyd_port")"
+        echo "  Web terminal: $(ludics_get_url "$ttyd_port")"
       fi
     fi
 

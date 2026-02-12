@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# pai-lite/lib/network.sh - Network configuration and URL helpers
+# ludics/lib/network.sh - Network configuration and URL helpers
 # Supports localhost mode and Tailscale mode for multi-machine deployments
 
 #------------------------------------------------------------------------------
@@ -9,20 +9,20 @@ set -euo pipefail
 #------------------------------------------------------------------------------
 
 # Get network mode: localhost | tailscale
-pai_lite_network_mode() {
+ludics_network_mode() {
   local mode
-  mode="$(pai_lite_config_get_nested "network" "mode" 2>/dev/null || echo "")"
+  mode="$(ludics_config_get_nested "network" "mode" 2>/dev/null || echo "")"
   [[ -n "$mode" ]] && echo "$mode" || echo "localhost"
 }
 
 # Get explicit hostname from config (may be empty)
-pai_lite_network_hostname_config() {
-  pai_lite_config_get_nested "network" "hostname" 2>/dev/null || echo ""
+ludics_network_hostname_config() {
+  ludics_config_get_nested "network" "hostname" 2>/dev/null || echo ""
 }
 
 # Get hostname from tailscale status (auto-detect)
 # Returns the MagicDNS hostname if tailscale is running
-pai_lite_network_hostname_tailscale() {
+ludics_network_hostname_tailscale() {
   if ! command -v tailscale >/dev/null 2>&1; then
     return 1
   fi
@@ -55,9 +55,9 @@ pai_lite_network_hostname_tailscale() {
 #    a. Try tailscale status --json auto-detect
 #    b. Fall back to config hostname
 #    c. Fail if neither available
-pai_lite_network_hostname() {
+ludics_network_hostname() {
   local mode
-  mode="$(pai_lite_network_mode)"
+  mode="$(ludics_network_mode)"
 
   if [[ "$mode" == "localhost" ]]; then
     echo "localhost"
@@ -67,23 +67,23 @@ pai_lite_network_hostname() {
   if [[ "$mode" == "tailscale" ]]; then
     # Try auto-detect first
     local ts_hostname
-    if ts_hostname="$(pai_lite_network_hostname_tailscale 2>/dev/null)" && [[ -n "$ts_hostname" ]]; then
+    if ts_hostname="$(ludics_network_hostname_tailscale 2>/dev/null)" && [[ -n "$ts_hostname" ]]; then
       echo "$ts_hostname"
       return 0
     fi
 
     # Fall back to config
     local config_hostname
-    config_hostname="$(pai_lite_network_hostname_config)"
+    config_hostname="$(ludics_network_hostname_config)"
     if [[ -n "$config_hostname" ]]; then
       echo "$config_hostname"
       return 0
     fi
 
     # Neither available - fail
-    pai_lite_warn "tailscale mode enabled but cannot determine hostname"
-    pai_lite_warn "  - tailscale status failed or not available"
-    pai_lite_warn "  - network.hostname not set in config"
+    ludics_warn "tailscale mode enabled but cannot determine hostname"
+    ludics_warn "  - tailscale status failed or not available"
+    ludics_warn "  - network.hostname not set in config"
     return 1
   fi
 
@@ -96,14 +96,14 @@ pai_lite_network_hostname() {
 #------------------------------------------------------------------------------
 
 # Generate a URL with the correct hostname
-# Usage: pai_lite_get_url <port> [protocol]
-# Example: pai_lite_get_url 7679 -> "http://mac-mini.ts.net:7679"
-pai_lite_get_url() {
+# Usage: ludics_get_url <port> [protocol]
+# Example: ludics_get_url 7679 -> "http://mac-mini.ts.net:7679"
+ludics_get_url() {
   local port="$1"
   local protocol="${2:-http}"
   local hostname
 
-  if ! hostname="$(pai_lite_network_hostname)"; then
+  if ! hostname="$(ludics_network_hostname)"; then
     # Fallback to localhost if hostname detection fails
     hostname="localhost"
   fi
@@ -116,9 +116,9 @@ pai_lite_get_url() {
 #------------------------------------------------------------------------------
 
 # Get list of node names (in seniority order)
-pai_lite_network_nodes() {
+ludics_network_nodes() {
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 0
 
   awk '
@@ -136,10 +136,10 @@ pai_lite_network_nodes() {
 }
 
 # Get tailscale hostname for a node by name
-pai_lite_network_node_hostname() {
+ludics_network_node_hostname() {
   local node_name="$1"
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   awk -v name="$node_name" '
@@ -165,7 +165,7 @@ pai_lite_network_node_hostname() {
 }
 
 # Get seniority rank of a node (1 = highest, higher numbers = lower seniority)
-pai_lite_network_node_seniority() {
+ludics_network_node_seniority() {
   local node_name="$1"
   local rank=0
   local found=0
@@ -176,7 +176,7 @@ pai_lite_network_node_seniority() {
       found=1
       break
     fi
-  done < <(pai_lite_network_nodes)
+  done < <(ludics_network_nodes)
 
   if [[ $found -eq 1 ]]; then
     echo "$rank"
@@ -186,19 +186,19 @@ pai_lite_network_node_seniority() {
 }
 
 # Get current machine's node name (by matching tailscale hostname)
-pai_lite_network_current_node() {
+ludics_network_current_node() {
   local current_hostname
-  current_hostname="$(pai_lite_network_hostname_tailscale 2>/dev/null || echo "")"
+  current_hostname="$(ludics_network_hostname_tailscale 2>/dev/null || echo "")"
   [[ -z "$current_hostname" ]] && return 1
 
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   # Search for matching node
   while IFS= read -r node_name; do
     local node_hostname
-    node_hostname="$(pai_lite_network_node_hostname "$node_name")"
+    node_hostname="$(ludics_network_node_hostname "$node_name")"
     # Compare without trailing dots
     local normalized_current="${current_hostname%.}"
     local normalized_node="${node_hostname%.}"
@@ -206,7 +206,7 @@ pai_lite_network_current_node() {
       echo "$node_name"
       return 0
     fi
-  done < <(pai_lite_network_nodes)
+  done < <(ludics_network_nodes)
 
   return 1
 }
@@ -216,12 +216,12 @@ pai_lite_network_current_node() {
 #------------------------------------------------------------------------------
 
 # Show network configuration status
-pai_lite_network_status() {
+ludics_network_status() {
   echo "=== Network Status ==="
   echo ""
 
   local mode
-  mode="$(pai_lite_network_mode)"
+  mode="$(ludics_network_mode)"
   echo "Mode: $mode"
 
   if [[ "$mode" == "tailscale" ]]; then
@@ -229,7 +229,7 @@ pai_lite_network_status() {
     if command -v tailscale >/dev/null 2>&1; then
       echo "Tailscale CLI: available"
       local ts_hostname
-      if ts_hostname="$(pai_lite_network_hostname_tailscale 2>/dev/null)"; then
+      if ts_hostname="$(ludics_network_hostname_tailscale 2>/dev/null)"; then
         echo "Tailscale hostname: $ts_hostname"
       else
         echo "Tailscale hostname: (not connected or unavailable)"
@@ -239,17 +239,17 @@ pai_lite_network_status() {
     fi
 
     local config_hostname
-    config_hostname="$(pai_lite_network_hostname_config)"
+    config_hostname="$(ludics_network_hostname_config)"
     if [[ -n "$config_hostname" ]]; then
       echo "Config hostname: $config_hostname"
     fi
   fi
 
   local effective_hostname
-  if effective_hostname="$(pai_lite_network_hostname 2>/dev/null)"; then
+  if effective_hostname="$(ludics_network_hostname 2>/dev/null)"; then
     echo ""
     echo "Effective hostname: $effective_hostname"
-    echo "Example URL: $(pai_lite_get_url 7679)"
+    echo "Example URL: $(ludics_get_url 7679)"
   fi
 
   # Show configured nodes
@@ -260,9 +260,9 @@ pai_lite_network_status() {
     [[ -z "$node_name" ]] && continue
     ((node_count++)) || true
     local node_hostname
-    node_hostname="$(pai_lite_network_node_hostname "$node_name" || echo "(not set)")"
+    node_hostname="$(ludics_network_node_hostname "$node_name" || echo "(not set)")"
     echo "  $node_count. $node_name -> $node_hostname"
-  done < <(pai_lite_network_nodes)
+  done < <(ludics_network_nodes)
 
   if [[ $node_count -eq 0 ]]; then
     echo "  (no nodes configured)"
@@ -270,8 +270,8 @@ pai_lite_network_status() {
 
   # Show current node identification
   local current_node
-  if current_node="$(pai_lite_network_current_node 2>/dev/null)"; then
+  if current_node="$(ludics_network_current_node 2>/dev/null)"; then
     echo ""
-    echo "This machine: $current_node (seniority: $(pai_lite_network_node_seniority "$current_node"))"
+    echo "This machine: $current_node (seniority: $(ludics_network_node_seniority "$current_node"))"
   fi
 }

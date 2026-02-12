@@ -15,13 +15,13 @@ Unify slot/task state handling, bring `slots.md` in line with ARCHITECTURE, add 
 - `slot clear` clears task slot and optionally marks done/abandoned.
 - `slot start` uses slot metadata (Mode/Task/Session/Project) to call adapters.
 - `slots refresh` reads adapter state and updates slot runtime sections.
-- `pai_lite_state_pull()` + a user-facing `pai-lite sync` or `pai-lite state sync`.
+- `ludics_state_pull()` + a user-facing `ludics sync` or `ludics state sync`.
 - Journal entries for slot events.
 
 ## Files to Touch
 - `lib/slots.sh` (slot formatting, assign/clear/start/refresh)
 - `lib/common.sh` (state pull/sync helpers)
-- `bin/pai-lite` (new commands)
+- `bin/ludics` (new commands)
 - `templates/harness/slots.md` (format example)
 - `docs/ARCHITECTURE.md` (add `slots refresh` to CLI section)
 
@@ -29,7 +29,7 @@ Unify slot/task state handling, bring `slots.md` in line with ARCHITECTURE, add 
 1) Define the canonical `slots.md` schema and update templates + parsing.
 2) Update slot assign/clear to also update task files in `tasks/`.
 3) Add `slots refresh` to read adapter state into Runtime/Terminals blocks.
-4) Add `pai_lite_state_pull()` and `pai-lite sync` wrapper (pull then update).
+4) Add `ludics_state_pull()` and `ludics sync` wrapper (pull then update).
 5) Add journal append helper (file: `journal/YYYY-MM-DD.md`) for slot events.
 
 ## Dependencies
@@ -39,17 +39,17 @@ Unify slot/task state handling, bring `slots.md` in line with ARCHITECTURE, add 
 ## Validation
 - Run shellcheck on changed scripts.
 - Manual sanity check:
-  - `pai-lite slot 1 assign task-001`
-  - `pai-lite slot 1 start`
-  - `pai-lite slot 1 note "..."`
-  - `pai-lite slot 1 clear`
+  - `ludics slot 1 assign task-001`
+  - `ludics slot 1 start`
+  - `ludics slot 1 note "..."`
+  - `ludics slot 1 clear`
   - Ensure slot/task files and journal update as expected.
 
 ## Out of Scope
-- Mayor session management and skills.
+- Mag session management and skills.
 - Dashboard rendering.
 - Trigger expansion.
 
 ## Risks
-- `bin/pai-lite` is a hotspot; coordinate with other tracks.
+- `bin/ludics` is a hotspot; coordinate with other tracks.
 - `slots.md` schema changes affect dashboard parsing.

@@ -1,15 +1,15 @@
-// Mayor queue functions — queue-based communication with Claude Code Mayor session
+// Mag queue functions — queue-based communication with Claude Code Mag session
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "fs";
 import { join, dirname } from "path";
 import { harnessDir } from "./config.ts";
 
 function queueFile(): string {
-  return join(harnessDir(), "mayor", "queue.jsonl");
+  return join(harnessDir(), "mag", "queue.jsonl");
 }
 
 function resultsDir(): string {
-  return join(harnessDir(), "mayor", "results");
+  return join(harnessDir(), "mag", "results");
 }
 
 export function queueRequest(action: string, extra?: string): string {

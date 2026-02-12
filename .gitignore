@@ -1,6 +1,6 @@
 node_modules/
-pai-lite-ts
-bin/pai-lite
+ludics-ts
+bin/ludics
 bun.lock
 dist/
 *.tsbuildinfo

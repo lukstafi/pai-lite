@@ -144,11 +144,11 @@ function generateNotifications(): unknown[] {
   return result;
 }
 
-// --- Generate mayor.json ---
+// --- Generate mag.json ---
 
-function generateMayor(): Record<string, unknown> {
+function generateMag(): Record<string, unknown> {
   const harness = harnessDir();
-  const queueFile = join(harness, "mayor", "queue.jsonl");
+  const queueFile = join(harness, "mag", "queue.jsonl");
 
   let pending = 0;
   if (existsSync(queueFile)) {
@@ -159,17 +159,17 @@ function generateMayor(): Record<string, unknown> {
   // Check tmux session
   let status = "unknown";
   const config = loadConfigSync();
-  const mayorSession = String((config.mayor as Record<string, unknown> | undefined)?.session ?? "pai-mayor");
-  const tmuxResult = Bun.spawnSync(["tmux", "has-session", "-t", mayorSession], { stdout: "pipe", stderr: "pipe" });
+  const magSession = String((config.mag as Record<string, unknown> | undefined)?.session ?? "ludics-mag");
+  const tmuxResult = Bun.spawnSync(["tmux", "has-session", "-t", magSession], { stdout: "pipe", stderr: "pipe" });
   if (tmuxResult.exitCode === 0) status = "running";
 
   // Get ttyd port
-  const mayorPort = String((config.mayor as Record<string, unknown> | undefined)?.ttyd_port ?? "7679");
-  const terminal = getUrl(mayorPort);
+  const magPort = String((config.mag as Record<string, unknown> | undefined)?.ttyd_port ?? "7679");
+  const terminal = getUrl(magPort);
 
   // Check for last activity
   let lastActivity: string | null = null;
-  const resultsDir = join(harness, "mayor", "results");
+  const resultsDir = join(harness, "mag", "results");
   if (existsSync(resultsDir)) {
     const files = readdirSync(resultsDir)
       .filter((f: string) => f.endsWith(".json"))
@@ -217,7 +217,7 @@ export function dashboardGenerate(): void {
   const dataDir = dashboardDataDir();
   mkdirSync(dataDir, { recursive: true });
 
-  console.error("pai-lite: generating dashboard data...");
+  console.error("ludics: generating dashboard data...");
 
   writeFileSync(join(dataDir, "slots.json"), JSON.stringify(generateSlots(), null, 2));
   console.error("  slots.json");
@@ -228,13 +228,13 @@ export function dashboardGenerate(): void {
   writeFileSync(join(dataDir, "notifications.json"), JSON.stringify(generateNotifications(), null, 2));
   console.error("  notifications.json");
 
-  writeFileSync(join(dataDir, "mayor.json"), JSON.stringify(generateMayor(), null, 2));
-  console.error("  mayor.json");
+  writeFileSync(join(dataDir, "mag.json"), JSON.stringify(generateMag(), null, 2));
+  console.error("  mag.json");
 
   writeFileSync(join(dataDir, "briefing.json"), JSON.stringify(generateBriefing(), null, 2));
   console.error("  briefing.json");
 
-  console.error(`pai-lite: dashboard data generated in ${dataDir}`);
+  console.error(`ludics: dashboard data generated in ${dataDir}`);
 }
 
 // --- Serve ---
@@ -242,10 +242,10 @@ export function dashboardGenerate(): void {
 export function dashboardServe(port: number = 7678): void {
   const dashboardDir = join(harnessDir(), "dashboard");
   if (!existsSync(dashboardDir)) {
-    throw new Error("dashboard not installed. Run: pai-lite dashboard install");
+    throw new Error("dashboard not installed. Run: ludics dashboard install");
   }
 
-  const serverScript = join(dashboardDir, "..", "..", "pai-lite", "lib", "dashboard_server.py");
+  const serverScript = join(dashboardDir, "..", "..", "ludics", "lib", "dashboard_server.py");
   // Fallback: try to find the server script relative to the binary
   // Use process.execPath — in compiled Bun binaries, process.argv[1] is virtual
   const altScript = join(dirname(dirname(process.execPath)), "lib", "dashboard_server.py");
@@ -265,9 +265,9 @@ export function dashboardServe(port: number = 7678): void {
   // Generate initial data
   dashboardGenerate();
 
-  console.error(`pai-lite: serving dashboard at ${getUrl(port)}`);
-  console.error(`pai-lite: data regenerates lazily (TTL: ${ttl}s)`);
-  console.error("pai-lite: press Ctrl+C to stop");
+  console.error(`ludics: serving dashboard at ${getUrl(port)}`);
+  console.error(`ludics: data regenerates lazily (TTL: ${ttl}s)`);
+  console.error("ludics: press Ctrl+C to stop");
 
   Bun.spawnSync(["python3", script, String(port), dashboardDir, bin, String(ttl)], {
     stdio: ["inherit", "inherit", "inherit"],
@@ -286,7 +286,7 @@ export function dashboardInstall(): void {
     throw new Error(`dashboard templates not found: ${templateDir}`);
   }
 
-  console.error(`pai-lite: installing dashboard to ${dashboardDir}`);
+  console.error(`ludics: installing dashboard to ${dashboardDir}`);
   mkdirSync(dashboardDir, { recursive: true });
 
   // Copy template files recursively
@@ -306,9 +306,9 @@ export function dashboardInstall(): void {
   copyDir(templateDir, dashboardDir);
   mkdirSync(join(dashboardDir, "data"), { recursive: true });
 
-  console.error("pai-lite: dashboard installed");
-  console.error("  run: pai-lite dashboard generate");
-  console.error("  then: pai-lite dashboard serve");
+  console.error("ludics: dashboard installed");
+  console.error("  run: ludics dashboard generate");
+  console.error("  then: ludics dashboard serve");
 }
 
 // --- CLI dispatch ---

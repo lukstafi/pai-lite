@@ -1,12 +1,12 @@
 /**
- * pai-lite Dashboard JavaScript
+ * ludics Dashboard JavaScript
  *
  * This dashboard reads state from JSON files served by a simple HTTP server.
- * The pai-lite CLI generates these JSON files from the Markdown state files.
+ * The ludics CLI generates these JSON files from the Markdown state files.
  *
  * To use:
- * 1. Run: pai-lite dashboard generate (creates dashboard/data/*.json)
- * 2. Serve: pai-lite dashboard serve
+ * 1. Run: ludics dashboard generate (creates dashboard/data/*.json)
+ * 2. Serve: ludics dashboard serve
  * 3. Open: http://localhost:7678
  */
 
@@ -23,7 +23,7 @@ let lastUpdate = null;
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('pai-lite dashboard initializing...');
+    console.log('ludics dashboard initializing...');
     fetchAllData();
     setInterval(fetchAllData, CONFIG.refreshInterval);
 });
@@ -42,7 +42,7 @@ async function fetchAllData() {
             fetchSlots(),
             fetchReadyQueue(),
             fetchNotifications(),
-            fetchMayorStatus()
+            fetchMagStatus()
         ]);
         updateTimestamp();
         setConnectionStatus(true);
@@ -179,28 +179,28 @@ function renderNotifications(notifications) {
     list.innerHTML = items.join('');
 }
 
-// Fetch Mayor status
-async function fetchMayorStatus() {
+// Fetch Mag status
+async function fetchMagStatus() {
     try {
-        const response = await fetch(CONFIG.dataPath + 'mayor.json');
-        if (!response.ok) throw new Error('Failed to fetch mayor status');
-        const mayor = await response.json();
-        renderMayorStatus(mayor);
+        const response = await fetch(CONFIG.dataPath + 'mag.json');
+        if (!response.ok) throw new Error('Failed to fetch mag status');
+        const mag = await response.json();
+        renderMagStatus(mag);
     } catch (error) {
-        console.warn('Using placeholder mayor status');
-        renderMayorStatus({ status: 'unknown', lastActivity: null });
+        console.warn('Using placeholder mag status');
+        renderMagStatus({ status: 'unknown', lastActivity: null });
     }
 }
 
-// Render Mayor status
-function renderMayorStatus(mayor) {
-    const statusSpan = document.getElementById('mayor-status');
-    const activitySpan = document.getElementById('mayor-activity');
-    const terminalLink = document.getElementById('mayor-terminal');
+// Render Mag status
+function renderMagStatus(mag) {
+    const statusSpan = document.getElementById('mag-status');
+    const activitySpan = document.getElementById('mag-activity');
+    const terminalLink = document.getElementById('mag-terminal');
 
     if (statusSpan) {
-        statusSpan.textContent = mayor.status || 'Unknown';
-        if (mayor.status === 'running') {
+        statusSpan.textContent = mag.status || 'Unknown';
+        if (mag.status === 'running') {
             statusSpan.style.color = 'var(--success)';
         } else {
             statusSpan.style.color = 'var(--text-secondary)';
@@ -208,13 +208,13 @@ function renderMayorStatus(mayor) {
     }
 
     if (activitySpan) {
-        activitySpan.textContent = mayor.lastActivity
-            ? formatTime(mayor.lastActivity)
+        activitySpan.textContent = mag.lastActivity
+            ? formatTime(mag.lastActivity)
             : '--';
     }
 
-    if (terminalLink && mayor.terminal) {
-        terminalLink.href = mayor.terminal;
+    if (terminalLink && mag.terminal) {
+        terminalLink.href = mag.terminal;
         terminalLink.style.display = 'inline';
     }
 }
@@ -239,7 +239,7 @@ function setConnectionStatus(connected) {
 
 // Run CLI command (opens in new tab with instructions)
 function runCommand(cmd) {
-    alert(`Run in terminal:\n\npai-lite ${cmd}`);
+    alert(`Run in terminal:\n\nludics ${cmd}`);
 }
 
 // Utility: Format timestamp

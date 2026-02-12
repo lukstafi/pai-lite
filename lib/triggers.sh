@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Trigger setup for pai-lite
+# Trigger setup for ludics
 # Supports: startup, sync, morning (briefing), health, watch (WatchPaths)
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,8 +15,8 @@ source "$script_dir/common.sh"
 trigger_get() {
   local trigger="$1" key="$2"
   local config
-  config="$(pai_lite_config_path)"
-  [[ -f "$config" ]] || pai_lite_die "config not found: $config"
+  config="$(ludics_config_path)"
+  [[ -f "$config" ]] || ludics_die "config not found: $config"
 
   local result
   result=$(yq eval ".triggers.${trigger}.${key}" "$config" 2>/dev/null)
@@ -34,7 +34,7 @@ trigger_get() {
 #         action: tasks sync
 trigger_get_watch_rules() {
   local config
-  config="$(pai_lite_config_path)"
+  config="$(ludics_config_path)"
   [[ -f "$config" ]] || return 1
 
   local count
@@ -61,7 +61,7 @@ sanitize_action() {
 command_from_action() {
   local action="$1"
   if [[ -z "$action" ]]; then
-    echo "mayor briefing"
+    echo "mag briefing"
   else
     echo "$action"
   fi
@@ -71,14 +71,14 @@ command_from_action() {
 # Plist/service names
 #------------------------------------------------------------------------------
 
-PLIST_STARTUP="com.pai-lite.startup"
-PLIST_SYNC="com.pai-lite.sync"
-PLIST_MORNING="com.pai-lite.morning"
-PLIST_HEALTH="com.pai-lite.health"
-PLIST_WATCH_PREFIX="com.pai-lite.watch"
-PLIST_FEDERATION="com.pai-lite.federation"
-PLIST_MAYOR="com.pai-lite.mayor"
-PLIST_DASHBOARD="com.pai-lite.dashboard"
+PLIST_STARTUP="com.ludics.startup"
+PLIST_SYNC="com.ludics.sync"
+PLIST_MORNING="com.ludics.morning"
+PLIST_HEALTH="com.ludics.health"
+PLIST_WATCH_PREFIX="com.ludics.watch"
+PLIST_FEDERATION="com.ludics.federation"
+PLIST_MAG="com.ludics.mag"
+PLIST_DASHBOARD="com.ludics.dashboard"
 
 #------------------------------------------------------------------------------
 # macOS launchd triggers
@@ -120,15 +120,15 @@ _plist_write_logs() {
 
   cat >> "$plist" <<PLIST
   <key>StandardOutPath</key>
-  <string>$HOME/Library/Logs/pai-lite-${name}.log</string>
+  <string>$HOME/Library/Logs/ludics-${name}.log</string>
   <key>StandardErrorPath</key>
-  <string>$HOME/Library/Logs/pai-lite-${name}.err</string>
+  <string>$HOME/Library/Logs/ludics-${name}.err</string>
 PLIST
 }
 
 triggers_install_macos() {
   local bin_path
-  bin_path="$(pai_lite_root)/bin/pai-lite"
+  bin_path="$(ludics_root)/bin/ludics"
   mkdir -p "$HOME/Library/LaunchAgents"
 
   local startup_enabled sync_enabled morning_enabled health_enabled federation_enabled
@@ -306,7 +306,7 @@ PLIST
     fi
   done < <(trigger_get_watch_rules)
 
-  # Federation trigger (StartInterval - for multi-machine Mayor coordination)
+  # Federation trigger (StartInterval - for multi-machine Mag coordination)
   if [[ "$federation_enabled" == "true" ]]; then
     local action interval plist
     action="$(command_from_action "$(trigger_get federation action)")"
@@ -335,34 +335,34 @@ PLIST
     echo "Installed launchd trigger: federation (every $((interval / 60))m)"
   fi
 
-  # Mayor keepalive trigger (RunAtLoad + StartInterval)
-  local mayor_enabled
-  mayor_enabled="$(pai_lite_config_mayor_get enabled 2>/dev/null || echo "")"
-  if [[ "$mayor_enabled" == "true" ]]; then
-    local plist mayor_interval
-    mayor_interval=900  # 15 minutes
-    plist="$HOME/Library/LaunchAgents/${PLIST_MAYOR}.plist"
+  # Mag keepalive trigger (RunAtLoad + StartInterval)
+  local mag_enabled
+  mag_enabled="$(ludics_config_mag_get enabled 2>/dev/null || echo "")"
+  if [[ "$mag_enabled" == "true" ]]; then
+    local plist mag_interval
+    mag_interval=900  # 15 minutes
+    plist="$HOME/Library/LaunchAgents/${PLIST_MAG}.plist"
     cat > "$plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${PLIST_MAYOR}</string>
+  <string>${PLIST_MAG}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
-  <integer>$mayor_interval</integer>
+  <integer>$mag_interval</integer>
 PLIST
     _plist_write_env "$plist"
-    _plist_write_args "$plist" "$bin_path" "mayor" "start"
-    _plist_write_logs "$plist" "mayor"
+    _plist_write_args "$plist" "$bin_path" "mag" "start"
+    _plist_write_logs "$plist" "mag"
     echo "</dict>" >> "$plist"
     echo "</plist>" >> "$plist"
 
     launchctl unload "$plist" >/dev/null 2>&1 || true
     launchctl load "$plist" >/dev/null 2>&1 || true
-    echo "Installed launchd trigger: mayor (keepalive every 15m)"
+    echo "Installed launchd trigger: mag (keepalive every 15m)"
   fi
 
   # Dashboard server trigger (KeepAlive)
@@ -372,7 +372,7 @@ PLIST
     local dash_port plist
     dash_port="$(trigger_get dashboard port)"
     if [[ -z "$dash_port" ]]; then
-      dash_port=$(pai_lite_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
+      dash_port=$(ludics_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
     fi
     if [[ -z "$dash_port" ]]; then
       dash_port=7678
@@ -408,7 +408,7 @@ PLIST
 
 triggers_install_linux() {
   local bin_path
-  bin_path="$(pai_lite_root)/bin/pai-lite"
+  bin_path="$(ludics_root)/bin/ludics"
   mkdir -p "$HOME/.config/systemd/user"
 
   local startup_enabled sync_enabled morning_enabled health_enabled federation_enabled
@@ -422,10 +422,10 @@ triggers_install_linux() {
   if [[ "$startup_enabled" == "true" ]]; then
     local action service_file
     action="$(command_from_action "$(trigger_get startup action)")"
-    service_file="$HOME/.config/systemd/user/pai-lite-startup.service"
+    service_file="$HOME/.config/systemd/user/ludics-startup.service"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite startup trigger
+Description=ludics startup trigger
 
 [Service]
 Type=oneshot
@@ -435,7 +435,7 @@ ExecStart=$bin_path $action
 WantedBy=default.target
 SERVICE
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-startup.service
+    systemctl --user enable --now ludics-startup.service
     echo "Installed systemd trigger: startup"
   fi
 
@@ -445,11 +445,11 @@ SERVICE
     action="$(command_from_action "$(trigger_get sync action)")"
     interval="$(trigger_get sync interval)"
     [[ -n "$interval" ]] || interval=3600
-    service_file="$HOME/.config/systemd/user/pai-lite-sync.service"
-    timer_file="$HOME/.config/systemd/user/pai-lite-sync.timer"
+    service_file="$HOME/.config/systemd/user/ludics-sync.service"
+    timer_file="$HOME/.config/systemd/user/ludics-sync.timer"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite sync trigger
+Description=ludics sync trigger
 
 [Service]
 Type=oneshot
@@ -457,17 +457,17 @@ ExecStart=$bin_path $action
 SERVICE
     cat > "$timer_file" <<TIMER
 [Unit]
-Description=pai-lite sync timer
+Description=ludics sync timer
 
 [Timer]
 OnUnitActiveSec=${interval}s
-Unit=pai-lite-sync.service
+Unit=ludics-sync.service
 
 [Install]
 WantedBy=timers.target
 TIMER
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-sync.timer
+    systemctl --user enable --now ludics-sync.timer
     echo "Installed systemd trigger: sync"
   fi
 
@@ -479,11 +479,11 @@ TIMER
     minute="$(trigger_get morning minute)"
     [[ -n "$hour" ]] || hour=8
     [[ -n "$minute" ]] || minute=0
-    service_file="$HOME/.config/systemd/user/pai-lite-morning.service"
-    timer_file="$HOME/.config/systemd/user/pai-lite-morning.timer"
+    service_file="$HOME/.config/systemd/user/ludics-morning.service"
+    timer_file="$HOME/.config/systemd/user/ludics-morning.timer"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite morning briefing
+Description=ludics morning briefing
 
 [Service]
 Type=oneshot
@@ -491,7 +491,7 @@ ExecStart=$bin_path $action
 SERVICE
     cat > "$timer_file" <<TIMER
 [Unit]
-Description=pai-lite morning briefing timer
+Description=ludics morning briefing timer
 
 [Timer]
 OnCalendar=*-*-* ${hour}:$(printf '%02d' "$minute"):00
@@ -501,7 +501,7 @@ Persistent=true
 WantedBy=timers.target
 TIMER
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-morning.timer
+    systemctl --user enable --now ludics-morning.timer
     echo "Installed systemd trigger: morning (daily at ${hour}:$(printf '%02d' "$minute"))"
   fi
 
@@ -511,11 +511,11 @@ TIMER
     action="$(command_from_action "$(trigger_get health action)")"
     interval="$(trigger_get health interval)"
     [[ -n "$interval" ]] || interval=14400
-    service_file="$HOME/.config/systemd/user/pai-lite-health.service"
-    timer_file="$HOME/.config/systemd/user/pai-lite-health.timer"
+    service_file="$HOME/.config/systemd/user/ludics-health.service"
+    timer_file="$HOME/.config/systemd/user/ludics-health.timer"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite health check
+Description=ludics health check
 
 [Service]
 Type=oneshot
@@ -523,17 +523,17 @@ ExecStart=$bin_path $action
 SERVICE
     cat > "$timer_file" <<TIMER
 [Unit]
-Description=pai-lite health check timer
+Description=ludics health check timer
 
 [Timer]
 OnUnitActiveSec=${interval}s
-Unit=pai-lite-health.service
+Unit=ludics-health.service
 
 [Install]
 WantedBy=timers.target
 TIMER
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-health.timer
+    systemctl --user enable --now ludics-health.timer
     echo "Installed systemd trigger: health (every $((interval / 3600))h)"
   fi
 
@@ -542,7 +542,7 @@ TIMER
     [[ -n "$rule_action" ]] || continue
     local sanitized_action
     sanitized_action="$(sanitize_action "$rule_action")"
-    local unit_name="pai-lite-watch-${sanitized_action}"
+    local unit_name="ludics-watch-${sanitized_action}"
     local service_file="$HOME/.config/systemd/user/${unit_name}.service"
     local path_file="$HOME/.config/systemd/user/${unit_name}.path"
 
@@ -559,7 +559,7 @@ TIMER
 
       cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite watch trigger (${rule_action})
+Description=ludics watch trigger (${rule_action})
 
 [Service]
 Type=oneshot
@@ -568,7 +568,7 @@ SERVICE
 
       cat > "$path_file" <<PATH
 [Unit]
-Description=pai-lite watch for file changes (${rule_action})
+Description=ludics watch for file changes (${rule_action})
 
 [Path]
 PATH
@@ -588,17 +588,17 @@ PATH
     fi
   done < <(trigger_get_watch_rules)
 
-  # Federation trigger (periodic timer - for multi-machine Mayor coordination)
+  # Federation trigger (periodic timer - for multi-machine Mag coordination)
   if [[ "$federation_enabled" == "true" ]]; then
     local action interval service_file timer_file
     action="$(command_from_action "$(trigger_get federation action)")"
     interval="$(trigger_get federation interval)"
     [[ -n "$interval" ]] || interval=300  # 5 minutes default
-    service_file="$HOME/.config/systemd/user/pai-lite-federation.service"
-    timer_file="$HOME/.config/systemd/user/pai-lite-federation.timer"
+    service_file="$HOME/.config/systemd/user/ludics-federation.service"
+    timer_file="$HOME/.config/systemd/user/ludics-federation.timer"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite federation heartbeat
+Description=ludics federation heartbeat
 
 [Service]
 Type=oneshot
@@ -606,51 +606,51 @@ ExecStart=$bin_path $action
 SERVICE
     cat > "$timer_file" <<TIMER
 [Unit]
-Description=pai-lite federation timer
+Description=ludics federation timer
 
 [Timer]
 OnUnitActiveSec=${interval}s
-Unit=pai-lite-federation.service
+Unit=ludics-federation.service
 
 [Install]
 WantedBy=timers.target
 TIMER
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-federation.timer
+    systemctl --user enable --now ludics-federation.timer
     echo "Installed systemd trigger: federation (every $((interval / 60))m)"
   fi
 
-  # Mayor keepalive trigger (boot + periodic timer)
-  local mayor_enabled
-  mayor_enabled="$(pai_lite_config_mayor_get enabled 2>/dev/null || echo "")"
-  if [[ "$mayor_enabled" == "true" ]]; then
-    local mayor_interval service_file timer_file
-    mayor_interval=900  # 15 minutes
-    service_file="$HOME/.config/systemd/user/pai-lite-mayor.service"
-    timer_file="$HOME/.config/systemd/user/pai-lite-mayor.timer"
+  # Mag keepalive trigger (boot + periodic timer)
+  local mag_enabled
+  mag_enabled="$(ludics_config_mag_get enabled 2>/dev/null || echo "")"
+  if [[ "$mag_enabled" == "true" ]]; then
+    local mag_interval service_file timer_file
+    mag_interval=900  # 15 minutes
+    service_file="$HOME/.config/systemd/user/ludics-mag.service"
+    timer_file="$HOME/.config/systemd/user/ludics-mag.timer"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite Mayor keepalive
+Description=ludics Mag keepalive
 
 [Service]
 Type=oneshot
-ExecStart=$bin_path mayor start
+ExecStart=$bin_path mag start
 SERVICE
     cat > "$timer_file" <<TIMER
 [Unit]
-Description=pai-lite Mayor keepalive timer
+Description=ludics Mag keepalive timer
 
 [Timer]
 OnBootSec=60
-OnUnitActiveSec=${mayor_interval}s
-Unit=pai-lite-mayor.service
+OnUnitActiveSec=${mag_interval}s
+Unit=ludics-mag.service
 
 [Install]
 WantedBy=timers.target
 TIMER
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-mayor.timer
-    echo "Installed systemd trigger: mayor (keepalive every 15m)"
+    systemctl --user enable --now ludics-mag.timer
+    echo "Installed systemd trigger: mag (keepalive every 15m)"
   fi
 
   # Dashboard server trigger (long-running service)
@@ -660,15 +660,15 @@ TIMER
     local dash_port service_file
     dash_port="$(trigger_get dashboard port)"
     if [[ -z "$dash_port" ]]; then
-      dash_port=$(pai_lite_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
+      dash_port=$(ludics_config_get_nested "dashboard" "port" 2>/dev/null || echo "")
     fi
     if [[ -z "$dash_port" ]]; then
       dash_port=7678
     fi
-    service_file="$HOME/.config/systemd/user/pai-lite-dashboard.service"
+    service_file="$HOME/.config/systemd/user/ludics-dashboard.service"
     cat > "$service_file" <<SERVICE
 [Unit]
-Description=pai-lite dashboard server
+Description=ludics dashboard server
 
 [Service]
 Type=simple
@@ -679,7 +679,7 @@ Restart=on-failure
 WantedBy=default.target
 SERVICE
     systemctl --user daemon-reload
-    systemctl --user enable --now pai-lite-dashboard.service
+    systemctl --user enable --now ludics-dashboard.service
     echo "Installed systemd trigger: dashboard (port $dash_port)"
   fi
 }
@@ -697,26 +697,26 @@ triggers_install() {
       ;;
     Linux)
       if ! command -v systemctl >/dev/null 2>&1; then
-        pai_lite_die "systemctl not found; cannot install Linux triggers"
+        ludics_die "systemctl not found; cannot install Linux triggers"
       fi
       triggers_install_linux
       ;;
     *)
-      pai_lite_die "unsupported OS for triggers: $uname_out"
+      ludics_die "unsupported OS for triggers: $uname_out"
       ;;
   esac
 }
 
 triggers_uninstall_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR" "$PLIST_DASHBOARD")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAG" "$PLIST_DASHBOARD")
 
   for label in "${plists[@]}"; do
     local plist="$agents_dir/${label}.plist"
     if [[ -f "$plist" ]]; then
       launchctl unload "$plist" >/dev/null 2>&1 || true
       rm -f "$plist"
-      echo "Uninstalled launchd trigger: ${label#com.pai-lite.}"
+      echo "Uninstalled launchd trigger: ${label#com.ludics.}"
     fi
   done
 
@@ -727,32 +727,32 @@ triggers_uninstall_macos() {
     label="$(basename "$plist" .plist)"
     launchctl unload "$plist" >/dev/null 2>&1 || true
     rm -f "$plist"
-    echo "Uninstalled launchd trigger: ${label#com.pai-lite.}"
+    echo "Uninstalled launchd trigger: ${label#com.ludics.}"
   done
 
-  echo "All pai-lite launchd triggers uninstalled"
+  echo "All ludics launchd triggers uninstalled"
 }
 
 triggers_uninstall_linux() {
-  local services=("startup" "sync" "morning" "health" "federation" "mayor" "dashboard")
+  local services=("startup" "sync" "morning" "health" "federation" "mag" "dashboard")
 
   for name in "${services[@]}"; do
-    local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
-    local timer_file="$HOME/.config/systemd/user/pai-lite-${name}.timer"
-    local path_file="$HOME/.config/systemd/user/pai-lite-${name}.path"
+    local service_file="$HOME/.config/systemd/user/ludics-${name}.service"
+    local timer_file="$HOME/.config/systemd/user/ludics-${name}.timer"
+    local path_file="$HOME/.config/systemd/user/ludics-${name}.path"
 
     if [[ -f "$timer_file" ]]; then
-      systemctl --user disable --now "pai-lite-${name}.timer" 2>/dev/null || true
+      systemctl --user disable --now "ludics-${name}.timer" 2>/dev/null || true
       rm -f "$timer_file"
     fi
 
     if [[ -f "$path_file" ]]; then
-      systemctl --user disable --now "pai-lite-${name}.path" 2>/dev/null || true
+      systemctl --user disable --now "ludics-${name}.path" 2>/dev/null || true
       rm -f "$path_file"
     fi
 
     if [[ -f "$service_file" ]]; then
-      systemctl --user disable --now "pai-lite-${name}.service" 2>/dev/null || true
+      systemctl --user disable --now "ludics-${name}.service" 2>/dev/null || true
       rm -f "$service_file"
       echo "Uninstalled systemd trigger: $name"
     fi
@@ -760,7 +760,7 @@ triggers_uninstall_linux() {
 
   # Uninstall all watch-* units (one per rule)
   local systemd_dir="$HOME/.config/systemd/user"
-  for service_file in "$systemd_dir"/pai-lite-watch-*.service; do
+  for service_file in "$systemd_dir"/ludics-watch-*.service; do
     [[ -f "$service_file" ]] || continue
     local unit_name
     unit_name="$(basename "$service_file" .service)"
@@ -772,11 +772,11 @@ triggers_uninstall_linux() {
     fi
     systemctl --user disable --now "${unit_name}.service" 2>/dev/null || true
     rm -f "$service_file"
-    echo "Uninstalled systemd trigger: ${unit_name#pai-lite-}"
+    echo "Uninstalled systemd trigger: ${unit_name#ludics-}"
   done
 
   systemctl --user daemon-reload
-  echo "All pai-lite systemd triggers uninstalled"
+  echo "All ludics systemd triggers uninstalled"
 }
 
 triggers_uninstall() {
@@ -788,13 +788,13 @@ triggers_uninstall() {
       ;;
     Linux)
       if ! command -v systemctl >/dev/null 2>&1; then
-        pai_lite_warn "systemctl not found; nothing to uninstall"
+        ludics_warn "systemctl not found; nothing to uninstall"
         return 0
       fi
       triggers_uninstall_linux
       ;;
     *)
-      pai_lite_die "unsupported OS for triggers: $uname_out"
+      ludics_die "unsupported OS for triggers: $uname_out"
       ;;
   esac
 }
@@ -802,7 +802,7 @@ triggers_uninstall() {
 _status_macos_plist() {
   local label="$1" agents_dir="$2"
   local plist="$agents_dir/${label}.plist"
-  local name="${label#com.pai-lite.}"
+  local name="${label#com.ludics.}"
 
   [[ -f "$plist" ]] || return 1
 
@@ -819,7 +819,7 @@ _status_macos_plist() {
   fi
   printf "  %-20s %s\n" "$name:" "$status"
 
-  local log="$HOME/Library/Logs/pai-lite-${name}.log"
+  local log="$HOME/Library/Logs/ludics-${name}.log"
   if [[ -f "$log" ]]; then
     local last_line
     last_line=$(tail -n 1 "$log" 2>/dev/null)
@@ -832,10 +832,10 @@ _status_macos_plist() {
 
 triggers_status_macos() {
   local agents_dir="$HOME/Library/LaunchAgents"
-  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAYOR" "$PLIST_DASHBOARD")
+  local plists=("$PLIST_STARTUP" "$PLIST_SYNC" "$PLIST_MORNING" "$PLIST_HEALTH" "$PLIST_FEDERATION" "$PLIST_MAG" "$PLIST_DASHBOARD")
   local found_any=false
 
-  echo "pai-lite launchd triggers:"
+  echo "ludics launchd triggers:"
   echo ""
 
   for label in "${plists[@]}"; do
@@ -855,27 +855,27 @@ triggers_status_macos() {
   done
 
   if ! $found_any; then
-    echo "  No pai-lite triggers installed"
+    echo "  No ludics triggers installed"
   fi
 
   echo ""
-  echo "Log files: $HOME/Library/Logs/pai-lite-*.log"
+  echo "Log files: $HOME/Library/Logs/ludics-*.log"
 }
 
 _status_linux_unit() {
   local name="$1"
-  local service_file="$HOME/.config/systemd/user/pai-lite-${name}.service"
-  local timer_file="$HOME/.config/systemd/user/pai-lite-${name}.timer"
-  local path_file="$HOME/.config/systemd/user/pai-lite-${name}.path"
+  local service_file="$HOME/.config/systemd/user/ludics-${name}.service"
+  local timer_file="$HOME/.config/systemd/user/ludics-${name}.timer"
+  local path_file="$HOME/.config/systemd/user/ludics-${name}.path"
 
   [[ -f "$service_file" ]] || return 1
 
   local status
 
   if [[ -f "$timer_file" ]]; then
-    status=$(systemctl --user is-active "pai-lite-${name}.timer" 2>/dev/null || echo "inactive")
+    status=$(systemctl --user is-active "ludics-${name}.timer" 2>/dev/null || echo "inactive")
     local next=""
-    if next=$(systemctl --user list-timers "pai-lite-${name}.timer" --no-legend 2>/dev/null); then
+    if next=$(systemctl --user list-timers "ludics-${name}.timer" --no-legend 2>/dev/null); then
       next=$(echo "$next" | awk '{print $1, $2}')
     fi
     if [[ -n "$next" ]]; then
@@ -884,20 +884,20 @@ _status_linux_unit() {
       printf "  %-20s %s\n" "$name:" "$status"
     fi
   elif [[ -f "$path_file" ]]; then
-    status=$(systemctl --user is-active "pai-lite-${name}.path" 2>/dev/null || echo "inactive")
+    status=$(systemctl --user is-active "ludics-${name}.path" 2>/dev/null || echo "inactive")
     printf "  %-20s %s (watching paths)\n" "$name:" "$status"
   else
-    status=$(systemctl --user is-active "pai-lite-${name}.service" 2>/dev/null || echo "inactive")
+    status=$(systemctl --user is-active "ludics-${name}.service" 2>/dev/null || echo "inactive")
     printf "  %-20s %s\n" "$name:" "$status"
   fi
   return 0
 }
 
 triggers_status_linux() {
-  local services=("startup" "sync" "morning" "health" "federation" "mayor" "dashboard")
+  local services=("startup" "sync" "morning" "health" "federation" "mag" "dashboard")
   local found_any=false
 
-  echo "pai-lite systemd triggers:"
+  echo "ludics systemd triggers:"
   echo ""
 
   for name in "${services[@]}"; do
@@ -908,22 +908,22 @@ triggers_status_linux() {
 
   # Discover watch-* units
   local systemd_dir="$HOME/.config/systemd/user"
-  for service_file in "$systemd_dir"/pai-lite-watch-*.service; do
+  for service_file in "$systemd_dir"/ludics-watch-*.service; do
     [[ -f "$service_file" ]] || continue
     local unit_name
     unit_name="$(basename "$service_file" .service)"
-    local name="${unit_name#pai-lite-}"
+    local name="${unit_name#ludics-}"
     if _status_linux_unit "$name"; then
       found_any=true
     fi
   done
 
   if ! $found_any; then
-    echo "  No pai-lite triggers installed"
+    echo "  No ludics triggers installed"
   fi
 
   echo ""
-  echo "View logs: journalctl --user -u 'pai-lite-*'"
+  echo "View logs: journalctl --user -u 'ludics-*'"
 }
 
 triggers_status() {
@@ -935,13 +935,13 @@ triggers_status() {
       ;;
     Linux)
       if ! command -v systemctl >/dev/null 2>&1; then
-        pai_lite_warn "systemctl not found"
+        ludics_warn "systemctl not found"
         return 0
       fi
       triggers_status_linux
       ;;
     *)
-      pai_lite_die "unsupported OS for triggers: $uname_out"
+      ludics_die "unsupported OS for triggers: $uname_out"
       ;;
   esac
 }

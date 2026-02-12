@@ -1,4 +1,4 @@
-// Config reading for pai-lite (Phase 2: native YAML parsing)
+// Config reading for ludics (Phase 2: native YAML parsing)
 
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -6,14 +6,14 @@ import YAML from "yaml";
 
 const DEFAULT_STALE_THRESHOLD = 86400; // 24 hours
 
-export interface PaiLiteFullConfig {
+export interface LudicsFullConfig {
   state_repo: string;
   state_path: string;
   staleThresholdSeconds: number;
   slots?: { count?: number };
   projects?: Array<{ name: string; repo: string; issues?: boolean }>;
   adapters?: Record<string, { enabled?: boolean }>;
-  mayor?: Record<string, unknown>;
+  mag?: Record<string, unknown>;
   triggers?: Record<string, unknown>;
   notifications?: {
     provider?: string;
@@ -25,7 +25,14 @@ export interface PaiLiteFullConfig {
 }
 
 function pointerConfigPath(): string {
-  return process.env.PAI_LITE_CONFIG ?? join(process.env.HOME!, ".config/pai-lite/config.yaml");
+  if (process.env.LUDICS_CONFIG) return process.env.LUDICS_CONFIG;
+  if (process.env.PAI_LITE_CONFIG) return process.env.PAI_LITE_CONFIG;
+  const newPath = join(process.env.HOME!, ".config/ludics/config.yaml");
+  if (existsSync(newPath)) return newPath;
+  // Legacy fallback for upgrades from pai-lite
+  const legacyPath = join(process.env.HOME!, ".config/pai-lite/config.yaml");
+  if (existsSync(legacyPath)) return legacyPath;
+  return newPath;
 }
 
 function parseYamlFile(path: string): Record<string, unknown> {
@@ -50,10 +57,10 @@ function resolveConfigPath(): string {
   return pointer;
 }
 
-export function loadConfigSync(): PaiLiteFullConfig {
+export function loadConfigSync(): LudicsFullConfig {
   const configPath = resolveConfigPath();
   if (!existsSync(configPath)) {
-    throw new Error(`config not found: ${configPath} (run: pai-lite init)`);
+    throw new Error(`config not found: ${configPath} (run: ludics init)`);
   }
 
   const data = parseYamlFile(configPath) as Record<string, unknown>;
@@ -65,19 +72,19 @@ export function loadConfigSync(): PaiLiteFullConfig {
     state_repo: (data.state_repo as string) ?? "",
     state_path: (data.state_path as string) || "harness",
     staleThresholdSeconds,
-    slots: data.slots as PaiLiteFullConfig["slots"],
-    projects: data.projects as PaiLiteFullConfig["projects"],
-    adapters: data.adapters as PaiLiteFullConfig["adapters"],
-    mayor: data.mayor as PaiLiteFullConfig["mayor"],
-    triggers: data.triggers as PaiLiteFullConfig["triggers"],
-    notifications: data.notifications as PaiLiteFullConfig["notifications"],
-    dashboard: data.dashboard as PaiLiteFullConfig["dashboard"],
-    network: data.network as PaiLiteFullConfig["network"],
+    slots: data.slots as LudicsFullConfig["slots"],
+    projects: data.projects as LudicsFullConfig["projects"],
+    adapters: data.adapters as LudicsFullConfig["adapters"],
+    mag: data.mag as LudicsFullConfig["mag"],
+    triggers: data.triggers as LudicsFullConfig["triggers"],
+    notifications: data.notifications as LudicsFullConfig["notifications"],
+    dashboard: data.dashboard as LudicsFullConfig["dashboard"],
+    network: data.network as LudicsFullConfig["network"],
   };
 }
 
 // Async wrapper for backward compatibility with Phase 1 callers
-export async function loadConfig(): Promise<PaiLiteFullConfig> {
+export async function loadConfig(): Promise<LudicsFullConfig> {
   return loadConfigSync();
 }
 
