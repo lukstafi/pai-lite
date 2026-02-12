@@ -25,7 +25,14 @@ export interface LudicsFullConfig {
 }
 
 function pointerConfigPath(): string {
-  return process.env.LUDICS_CONFIG ?? join(process.env.HOME!, ".config/ludics/config.yaml");
+  if (process.env.LUDICS_CONFIG) return process.env.LUDICS_CONFIG;
+  if (process.env.PAI_LITE_CONFIG) return process.env.PAI_LITE_CONFIG;
+  const newPath = join(process.env.HOME!, ".config/ludics/config.yaml");
+  if (existsSync(newPath)) return newPath;
+  // Legacy fallback for upgrades from pai-lite
+  const legacyPath = join(process.env.HOME!, ".config/pai-lite/config.yaml");
+  if (existsSync(legacyPath)) return legacyPath;
+  return newPath;
 }
 
 function parseYamlFile(path: string): Record<string, unknown> {

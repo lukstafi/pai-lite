@@ -394,6 +394,31 @@ function triggersUninstallMacos(): void {
     }
   }
 
+  // Legacy pai-lite triggers
+  const legacyLabels = [
+    "com.pai-lite.startup", "com.pai-lite.sync", "com.pai-lite.morning",
+    "com.pai-lite.health", "com.pai-lite.federation", "com.pai-lite.mayor",
+    "com.pai-lite.dashboard",
+  ];
+  for (const label of legacyLabels) {
+    const plist = join(agentsDir, `${label}.plist`);
+    if (existsSync(plist)) {
+      Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
+      unlinkSync(plist);
+      console.log(`Uninstalled legacy launchd trigger: ${label}`);
+    }
+  }
+  if (existsSync(agentsDir)) {
+    for (const f of readdirSync(agentsDir)) {
+      if (f.startsWith("com.pai-lite.watch-") && f.endsWith(".plist")) {
+        const plist = join(agentsDir, f);
+        Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
+        unlinkSync(plist);
+        console.log(`Uninstalled legacy launchd trigger: ${f.replace(".plist", "")}`);
+      }
+    }
+  }
+
   console.log("All ludics launchd triggers uninstalled");
 }
 
@@ -434,6 +459,43 @@ function triggersUninstallLinux(): void {
         Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.service`], { stdout: "pipe", stderr: "pipe" });
         unlinkSync(join(systemdDir, f));
         console.log(`Uninstalled systemd trigger: ${unitName.replace("ludics-", "")}`);
+      }
+    }
+  }
+
+  // Legacy pai-lite units
+  const legacyNames = ["startup", "sync", "morning", "health", "federation", "mayor", "dashboard"];
+  for (const name of legacyNames) {
+    const serviceFile = join(systemdDir, `pai-lite-${name}.service`);
+    const timerFile = join(systemdDir, `pai-lite-${name}.timer`);
+    const pathFile = join(systemdDir, `pai-lite-${name}.path`);
+
+    if (existsSync(timerFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.timer`], { stdout: "pipe", stderr: "pipe" });
+      unlinkSync(timerFile);
+    }
+    if (existsSync(pathFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.path`], { stdout: "pipe", stderr: "pipe" });
+      unlinkSync(pathFile);
+    }
+    if (existsSync(serviceFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `pai-lite-${name}.service`], { stdout: "pipe", stderr: "pipe" });
+      unlinkSync(serviceFile);
+      console.log(`Uninstalled legacy systemd trigger: pai-lite-${name}`);
+    }
+  }
+  if (existsSync(systemdDir)) {
+    for (const f of readdirSync(systemdDir)) {
+      if (f.startsWith("pai-lite-watch-") && f.endsWith(".service")) {
+        const unitName = f.replace(".service", "");
+        const pathFile = join(systemdDir, `${unitName}.path`);
+        if (existsSync(pathFile)) {
+          Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.path`], { stdout: "pipe", stderr: "pipe" });
+          unlinkSync(pathFile);
+        }
+        Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.service`], { stdout: "pipe", stderr: "pipe" });
+        unlinkSync(join(systemdDir, f));
+        console.log(`Uninstalled legacy systemd trigger: ${unitName}`);
       }
     }
   }
