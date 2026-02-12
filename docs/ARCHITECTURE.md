@@ -4,7 +4,7 @@
 
 ## Overview
 
-ludics is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (the Mag), and maintains flow-based task management.
+ludics is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (Mag), and maintains flow-based task management.
 
 **Core philosophy: "Autonomy babysitting automation"**
 - **Autonomous layer**: AI agents make strategic decisions (Mag, workers)
@@ -81,7 +81,7 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 
 The **Mag** is a persistent Claude Code instance running in a dedicated tmux session (`ludics-mag`) with ttyd web access enabled by default on port 7679. It provides autonomous strategic thinking while the automation layer handles reliable execution.
 
-**What the Mag does (Claude Opus 4.5):**
+**What Mag does (Claude Opus 4.5):**
 - Analyzes GitHub issues for actionability and dependencies (context understanding)
 - Generates morning briefings with strategic suggestions (writing, wisdom)
 - Detects stalled work (tasks in-progress >7 days with no updates)
@@ -91,7 +91,7 @@ The **Mag** is a persistent Claude Code instance running in a dedicated tmux ses
 - **Learns from corrections** — updates institutional memory when mistakes are identified
 - **Consolidates learnings** — periodically synthesizes scattered corrections into structured knowledge
 
-**What the Mag delegates:**
+**What Mag delegates:**
 
 *Via Task tool (native Claude Code subagents):*
 - **Haiku**: Fast extraction, parsing, simple validation
@@ -103,9 +103,9 @@ The **Mag** is a persistent Claude Code instance running in a dedicated tmux ses
 - Priority filtering: `jq` for sorting and selection
 - Graph visualization: `graphviz` (dot)
 
-The Mag's skills (defined in the framework) can embed delegation patterns, e.g., a `/ludics-analyze-issue` skill that uses a Haiku subagent for dependency extraction before the Mag writes the task file.
+The Mag's skills (defined in the framework) can embed delegation patterns, e.g., a `/ludics-analyze-issue` skill that uses a Haiku subagent for dependency extraction before Mag writes the task file.
 
-**How automation invokes the Mag:**
+**How automation invokes Mag:**
 ```bash
 # trigger_skill sends the slash command with a brief sleep
 # so the console processes the prompt instead of a raw newline.
@@ -175,9 +175,9 @@ Codex has adjacent capabilities but not a direct Task tool equivalent:
 - **Workaround**: OpenAI Agents SDK can orchestrate multiple agents with Codex as an MCP server (handoffs, guardrails, traces)
 - **CLI profiles**: `codex --profile <name>` for behavior switching, but not isolated-context subagents
 
-What's missing: A first-class, user-invocable `Task()` tool where the Mag can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
+What's missing: A first-class, user-invocable `Task()` tool where Mag can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
 
-**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mag's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping the Mag backend would primarily require adapting the delegation patterns.
+**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mag's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping Mag backend would primarily require adapting the delegation patterns.
 
 **When to revisit:** Check Codex subagent status quarterly. Key signals: official Task-equivalent announcement, or general-purpose subagent spawning in CLI docs.
 
@@ -210,11 +210,11 @@ The Mag uses **Claude Code's native Task tool** for delegation, not custom API w
 4. [Opus] Write task file with context
 ```
 
-Skills defined in the framework embed these patterns, keeping the Mag's prompts clean.
+Skills defined in the framework embed these patterns, keeping Mag's prompts clean.
 
 **Example: `/ludics-learn` skill (institutional memory)**
 
-When the user corrects a mistake, they can invoke `/ludics-learn` to have the Mag update its memory:
+When the user corrects a mistake, they can invoke `/ludics-learn` to have Mag update its memory:
 
 ```
 User: "Don't use yq -s on single files, it expects multiple"
@@ -232,11 +232,11 @@ Mag:
 3. If pattern is broader, updates mag/memory/tools.md or CLAUDE.md
 ```
 
-This creates a feedback loop where the Mag learns from its mistakes and avoids repeating them.
+This creates a feedback loop where Mag learns from its mistakes and avoids repeating them.
 
 **Example: `/ludics-sync-learnings` skill (knowledge consolidation)**
 
-Periodically (or on demand), the Mag consolidates scattered learnings:
+Periodically (or on demand), Mag consolidates scattered learnings:
 
 ```
 /ludics-sync-learnings
@@ -681,7 +681,7 @@ your-private-repo/
             └── user-preferences.md
 ```
 
-**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `ludics convert` (from a GitHub issue or README TODO) looks identical to one elaborated by the Mag or created manually. The Mag processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
+**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `ludics convert` (from a GitHub issue or README TODO) looks identical to one elaborated by Mag or created manually. The Mag processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
 
 ## State Format
 
@@ -1324,7 +1324,7 @@ This keeps technical debt visible without interrupting active work.
 
 ### CI Failure Adapter
 
-Integrates GitHub Actions (or other CI) failures into the Mag's workflow:
+Integrates GitHub Actions (or other CI) failures into Mag's workflow:
 
 ```bash
 # adapters/github-actions.sh
@@ -1356,7 +1356,7 @@ poll_ci_failures() {
 
 **Deduplication**: The adapter maintains `ci-failures-seen.txt` to avoid re-processing the same failure. Entries can be pruned periodically (e.g., remove entries older than 7 days).
 
-**Mag handling**: When the Mag processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
+**Mag handling**: When Mag processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
 - Creates a task file if it's a new issue
 - Adds a note to an existing task if it's related to active work
 - Notifies via ntfy if it's blocking a deadline

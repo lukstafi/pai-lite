@@ -15,7 +15,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 # Read Stop event input from stdin
 input=$(cat)
 
-# Extract cwd so mag queue-pop can verify this is the Mag session
+# Extract cwd so mag queue-pop can verify this is Mag session
 cwd=$(echo "$input" | jq -r '.cwd // ""' 2>/dev/null)
 
 # Find ludics binary and run queue-pop

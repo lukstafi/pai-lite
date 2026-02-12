@@ -115,7 +115,7 @@ Skills should be Markdown files in `skills/` directory that can be installed to 
 ### 3.5 Mag Memory System
 
 - [ ] Create `templates/mag/` directory structure
-- [ ] `mag/context.md` - Current operating context for the Mag
+- [ ] `mag/context.md` - Current operating context for Mag
 - [ ] `mag/memory/corrections.md` - Recent corrections from user feedback
 - [ ] `mag/memory/corrections-archive.md` - Archived/processed corrections
 - [ ] `mag/memory/tools.md` - CLI tool gotchas and patterns

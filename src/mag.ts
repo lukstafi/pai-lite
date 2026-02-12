@@ -753,7 +753,7 @@ export async function runMag(args: string[]): Promise<void> {
       if (cwd) {
         const harness = harnessDir();
         if (!cwd.startsWith(harness)) {
-          // Not the Mag session — silently exit
+          // Not Mag session — silently exit
           break;
         }
       }

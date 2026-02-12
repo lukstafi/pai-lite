@@ -1,6 +1,6 @@
 # Mag Context
 
-This file contains the Mag's current understanding and focus areas.
+This file contains Mag's current understanding and focus areas.
 
 ## Current Focus
 
@@ -41,4 +41,4 @@ This file contains the Mag's current understanding and focus areas.
 
 ## Notes
 
-*Anything else the Mag should remember between sessions.*
+*Anything else Mag should remember between sessions.*

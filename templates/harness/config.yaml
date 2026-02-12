@@ -122,7 +122,7 @@ network:
   hostname: ""
 
   # Node definitions for federation (seniority order: first = highest priority)
-  # The highest-seniority online node becomes the Mag leader
+  # The highest-seniority online node becomes Mag leader
   nodes: []
   # Example:
   #   - name: mac-mini

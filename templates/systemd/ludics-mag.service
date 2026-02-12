@@ -1,6 +1,6 @@
 # ludics Mag keepalive service for Linux (systemd)
 #
-# Ensures the Mag tmux session is running:
+# Ensures Mag tmux session is running:
 # - Starts on login (default.target)
 # - Checks every 15 minutes via companion timer
 # - Idempotent: exits early if already running

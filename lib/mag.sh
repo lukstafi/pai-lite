@@ -64,7 +64,7 @@ mag_is_running() {
 }
 
 #------------------------------------------------------------------------------
-# Helper: Ensure ttyd is running for the Mag session
+# Helper: Ensure ttyd is running for Mag session
 # Spawns ttyd under the tmux server's process tree so launchd can't kill it.
 #------------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ mag_ensure_ttyd() {
 }
 
 #------------------------------------------------------------------------------
-# Mag start: Create/restart the Mag tmux session
+# Mag start: Create/restart Mag tmux session
 #------------------------------------------------------------------------------
 
 mag_start() {
@@ -220,7 +220,7 @@ EOF
 }
 
 #------------------------------------------------------------------------------
-# Mag stop: Gracefully stop the Mag session
+# Mag stop: Gracefully stop Mag session
 #------------------------------------------------------------------------------
 
 mag_stop() {
@@ -372,7 +372,7 @@ mag_status() {
 }
 
 #------------------------------------------------------------------------------
-# Mag attach: Attach to the Mag tmux session
+# Mag attach: Attach to Mag tmux session
 #------------------------------------------------------------------------------
 
 mag_attach() {
@@ -515,7 +515,7 @@ mag_queue_pop_skill() {
 mag_queue_pop() {
   local cwd="${1:-}"
 
-  # Only process queue for the Mag session (cwd must be inside the harness dir)
+  # Only process queue for Mag session (cwd must be inside the harness dir)
   if [[ -n "$cwd" ]]; then
     local harness_dir
     harness_dir="$(ludics_state_harness_dir)"
@@ -533,7 +533,7 @@ mag_queue_pop() {
 }
 
 #------------------------------------------------------------------------------
-# Mag send: Send a command to the Mag (for automation)
+# Mag send: Send a command to Mag (for automation)
 #------------------------------------------------------------------------------
 
 mag_send() {

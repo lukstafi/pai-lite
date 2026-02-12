@@ -10,12 +10,12 @@ Second release. Focus on robustness, better Mag workflows, and task management i
 - **Content-fingerprint task IDs** — Watch-path tasks now use 8-char md5 of normalized text (`watch-<path>-<fingerprint>`) instead of line numbers, so IDs survive file edits. Old IDs are migrated automatically.
 - **Cross-reference migration** — `tasks migrate-refs` updates `blocks`/`blocked_by` references after ID changes.
 - **Pervasive session discovery** — `sessions list` scans tmux, screen, VS Code, and `.peer-sync/` directories to find all active agent sessions, enriching slot data.
-- **Mag inbox** — Async message channel (`mag inbox send/read`) for non-blocking communication with the Mag session. Briefing and health-check skills read the inbox automatically.
+- **Mag inbox** — Async message channel (`mag inbox send/read`) for non-blocking communication with Mag session. Briefing and health-check skills read the inbox automatically.
 - **Briefing context pre-computation** — Bash pre-computes slot state, ready queue, and critical items before invoking the briefing skill, reducing token usage.
 - **Proactive slot management** — Mag briefing now includes slot occupancy analysis and reassignment suggestions.
 - **Dashboard briefing tab** — New tab renders the latest briefing as formatted Markdown alongside terminals and task views.
 - **Lazy dashboard server** — Dashboard HTTP server auto-starts via launchd/systemd on first `dashboard open` and stops when idle.
-- **Mag keepalive nudge** — When the keepalive trigger fires, if the Mag queue is non-empty the nudge includes a timestamp and pending item count.
+- **Mag keepalive nudge** — When the keepalive trigger fires, if Mag queue is non-empty the nudge includes a timestamp and pending item count.
 - **CLAUDE.md template for harness directories** — `ludics init` deploys a CLAUDE.md with project conventions and upstream-PR workflow into each harness directory.
 
 ### Fixes

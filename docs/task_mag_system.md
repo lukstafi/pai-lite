@@ -1,7 +1,7 @@
 # Task: Mag System
 
 ## Goal
-Implement the Mag lifecycle, queue handling integration, skills scaffolding, and memory structure so automation can invoke Mag actions end-to-end.
+Implement Mag lifecycle, queue handling integration, skills scaffolding, and memory structure so automation can invoke Mag actions end-to-end.
 
 ## Scope
 - Mag session management commands.

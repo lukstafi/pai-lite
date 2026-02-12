@@ -122,7 +122,7 @@ This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, the
 
 ### Step 4: Verify triggers
 
-Triggers automate Mag startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mag is enabled in your config, a keepalive trigger also starts the Mag at login and checks every 15 minutes. Install them with:
+Triggers automate Mag startup and periodic task sync via launchd (macOS) or systemd (Linux). If Mag is enabled in your config, a keepalive trigger also starts Mag at login and checks every 15 minutes. Install them with:
 
 Verify with:
 
@@ -260,7 +260,7 @@ ludics mag queue             # Show pending requests
 
 ### Using skills directly
 
-You don't need Mag to use ludics skills. Clone your harness repository and run Claude Code in the harness directory — skills like `ludics-briefing`, `ludics-elaborate`, and others work directly. This is useful for read-only tasks (checking status, getting briefings) or when you need something done immediately without waiting for the Mag queue.
+You don't need Mag to use ludics skills. Clone your harness repository and run Claude Code in the harness directory — skills like `ludics-briefing`, `ludics-elaborate`, and others work directly. This is useful for read-only tasks (checking status, getting briefings) or when you need something done immediately without waiting for Mag queue.
 
 ### Overview and setup
 
@@ -294,7 +294,7 @@ Triggers automate periodic actions:
 - **macOS**: launchd agents for `startup`, `sync`, and Mag keepalive
 - **Linux (Ubuntu)**: systemd user units and timers
 
-If `mag.enabled` is `true` in your config, `triggers install` also creates a Mag keepalive service that starts the Mag at login and checks every 15 minutes.
+If `mag.enabled` is `true` in your config, `triggers install` also creates a Mag keepalive service that starts Mag at login and checks every 15 minutes.
 
 Configure in `config.yaml` under `triggers:` and `mag:`. Then run:
 
@@ -310,7 +310,7 @@ ludics supports running across multiple machines. All state lives in a git repos
 
 - **Git-backed state**: every machine clones the same harness repo. Pull to see the latest state, push to share yours.
 - **Tailscale networking**: optional MagicDNS-based hostname resolution for cross-machine URLs. Configure `network.mode: tailscale` in your harness config.
-- **Seniority-based leader election**: nodes are listed in your config in priority order. The highest-priority node with a fresh heartbeat (< 15 min) becomes the Mag leader. If the leader goes offline, the next node takes over automatically.
+- **Seniority-based leader election**: nodes are listed in your config in priority order. The highest-priority node with a fresh heartbeat (< 15 min) becomes Mag leader. If the leader goes offline, the next node takes over automatically.
 - **Heartbeats**: each node publishes a heartbeat every 5 minutes to `federation/heartbeats/`. The federation trigger handles this.
 
 ### Typical deployment

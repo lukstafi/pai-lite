@@ -105,7 +105,7 @@ ludics_config_get_nested() {
 # Config Parsing: Mag Section
 #------------------------------------------------------------------------------
 
-# Get a value from the mag config section
+# Get a value from the Mag config section
 # Usage: ludics_config_mag_get <key>
 # Example: ludics_config_mag_get "enabled" -> true/false
 ludics_config_mag_get() {
@@ -263,7 +263,7 @@ ludics_results_dir() {
   echo "$(ludics_state_harness_dir)/mag/results"
 }
 
-# Queue a request for the Mag
+# Queue a request for Mag
 # Usage: ludics_queue_request <action> [extra_json_fields]
 ludics_queue_request() {
   local action="$1"
@@ -297,7 +297,7 @@ ludics_queue_request() {
   echo "$request_id"
 }
 
-# Wait for a result file from the Mag
+# Wait for a result file from Mag
 # Usage: ludics_wait_for_result <request_id> [timeout_seconds]
 ludics_wait_for_result() {
   local request_id="$1"
