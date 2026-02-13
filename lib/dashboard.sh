@@ -467,42 +467,11 @@ dashboard_generate() {
 }
 
 #------------------------------------------------------------------------------
-# Serve dashboard via Python HTTP server
+# Serve dashboard — delegates to TypeScript server (dashboard_server.py removed)
 #------------------------------------------------------------------------------
 dashboard_serve() {
   local port="${1:-7678}"
-  local dashboard_dir
-  dashboard_dir="$(ludics_state_harness_dir)/dashboard"
-
-  if [[ ! -d "$dashboard_dir" ]]; then
-    ludics_die "dashboard not installed. Run: ludics dashboard install"
-  fi
-
-  local server_script
-  server_script="$(ludics_root)/lib/dashboard_server.py"
-
-  if [[ ! -f "$server_script" ]]; then
-    ludics_die "dashboard server script not found: $server_script"
-  fi
-
-  local bin_path
-  bin_path="$(ludics_root)/bin/ludics"
-
-  # Read TTL from config (default: 5 seconds)
-  local ttl
-  ttl="$(dashboard_get_config "ttl")"
-  if [[ -z "$ttl" ]]; then
-    ttl=5
-  fi
-
-  # Generate initial data so first page load is fast
-  dashboard_generate
-
-  ludics_info "serving dashboard at $(ludics_get_url "$port")"
-  ludics_info "data regenerates lazily (TTL: ${ttl}s)"
-  ludics_info "press Ctrl+C to stop"
-
-  python3 "$server_script" "$port" "$dashboard_dir" "$bin_path" "$ttl"
+  ludics_die "dashboard serve is now handled by the TypeScript entrypoint. Use: ludics dashboard serve ${port}"
 }
 
 #------------------------------------------------------------------------------
