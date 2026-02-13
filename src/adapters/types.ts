@@ -10,10 +10,13 @@ export interface AdapterContext {
   stateRepoDir: string;
 }
 
+/** Allow adapter methods to return sync or async results. */
+export type MaybePromise<T> = T | Promise<T>;
+
 export interface Adapter {
-  readState(ctx: AdapterContext): string | null;
-  start(ctx: AdapterContext): string;
-  stop(ctx: AdapterContext): string;
+  readState(ctx: AdapterContext): MaybePromise<string | null>;
+  start(ctx: AdapterContext): MaybePromise<string>;
+  stop(ctx: AdapterContext): MaybePromise<string>;
 }
 
 export interface AgentStatus {

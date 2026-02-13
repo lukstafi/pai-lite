@@ -3,12 +3,13 @@
 // Both adapters are ~95% identical — parameterize the differences via
 // AgentSessionConfig and export factory functions.
 
-import { existsSync, readdirSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
 import { tmuxAvailable, tmuxHasSession, tmuxPaneCwd } from "./tmux.ts";
 import { readStatusFile, formatAgentStatus, timeAgo, isGitWorktree, getMainRepoFromWorktree, getGitBranch, readSingleFile, resolveProjectDir } from "./base.ts";
-import { readAgentSessionFile } from "./peer-sync.ts";
+import { readAgentSessionFile, findSessionByPrefixOrTask } from "./peer-sync.ts";
 import { getUrl } from "../network.ts";
+import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
 
 // ---------------------------------------------------------------------------
@@ -24,26 +25,6 @@ export interface AgentSessionConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function findSessionFile(projectDir: string, taskId: string, prefixes: string[]): string | null {
-  const sessionsDir = join(projectDir, ".agent-sessions");
-  if (!existsSync(sessionsDir)) return null;
-  const entries = readdirSync(sessionsDir);
-  for (const entry of entries) {
-    if (!entry.endsWith(".session")) continue;
-    if (taskId && entry.includes(taskId)) {
-      return join(sessionsDir, entry);
-    }
-    if (prefixes.some((p) => entry.startsWith(p))) {
-      return join(sessionsDir, entry);
-    }
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
 // Adapter factory
 // ---------------------------------------------------------------------------
 
@@ -52,7 +33,7 @@ export function createAgentSessionAdapter(cfg: AgentSessionConfig): Adapter {
     if (!tmuxAvailable()) return null;
 
     const projectDir = resolveProjectDir(ctx.session);
-    const sessionFile = findSessionFile(projectDir, ctx.taskId, cfg.sessionPrefixes);
+    const sessionFile = findSessionByPrefixOrTask(projectDir, ctx.taskId, cfg.sessionPrefixes);
     const sessionInfo = sessionFile ? readAgentSessionFile(sessionFile) : null;
 
     const tmuxName = sessionInfo?.tmux
@@ -60,40 +41,37 @@ export function createAgentSessionAdapter(cfg: AgentSessionConfig): Adapter {
     if (!tmuxName) return null;
     if (!tmuxHasSession(tmuxName)) return null;
 
-    const lines: string[] = [];
-    lines.push(`**Mode:** ${cfg.modeLabel}`);
-    lines.push("");
+    const md = new MarkdownBuilder();
+    md.keyValue("Mode", cfg.modeLabel);
 
     // Terminals
-    lines.push("**Terminals:**");
-    lines.push(`- ${cfg.terminalLabel}: tmux session '${tmuxName}'`);
+    md.section("Terminals");
+    md.bullet(`${cfg.terminalLabel}: tmux session '${tmuxName}'`);
     if (sessionInfo?.ttydPort) {
-      lines.push(`- Web: ${getUrl(sessionInfo.ttydPort)}`);
+      md.bullet(`Web: ${getUrl(sessionInfo.ttydPort)}`);
     }
 
     // Git info
     const cwd = tmuxPaneCwd(tmuxName);
     if (cwd) {
-      lines.push("");
-      lines.push("**Git:**");
+      md.section("Git");
       if (isGitWorktree(cwd)) {
         const mainRepo = getMainRepoFromWorktree(cwd);
-        lines.push(`- Working directory: ${cwd} (worktree)`);
-        if (mainRepo) lines.push(`- Main repository: ${mainRepo}`);
+        md.bullet(`Working directory: ${cwd} (worktree)`);
+        if (mainRepo) md.bullet(`Main repository: ${mainRepo}`);
       } else {
-        lines.push(`- Working directory: ${cwd}`);
+        md.bullet(`Working directory: ${cwd}`);
       }
       const branch = getGitBranch(cwd);
-      if (branch) lines.push(`- Branch: ${branch}`);
+      if (branch) md.bullet(`Branch: ${branch}`);
     }
 
     // Runtime info from session file
     if (sessionInfo) {
-      lines.push("");
-      lines.push("**Runtime:**");
-      if (sessionInfo.task) lines.push(`- Task: ${sessionInfo.task}`);
-      if (sessionInfo.mode) lines.push(`- Mode: ${sessionInfo.mode}`);
-      if (sessionInfo.started) lines.push(`- Started: ${sessionInfo.started}`);
+      md.section("Runtime");
+      if (sessionInfo.task) md.bullet(`Task: ${sessionInfo.task}`);
+      if (sessionInfo.mode) md.bullet(`Mode: ${sessionInfo.mode}`);
+      if (sessionInfo.started) md.bullet(`Started: ${sessionInfo.started}`);
     }
 
     // Agent status
@@ -101,8 +79,8 @@ export function createAgentSessionAdapter(cfg: AgentSessionConfig): Adapter {
       const statusPath = join(sessionInfo.workdir, ".peer-sync", cfg.statusFileName);
       const status = readStatusFile(statusPath);
       if (status && status.status) {
-        lines.push(`- Status: ${formatAgentStatus(status)}`);
-        if (status.epoch) lines.push(`  Updated: ${timeAgo(status.epoch)}`);
+        md.bullet(`Status: ${formatAgentStatus(status)}`);
+        if (status.epoch) md.detail(`Updated: ${timeAgo(status.epoch)}`);
       }
     }
 
@@ -112,15 +90,14 @@ export function createAgentSessionAdapter(cfg: AgentSessionConfig): Adapter {
       const feature = readSingleFile(join(peerSyncDir, "feature"));
       const mode = readSingleFile(join(peerSyncDir, "mode"));
       if (feature || mode) {
-        lines.push("");
-        lines.push("**Integration:**");
-        lines.push("- Part of agent-duo session");
-        if (feature) lines.push(`- Feature: ${feature}`);
-        if (mode) lines.push(`- Mode: ${mode}`);
+        md.section("Integration");
+        md.bullet("Part of agent-duo session");
+        if (feature) md.bullet(`Feature: ${feature}`);
+        if (mode) md.bullet(`Mode: ${mode}`);
       }
     }
 
-    return lines.join("\n");
+    return md.toString();
   }
 
   function start(ctx: AdapterContext): string {

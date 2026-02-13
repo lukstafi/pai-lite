@@ -14,6 +14,7 @@ import {
 } from "./peer-sync.ts";
 import { readStatusFile, formatAgentStatus, readSingleFile, resolveProjectDir } from "./base.ts";
 import { getUrl } from "../network.ts";
+import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
 
 // ---------------------------------------------------------------------------
@@ -46,50 +47,47 @@ function matchesMode(peerSyncPath: string, modeFilter?: string): boolean {
   return mode === modeFilter;
 }
 
-function readSessionState(
+function appendSessionState(
+  md: MarkdownBuilder,
   cfg: OrchestratedConfig,
   syncDir: string,
   feature: string,
-): string[] {
-  if (!existsSync(syncDir)) return [];
+): void {
+  if (!existsSync(syncDir)) return;
 
   const state = readBasicState(syncDir);
-  const lines: string[] = [];
 
   // Header
-  if (state.session) lines.push(`**Session:** ${state.session}`);
-  if (feature) lines.push(`**Feature:** ${feature}`);
+  if (state.session) md.keyValue("Session", state.session);
+  if (feature) md.keyValue("Feature", feature);
 
   // Status files (agents/roles)
   const hasAnyStatus = cfg.statusFiles.some((sf) =>
     existsSync(join(syncDir, sf.fileName)),
   );
   if (hasAnyStatus) {
-    lines.push("");
-    lines.push(`**${cfg.statusSectionLabel}:**`);
+    md.section(cfg.statusSectionLabel);
     for (const sf of cfg.statusFiles) {
       const status = readStatusFile(join(syncDir, sf.fileName));
-      if (status?.status) lines.push(`- ${sf.label}: ${formatAgentStatus(status)}`);
+      if (status?.status) md.bullet(`${sf.label}: ${formatAgentStatus(status)}`);
     }
   }
 
   // Terminals from ports file
   const ports = readPorts(syncDir);
   if (ports.size > 0) {
-    lines.push("");
-    lines.push("**Terminals:**");
+    md.section("Terminals");
     for (const [key, port] of ports) {
       const label = cfg.portLabels[key];
-      if (label) lines.push(`- ${label}: ${getUrl(port)}`);
+      if (label) md.bullet(`${label}: ${getUrl(port)}`);
     }
   }
 
   // Runtime
   if (state.phase || state.round) {
-    lines.push("");
-    lines.push("**Runtime:**");
-    if (state.phase) lines.push(`- Phase: ${state.phase}`);
-    if (state.round) lines.push(`- Round: ${state.round}`);
+    md.section("Runtime");
+    if (state.phase) md.bullet(`Phase: ${state.phase}`);
+    if (state.round) md.bullet(`Round: ${state.round}`);
   }
 
   // Worktrees
@@ -98,10 +96,9 @@ function readSessionState(
     cfg.worktreeKeys.includes(k),
   );
   if (wtEntries.length > 0) {
-    lines.push("");
-    lines.push("**Git:**");
+    md.section("Git");
     for (const [agent, path] of wtEntries) {
-      lines.push(`- ${agent} worktree: ${path}`);
+      md.bullet(`${agent} worktree: ${path}`);
     }
   }
 
@@ -112,14 +109,11 @@ function readSessionState(
     if (content) {
       const errorCount = content.split("\n").filter(Boolean).length;
       if (errorCount > 0) {
-        lines.push("");
-        lines.push("**Warnings:**");
-        lines.push(`- Error log has ${errorCount} entries`);
+        md.section("Warnings");
+        md.bullet(`Error log has ${errorCount} entries`);
       }
     }
   }
-
-  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,25 +130,21 @@ export function createOrchestratedAdapter(cfg: OrchestratedConfig): Adapter {
     const count = filtered.length;
     if (count === 0) return null;
 
-    const lines: string[] = [];
-    lines.push(`**Mode:** ${cfg.modeLabel} (${count} sessions)`);
-    lines.push("");
+    const md = new MarkdownBuilder();
+    md.keyValue("Mode", `${cfg.modeLabel} (${count} sessions)`);
+    md.separator();
 
     let first = true;
     for (const session of filtered) {
-      if (!first) {
-        lines.push("");
-        lines.push("---");
-        lines.push("");
-      }
+      if (!first) md.rule();
       first = false;
 
-      lines.push(`### Task: ${session.feature}`);
-      lines.push(`**Root:** ${session.rootWorktree}`);
-      lines.push(...readSessionState(cfg, session.peerSyncPath, session.feature));
+      md.heading(3, `Task: ${session.feature}`);
+      md.keyValue("Root", session.rootWorktree);
+      appendSessionState(md, cfg, session.peerSyncPath, session.feature);
     }
 
-    return lines.join("\n");
+    return md.toString();
   }
 
   function start(ctx: AdapterContext): string {

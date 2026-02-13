@@ -31,22 +31,22 @@ function getAdapter(mode: string): Adapter {
   return adapter;
 }
 
-export function runAdapterAction(action: string, ctx: AdapterContext): string {
+export async function runAdapterAction(action: string, ctx: AdapterContext): Promise<string> {
   const adapter = getAdapter(ctx.mode);
   switch (action) {
     case "start":
-      return adapter.start(ctx);
+      return await adapter.start(ctx);
     case "stop":
-      return adapter.stop(ctx);
+      return await adapter.stop(ctx);
     case "read_state":
-      return adapter.readState(ctx) ?? "";
+      return (await adapter.readState(ctx)) ?? "";
     default:
       throw new Error(`unknown adapter action: ${action}`);
   }
 }
 
-export function readAdapterState(ctx: AdapterContext): string | null {
+export async function readAdapterState(ctx: AdapterContext): Promise<string | null> {
   const adapter = adapters[ctx.mode];
   if (!adapter) return null;
-  return adapter.readState(ctx);
+  return await adapter.readState(ctx);
 }
