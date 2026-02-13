@@ -4,7 +4,7 @@
 // Reads both the old .peer-sync/ individual-file format and the newer
 // .agent-sessions/<prefix>-<task>.session key=value files.
 
-import { existsSync, readFileSync, readdirSync, readlinkSync, lstatSync } from "fs";
+import { existsSync, readFileSync, readdirSync, readlinkSync, lstatSync, statSync } from "fs";
 import { join, basename, dirname } from "path";
 import { readSingleFile } from "./base.ts";
 
@@ -192,9 +192,15 @@ export function getPhaseStatus(syncDir: string): string {
 // .agent-sessions/ key=value session files (agent-launch format)
 // ---------------------------------------------------------------------------
 
-/** Read an .agent-sessions/*.session key=value file. Returns null if missing. */
+/** Read an .agent-sessions/*.session key=value file. Returns null if missing or if path is a directory (symlink to .peer-sync). */
 export function readAgentSessionFile(path: string): AgentSessionInfo | null {
   if (!existsSync(path)) return null;
+  // Guard: symlinked .session entries may point to directories (.peer-sync/)
+  try {
+    if (statSync(path).isDirectory()) return null;
+  } catch {
+    return null;
+  }
   const content = readFileSync(path, "utf-8");
   const info: Record<string, string> = {};
   for (const line of content.split("\n")) {
