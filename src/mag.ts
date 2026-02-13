@@ -7,6 +7,16 @@ import { queueRequest, queuePop, queuePending } from "./queue.ts";
 import { getUrl } from "./network.ts";
 import { federationShouldRunMag } from "./federation.ts";
 import { journalAppend } from "./journal.ts";
+import {
+  tmuxAvailable,
+  tmuxHasSession,
+  tmuxNewSession,
+  tmuxKillSession,
+  tmuxSendKeys,
+  tmuxSendCommand,
+  tmuxCapture,
+  tmuxRunShell,
+} from "./adapters/tmux.ts";
 
 const MAG_SESSION_NAME = process.env.LUDICS_MAG_SESSION ?? "ludics-mag";
 const MAG_DEFAULT_PORT = process.env.LUDICS_MAG_PORT ?? "7679";
@@ -24,24 +34,14 @@ function magStatusFile(): string {
 }
 
 function magIsRunning(): boolean {
-  const result = Bun.spawnSync(["tmux", "has-session", "-t", MAG_SESSION_NAME], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  return result.exitCode === 0;
+  return tmuxHasSession(MAG_SESSION_NAME);
 }
 
 function triggerSkill(session: string, cmd: string): void {
-  Bun.spawnSync(["tmux", "send-keys", "-t", session, "-l", cmd], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  tmuxSendKeys(session, cmd, true);
   // Small delay before Enter
   Bun.spawnSync(["sleep", "0.5"], { stdout: "pipe", stderr: "pipe" });
-  Bun.spawnSync(["tmux", "send-keys", "-t", session, "Enter"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  tmuxSendKeys(session, "Enter");
 }
 
 function magSignal(status: string, message: string = ""): void {
@@ -82,13 +82,7 @@ function ensureTtyd(): void {
     : "/tmp";
   const logFile = join(logDir, "ludics-ttyd.log");
 
-  Bun.spawnSync(
-    [
-      "tmux", "run-shell", "-b", "-t", MAG_SESSION_NAME,
-      `${ttydBin} -W -p ${port} tmux attach -t ${MAG_SESSION_NAME} >>${logFile} 2>&1`,
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
+  tmuxRunShell(MAG_SESSION_NAME, `${ttydBin} -W -p ${port} tmux attach -t ${MAG_SESSION_NAME} >>${logFile} 2>&1`);
 
   console.log(`Web access available at: ${getUrl(port)}`);
 }
@@ -268,8 +262,7 @@ export function magStart(args: string[]): void {
     if (arg === "--skip-federation") skipFederation = true;
   }
 
-  const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mag start: tmux is required but not installed");
+  if (!tmuxAvailable()) throw new Error("mag start: tmux is required but not installed");
 
   // Check federation
   if (!skipFederation) {
@@ -306,20 +299,14 @@ export function magStart(args: string[]): void {
 
   // Create tmux session
   console.error(`ludics: Creating Mag tmux session '${MAG_SESSION_NAME}' in ${workingDir}`);
-  Bun.spawnSync(["tmux", "new-session", "-d", "-s", MAG_SESSION_NAME, "-c", workingDir], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  tmuxNewSession(MAG_SESSION_NAME, workingDir);
 
   magSignal("running", "session started");
 
   // Start Claude Code
   const hasClaude = Bun.spawnSync(["which", "claude"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
   if (hasClaude) {
-    Bun.spawnSync(
-      ["tmux", "send-keys", "-t", MAG_SESSION_NAME, "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions", "C-m"],
-      { stdout: "pipe", stderr: "pipe" },
-    );
+    tmuxSendCommand(MAG_SESSION_NAME, "claude -c --dangerously-skip-permissions || claude --dangerously-skip-permissions");
     console.error("ludics: Started Claude Code in Mag session");
   } else {
     console.error("ludics: claude CLI not found; session started without Claude Code");
@@ -339,8 +326,7 @@ export function magStart(args: string[]): void {
 }
 
 export function magStop(): void {
-  const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mag stop: tmux is not available");
+  if (!tmuxAvailable()) throw new Error("mag stop: tmux is not available");
 
   if (!magIsRunning()) {
     console.error(`ludics: Mag session '${MAG_SESSION_NAME}' is not running`);
@@ -363,10 +349,7 @@ export function magStop(): void {
   }
 
   console.error(`ludics: Stopping Mag tmux session '${MAG_SESSION_NAME}'...`);
-  Bun.spawnSync(["tmux", "kill-session", "-t", MAG_SESSION_NAME], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  tmuxKillSession(MAG_SESSION_NAME);
 
   // Append stopped timestamp
   const stateFile = magStateFile();
@@ -473,13 +456,12 @@ export function magAttach(): void {
   if (!magIsRunning()) {
     throw new Error(`Mag session '${MAG_SESSION_NAME}' is not running. Start with: ludics mag start`);
   }
-  // exec replaces the process - use Bun.spawnSync with inherit
+  // exec replaces the process — Bun.spawnSync with inherit so user gets the terminal
   Bun.spawnSync(["tmux", "attach", "-t", MAG_SESSION_NAME], { stdio: ["inherit", "inherit", "inherit"] });
 }
 
 export function magLogs(lines: number = 100): void {
-  const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-  if (!hasTmux) throw new Error("mag logs: tmux is not available");
+  if (!tmuxAvailable()) throw new Error("mag logs: tmux is not available");
 
   if (!magIsRunning()) {
     console.error(`ludics: Mag session '${MAG_SESSION_NAME}' is not running`);
@@ -502,12 +484,9 @@ export function magLogs(lines: number = 100): void {
 
   console.log(`=== Mag Session Logs (last ${lines} lines) ===`);
   console.log("");
-  const result = Bun.spawnSync(
-    ["tmux", "capture-pane", "-t", MAG_SESSION_NAME, "-p", "-S", `-${lines}`],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  if (result.exitCode === 0) {
-    console.log(result.stdout.toString());
+  const captured = tmuxCapture(MAG_SESSION_NAME, lines);
+  if (captured !== null) {
+    console.log(captured);
   }
 }
 
@@ -518,7 +497,7 @@ export function magDoctor(): void {
   console.log("");
 
   // tmux
-  const hasTmux = Bun.spawnSync(["which", "tmux"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
+  const hasTmux = tmuxAvailable();
   if (hasTmux) {
     const ver = Bun.spawnSync(["tmux", "-V"], { stdout: "pipe", stderr: "pipe" });
     console.log(`tmux: ${ver.stdout.toString().trim()}`);
