@@ -8,6 +8,7 @@ import {
   readAgentSessionFile,
   listSessions,
   getPhaseStatus,
+  findSessionByPrefixOrTask,
 } from "./peer-sync.ts";
 
 const TMP = join(import.meta.dir, ".test-tmp-peer-sync");
@@ -219,6 +220,64 @@ describe("listSessions", () => {
     const sessions = listSessions(TMP);
     expect(sessions.length).toBe(1);
     expect(sessions[0]!.feature).toBe("my-feature");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findSessionByPrefixOrTask
+// ---------------------------------------------------------------------------
+
+describe("findSessionByPrefixOrTask", () => {
+  test("returns null for missing .agent-sessions", () => {
+    expect(findSessionByPrefixOrTask(TMP, "task-1", ["claude-"])).toBeNull();
+  });
+
+  test("finds session file matching taskId", () => {
+    const sessionsDir = join(TMP, ".agent-sessions");
+    mkdirSync(sessionsDir);
+    writeFileSync(join(sessionsDir, "claude-task-123.session"), "agent=claude\n");
+    writeFileSync(join(sessionsDir, "codex-other.session"), "agent=codex\n");
+
+    const result = findSessionByPrefixOrTask(TMP, "task-123", ["codex-"]);
+    expect(result).toBe(join(sessionsDir, "claude-task-123.session"));
+  });
+
+  test("falls back to prefix match when no taskId match", () => {
+    const sessionsDir = join(TMP, ".agent-sessions");
+    mkdirSync(sessionsDir);
+    writeFileSync(join(sessionsDir, "claude-something.session"), "agent=claude\n");
+
+    const result = findSessionByPrefixOrTask(TMP, "nonexistent", ["claude-"]);
+    expect(result).toBe(join(sessionsDir, "claude-something.session"));
+  });
+
+  test("returns null when no match", () => {
+    const sessionsDir = join(TMP, ".agent-sessions");
+    mkdirSync(sessionsDir);
+    writeFileSync(join(sessionsDir, "codex-task.session"), "agent=codex\n");
+
+    const result = findSessionByPrefixOrTask(TMP, "other", ["claude-"]);
+    expect(result).toBeNull();
+  });
+
+  test("ignores non-.session files", () => {
+    const sessionsDir = join(TMP, ".agent-sessions");
+    mkdirSync(sessionsDir);
+    writeFileSync(join(sessionsDir, "claude-task.txt"), "not a session\n");
+
+    const result = findSessionByPrefixOrTask(TMP, "task", ["claude-"]);
+    expect(result).toBeNull();
+  });
+
+  test("taskId match takes precedence over prefix match even when prefix appears first alphabetically", () => {
+    const sessionsDir = join(TMP, ".agent-sessions");
+    mkdirSync(sessionsDir);
+    // "aaa-prefix-only.session" sorts before "zzz-task-123.session"
+    writeFileSync(join(sessionsDir, "aaa-prefix-only.session"), "agent=claude\n");
+    writeFileSync(join(sessionsDir, "zzz-task-123.session"), "agent=claude\n");
+
+    const result = findSessionByPrefixOrTask(TMP, "task-123", ["aaa-"]);
+    expect(result).toBe(join(sessionsDir, "zzz-task-123.session"));
   });
 });
 

@@ -11,6 +11,7 @@ import {
   readSingleFile,
   isoTimestamp,
 } from "./base.ts";
+import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
 
 const ADAPTER_NAME = "manual";
@@ -32,22 +33,21 @@ export function readState(ctx: AdapterContext): string | null {
   const started = data.get("started") ?? "unknown";
   const task = data.get("task") ?? "";
 
-  const lines: string[] = [];
-  lines.push("**Mode:** manual (human work)");
-  lines.push("");
-  lines.push(`**Status:** ${status}`);
-  lines.push(`**Started:** ${started}`);
-  if (task) lines.push(`**Task:** ${task}`);
+  const md = new MarkdownBuilder();
+  md.keyValue("Mode", "manual (human work)");
+  md.separator();
+  md.keyValue("Status", status);
+  md.keyValue("Started", started);
+  if (task) md.keyValue("Task", task);
 
   // Show notes if file exists
   const nf = slotFile(ctx);
   if (existsSync(nf)) {
-    lines.push("");
-    lines.push("**Notes:**");
-    lines.push(readFileSync(nf, "utf-8"));
+    md.section("Notes");
+    md.line(readFileSync(nf, "utf-8"));
   }
 
-  return lines.join("\n");
+  return md.toString();
 }
 
 export function start(ctx: AdapterContext): string {

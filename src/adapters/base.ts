@@ -179,12 +179,14 @@ export function isoTimestamp(): string {
  */
 export function resolveProjectDir(session: string, checkPeerSync: boolean = false): string {
   if (session && session !== "null") {
-    const home = process.env.HOME!;
-    if (existsSync(`${home}/${session}`)) return `${home}/${session}`;
-    if (existsSync(`${home}/repos/${session}`)) return `${home}/repos/${session}`;
-    if (checkPeerSync) {
-      if (existsSync(`${home}/${session}/.peer-sync`)) return `${home}/${session}`;
-      if (existsSync(`${home}/repos/${session}/.peer-sync`)) return `${home}/repos/${session}`;
+    const home = process.env.HOME;
+    if (home) {
+      if (existsSync(`${home}/${session}`)) return `${home}/${session}`;
+      if (existsSync(`${home}/repos/${session}`)) return `${home}/repos/${session}`;
+      if (checkPeerSync) {
+        if (existsSync(`${home}/${session}/.peer-sync`)) return `${home}/${session}`;
+        if (existsSync(`${home}/repos/${session}/.peer-sync`)) return `${home}/repos/${session}`;
+      }
     }
   }
   if (checkPeerSync && existsSync(`${process.cwd()}/.peer-sync`)) return process.cwd();

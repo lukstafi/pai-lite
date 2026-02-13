@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { ensureAdapterStateDir, readStateFile, writeStateFile, isoTimestamp } from "./base.ts";
+import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext } from "./types.ts";
 
 // ---------------------------------------------------------------------------
@@ -71,16 +72,15 @@ export function bookmarkReadState(config: BookmarkConfig, ctx: AdapterContext): 
   const entries = parseBookmarks(bmPath);
   if (entries.length === 0) return null;
 
-  const lines: string[] = [];
-  lines.push(`**Mode:** ${config.adapterName}`);
-  lines.push("");
-  lines.push("**Conversations:**");
+  const md = new MarkdownBuilder();
+  md.keyValue("Mode", config.adapterName);
 
+  md.section("Conversations");
   for (const entry of entries) {
     if (entry.label) {
-      lines.push(`- [${entry.label}](${entry.url})`);
+      md.bullet(`[${entry.label}](${entry.url})`);
     } else {
-      lines.push(`- ${entry.url}`);
+      md.bullet(entry.url);
     }
 
     const convId = extractConvId(config, entry.url);
@@ -91,9 +91,9 @@ export function bookmarkReadState(config: BookmarkConfig, ctx: AdapterContext): 
         const model = meta.get("model");
         const task = meta.get("task");
         const updated = meta.get("updated");
-        if (model) lines.push(`  Model: ${model}`);
-        if (task) lines.push(`  Task: ${task}`);
-        if (updated) lines.push(`  Updated: ${updated}`);
+        if (model) md.detail(`Model: ${model}`);
+        if (task) md.detail(`Task: ${task}`);
+        if (updated) md.detail(`Updated: ${updated}`);
       }
     }
   }
@@ -103,13 +103,12 @@ export function bookmarkReadState(config: BookmarkConfig, ctx: AdapterContext): 
   if (existsSync(sd)) {
     const metaCount = readdirSync(sd).filter((f) => f.endsWith(".meta")).length;
     if (metaCount > 0) {
-      lines.push("");
-      lines.push("**Stats:**");
-      lines.push(`- Tracked conversations: ${metaCount}`);
+      md.section("Stats");
+      md.bullet(`Tracked conversations: ${metaCount}`);
     }
   }
 
-  return lines.join("\n");
+  return md.toString();
 }
 
 /** Start tracking a bookmark-based conversation. */

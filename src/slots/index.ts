@@ -262,7 +262,7 @@ function makeAdapterContext(slotNum: number, block: string): AdapterContext {
   };
 }
 
-export function slotStart(slotNum: number): void {
+export async function slotStart(slotNum: number): Promise<void> {
   const file = ensureSlotsFile();
   const blocks = loadBlocks(file);
   const count = slotsCount();
@@ -274,11 +274,11 @@ export function slotStart(slotNum: number): void {
   const ctx = makeAdapterContext(slotNum, block);
   if (!ctx.mode) throw new Error(`slot ${slotNum} has no Mode`);
 
-  runAdapterAction("start", ctx);
+  await runAdapterAction("start", ctx);
   journalAppend("slot", `Slot ${slotNum} started (adapter=${ctx.mode})`);
 }
 
-export function slotStop(slotNum: number): void {
+export async function slotStop(slotNum: number): Promise<void> {
   const file = ensureSlotsFile();
   const blocks = loadBlocks(file);
   const count = slotsCount();
@@ -290,11 +290,11 @@ export function slotStop(slotNum: number): void {
   const ctx = makeAdapterContext(slotNum, block);
   if (!ctx.mode) throw new Error(`slot ${slotNum} has no Mode`);
 
-  runAdapterAction("stop", ctx);
+  await runAdapterAction("stop", ctx);
   journalAppend("slot", `Slot ${slotNum} stopped (adapter=${ctx.mode})`);
 }
 
-export function slotsRefresh(): void {
+export async function slotsRefresh(): Promise<void> {
   const file = ensureSlotsFile();
   const blocks = loadBlocks(file);
   const count = slotsCount();
@@ -308,7 +308,7 @@ export function slotsRefresh(): void {
     if (!mode || mode === "null") continue;
 
     const ctx = makeAdapterContext(i, block);
-    const output = readAdapterState(ctx);
+    const output = await readAdapterState(ctx);
     if (!output) continue;
 
     blocks.set(i, mergeAdapterState(block, output));
@@ -328,7 +328,7 @@ export async function runSlots(args: string[]): Promise<void> {
   const sub = args[0] ?? "";
 
   if (sub === "refresh") {
-    slotsRefresh();
+    await slotsRefresh();
     return;
   }
 
@@ -383,11 +383,11 @@ export async function runSlot(args: string[]): Promise<void> {
     }
 
     case "start":
-      slotStart(slotNum);
+      await slotStart(slotNum);
       break;
 
     case "stop":
-      slotStop(slotNum);
+      await slotStop(slotNum);
       break;
 
     case "note": {

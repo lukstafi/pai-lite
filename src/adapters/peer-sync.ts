@@ -43,6 +43,46 @@ export interface AgentSessionInfo {
 // Session discovery via .agent-sessions/ registry
 // ---------------------------------------------------------------------------
 
+/**
+ * Find a session file in .agent-sessions/ matching a task ID or name prefix.
+ * Prefers exact taskId match over prefix match.
+ */
+export function findSessionByPrefixOrTask(
+  projectDir: string,
+  taskId: string,
+  prefixes: string[],
+): string | null {
+  const sessionsDir = join(projectDir, ".agent-sessions");
+  if (!existsSync(sessionsDir)) return null;
+
+  let entries: string[];
+  try {
+    entries = readdirSync(sessionsDir);
+  } catch {
+    return null;
+  }
+
+  const sessionEntries = entries.filter((e) => e.endsWith(".session"));
+
+  // First pass: prefer task ID match
+  if (taskId) {
+    for (const entry of sessionEntries) {
+      if (entry.includes(taskId)) {
+        return join(sessionsDir, entry);
+      }
+    }
+  }
+
+  // Second pass: fall back to prefix match
+  for (const entry of sessionEntries) {
+    if (prefixes.some((p) => entry.startsWith(p))) {
+      return join(sessionsDir, entry);
+    }
+  }
+
+  return null;
+}
+
 /** List all active sessions for a project via .agent-sessions/ symlinks. */
 export function listSessions(projectDir: string): SessionInfo[] {
   const sessionsDir = join(projectDir, ".agent-sessions");
