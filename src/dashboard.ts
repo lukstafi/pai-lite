@@ -6,6 +6,7 @@ import YAML from "yaml";
 import { harnessDir, loadConfigSync, slotsFilePath } from "./config.ts";
 import { parseSlotBlocks, getField, getProcess, getTask, getMode } from "./slots/markdown.ts";
 import { getUrl } from "./network.ts";
+import { startDashboardServer } from "./dashboard-server.ts";
 
 function dashboardDataDir(): string {
   return join(harnessDir(), "dashboard", "data");
@@ -245,33 +246,16 @@ export function dashboardServe(port: number = 7678): void {
     throw new Error("dashboard not installed. Run: ludics dashboard install");
   }
 
-  const serverScript = join(dashboardDir, "..", "..", "ludics", "lib", "dashboard_server.py");
-  // Fallback: try to find the server script relative to the binary
-  // Use process.execPath — in compiled Bun binaries, process.argv[1] is virtual
-  const altScript = join(dirname(dirname(process.execPath)), "lib", "dashboard_server.py");
-
-  let script = "";
-  if (existsSync(serverScript)) script = serverScript;
-  else if (existsSync(altScript)) script = altScript;
-
-  if (!script) {
-    throw new Error("dashboard server script not found");
-  }
-
   const config = loadConfigSync();
   const ttl = config.dashboard?.ttl ?? 5;
-  const bin = process.execPath;
 
   // Generate initial data
   dashboardGenerate();
 
   console.error(`ludics: serving dashboard at ${getUrl(port)}`);
-  console.error(`ludics: data regenerates lazily (TTL: ${ttl}s)`);
-  console.error("ludics: press Ctrl+C to stop");
 
-  Bun.spawnSync(["python3", script, String(port), dashboardDir, bin, String(ttl)], {
-    stdio: ["inherit", "inherit", "inherit"],
-  });
+  // Use native Bun.serve() — no python3 dependency
+  startDashboardServer(port, dashboardDir, ttl);
 }
 
 // --- Install ---
