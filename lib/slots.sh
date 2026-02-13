@@ -487,10 +487,16 @@ slot_stop() {
 }
 
 #------------------------------------------------------------------------------
-# Slots refresh — now handled by TypeScript entrypoint
+# Slots refresh — delegates to TypeScript entrypoint
 #------------------------------------------------------------------------------
 
 slots_refresh() {
-  ludics_die "slots refresh is now handled by the TypeScript entrypoint. Use: ludics slots refresh"
+  local root
+  root="$(ludics_root)"
+  if [[ -f "$root/src/index.ts" ]] && command -v bun >/dev/null 2>&1; then
+    bun run "$root/src/index.ts" slots refresh "$@"
+  else
+    ludics_warn "slots refresh: shell adapters removed; install bun and use the TypeScript entrypoint"
+  fi
 }
 
