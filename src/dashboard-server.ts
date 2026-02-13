@@ -4,7 +4,7 @@
 // data/*.json files when they become stale (TTL-based).
 
 import { existsSync, readFileSync, statSync } from "fs";
-import { join, extname } from "path";
+import { resolve, extname } from "path";
 import { dashboardGenerate } from "./dashboard.ts";
 
 const MIME_TYPES: Record<string, string> = {
@@ -22,6 +22,8 @@ export function startDashboardServer(
   dashboardDir: string,
   ttlSeconds: number,
 ): void {
+  // Normalize to absolute path with trailing separator for safe startsWith checks
+  const resolvedRoot = resolve(dashboardDir) + "/";
   let lastGenerated = 0;
 
   function maybeRegenerate(): void {
@@ -50,8 +52,11 @@ export function startDashboardServer(
         maybeRegenerate();
       }
 
-      // Resolve file path (prevent directory traversal)
-      const filePath = join(dashboardDir, pathname.replace(/\.\./g, ""));
+      // Resolve file path with proper traversal prevention
+      const filePath = resolve(resolvedRoot, "." + pathname);
+      if (!filePath.startsWith(resolvedRoot)) {
+        return new Response("Forbidden", { status: 403 });
+      }
       if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
         return new Response("Not Found", { status: 404 });
       }

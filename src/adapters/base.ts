@@ -166,3 +166,27 @@ export function readSingleFile(path: string): string | null {
 export function isoTimestamp(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
+
+// ---------------------------------------------------------------------------
+// Project directory resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the project directory for an adapter context.
+ * Checks ~/session, ~/repos/session, and optionally .peer-sync subdirectories.
+ * @param session - session name from AdapterContext
+ * @param checkPeerSync - also check for .peer-sync subdirectories (duo/solo)
+ */
+export function resolveProjectDir(session: string, checkPeerSync: boolean = false): string {
+  if (session && session !== "null") {
+    const home = process.env.HOME!;
+    if (existsSync(`${home}/${session}`)) return `${home}/${session}`;
+    if (existsSync(`${home}/repos/${session}`)) return `${home}/repos/${session}`;
+    if (checkPeerSync) {
+      if (existsSync(`${home}/${session}/.peer-sync`)) return `${home}/${session}`;
+      if (existsSync(`${home}/repos/${session}/.peer-sync`)) return `${home}/repos/${session}`;
+    }
+  }
+  if (checkPeerSync && existsSync(`${process.cwd()}/.peer-sync`)) return process.cwd();
+  return process.cwd();
+}

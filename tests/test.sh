@@ -55,7 +55,6 @@ else
   scripts=()
   scripts+=("$root_dir/bin/ludics")
   while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/lib" -name '*.sh' | sort)
-  while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/adapters" -name '*.sh' | sort)
   while IFS= read -r f; do scripts+=("$f"); done < <(find "$root_dir/templates/hooks" -name '*.sh' 2>/dev/null | sort)
 
   for script in "${scripts[@]}"; do
