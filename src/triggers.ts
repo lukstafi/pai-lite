@@ -1,7 +1,7 @@
 // Trigger installation — launchd (macOS) and systemd (Linux)
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
-import { join, basename } from "path";
+import { join } from "path";
 import { loadConfigSync, ludicsRoot } from "./config.ts";
 
 function binPath(): string {
@@ -244,6 +244,24 @@ function triggersInstallMacos(): void {
     installPlist(label, content);
     console.log(`Installed launchd trigger: dashboard (port ${port}, KeepAlive)`);
   }
+
+  // ntfy-subscribe (incoming messages)
+  const incomingTopic = config.notifications?.topics?.incoming;
+  if (incomingTopic) {
+    const label = "com.ludics.ntfy-subscribe";
+    const content = [
+      PLIST_HEADER,
+      `  <key>Label</key>\n  <string>${label}</string>`,
+      `  <key>KeepAlive</key>\n  <true/>`,
+      `  <key>RunAtLoad</key>\n  <true/>`,
+      plistEnv(),
+      plistArgs(bin, "notify", "subscribe"),
+      plistLogs("ntfy-subscribe"),
+      PLIST_FOOTER,
+    ].join("\n");
+    installPlist(label, content);
+    console.log("Installed launchd trigger: ntfy-subscribe (KeepAlive)");
+  }
 }
 
 // --- Linux systemd ---
@@ -348,6 +366,14 @@ function triggersInstallLinux(): void {
     enableSystemdUnit("ludics-dashboard.service");
     console.log(`Installed systemd trigger: dashboard (port ${port})`);
   }
+
+  // ntfy-subscribe (incoming messages)
+  const incomingTopic = config.notifications?.topics?.incoming;
+  if (incomingTopic) {
+    writeSystemdUnit("ludics-ntfy-subscribe.service", `[Unit]\nDescription=ludics ntfy incoming message subscriber\n\n[Service]\nType=simple\nExecStart=${bin} notify subscribe\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n`);
+    enableSystemdUnit("ludics-ntfy-subscribe.service");
+    console.log("Installed systemd trigger: ntfy-subscribe");
+  }
 }
 
 // --- Uninstall ---
@@ -357,7 +383,7 @@ function triggersUninstallMacos(): void {
   const labels = [
     "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
     "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
-    "com.ludics.dashboard",
+    "com.ludics.dashboard", "com.ludics.ntfy-subscribe",
   ];
 
   for (const label of labels) {
@@ -411,7 +437,7 @@ function triggersUninstallMacos(): void {
 
 function triggersUninstallLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard"];
+  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard", "ntfy-subscribe"];
 
   for (const name of names) {
     const serviceFile = join(systemdDir, `ludics-${name}.service`);
@@ -498,7 +524,7 @@ function triggersStatusMacos(): void {
   const labels = [
     "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
     "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
-    "com.ludics.dashboard",
+    "com.ludics.dashboard", "com.ludics.ntfy-subscribe",
   ];
 
   console.log("ludics launchd triggers:");
@@ -541,7 +567,7 @@ function triggersStatusMacos(): void {
 
 function triggersStatusLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard"];
+  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard", "ntfy-subscribe"];
 
   console.log("ludics systemd triggers:");
   console.log("");

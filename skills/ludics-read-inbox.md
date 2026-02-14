@@ -5,7 +5,7 @@ Read and act on asynchronous messages from the user.
 ## Trigger
 
 This skill is invoked when:
-- A `message` action is queued (user ran `ludics mag message "..."`)
+- A `message` action is queued (user ran `ludics mag message "..."` or a message arrived via ntfy subscription)
 - No other skill was already queued to handle the inbox
 
 ## Inputs

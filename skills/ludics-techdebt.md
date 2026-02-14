@@ -105,5 +105,5 @@ This skill is invoked when:
 
 If high-priority items found:
 ```bash
-ludics notify pai "Tech debt review: 3 high-priority items found" 3 "Weekly Review"
+ludics notify outgoing "Tech debt review: 3 high-priority items found" 3 "Weekly Review"
 ```

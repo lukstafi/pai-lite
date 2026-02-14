@@ -56,9 +56,9 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 │    • Push to private repo                                  │
 │                                                            │
 │  Notifications (ntfy.sh):                                  │
-│    • <user>-pai: Mag strategic updates (private)         │
-│    • <user>-agents: Worker task events (private)           │
-│    • <user>-public: Milestone broadcasts (read-only)       │
+│    • <user>-from-Mag: outgoing strategic updates (→ phone) │
+│    • <user>-to-Mag: incoming messages (phone → Mag)        │
+│    • <user>-agents: Worker task events (operational)        │
 └────────────┬───────────────────────────────────────────────┘
              │ manages
              ▼
@@ -806,9 +806,9 @@ mag:
 notifications:
   provider: ntfy
   topics:
-    pai: lukstafi-pai           # Private strategic (Mag)
-    agents: lukstafi-agents     # Private operational (workers)
-    public: lukstafi-public     # Public read-only (broadcasts)
+    outgoing: lukstafi-from-Mag  # Mag → user (strategic, push to phone)
+    incoming: lukstafi-to-Mag   # user → Mag (messages from phone)
+    agents: lukstafi-agents     # system → user (operational)
 
   priorities:
     briefing: 3
@@ -955,7 +955,7 @@ ludics provides a simple web dashboard for at-a-glance status monitoring. The da
   - Click task → full task details
   - "View all" → full flow ready list
 
-- **Recent notifications**: Last 10 from `<user>-pai` and `<user>-agents` topics
+- **Recent notifications**: Last 10 from outgoing and agents topics
   - Real-time updates via polling or SSE
   - Click → full notification log
 
@@ -1187,7 +1187,7 @@ watch_phase_changes() {
 
 4. **Adapter pattern** — Support any orchestrator via simple scripts
 
-5. **Private state, public broadcasts** — Data in private repo, curated milestones to public
+5. **Bidirectional communication** — Outgoing notifications to phone, incoming messages from phone via ntfy.sh
 
 6. **Git-backed persistence** — Everything version controlled, survives agent crashes
 

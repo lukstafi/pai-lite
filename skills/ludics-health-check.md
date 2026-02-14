@@ -48,7 +48,7 @@ This skill is invoked when:
 
 7. **Send notifications** for critical issues:
    ```bash
-   ludics notify pai "Critical: task-042 deadline in 2 days" 5 "Health Check"
+   ludics notify outgoing "Critical: task-042 deadline in 2 days" 5 "Health Check"
    ```
 
 ## Output Format
@@ -99,10 +99,10 @@ This skill is invoked when:
 
 | Condition | Topic | Priority |
 |-----------|-------|----------|
-| Deadline <= 3 days | pai | 5 (critical) |
-| Deadline <= 7 days | pai | 4 (high) |
-| Stalled > 14 days | pai | 4 (high) |
-| Stalled > 7 days | pai | 3 (normal) |
+| Deadline <= 3 days | outgoing | 5 (critical) |
+| Deadline <= 7 days | outgoing | 4 (high) |
+| Stalled > 14 days | outgoing | 4 (high) |
+| Stalled > 7 days | outgoing | 3 (normal) |
 | Queue stuck > 1h | agents | 4 (high) |
 
 ## Delegation Strategy

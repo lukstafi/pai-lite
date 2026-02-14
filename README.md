@@ -10,7 +10,7 @@ Inspired by Daniel Miessler's Personal AI Infrastructure, by Steve Yegge's Gas T
 - **Task index**: unified task list from GitHub issues and README TODOs.
 - **Flow engine**: priority/dependency-based views (ready, blocked, critical, impact).
 - **Adapters**: thin integrations with existing agent setups (agent-duo, Claude Code, claude.ai, manual).
-- **Notifications**: three-tier ntfy.sh integration (strategic, operational, public).
+- **Notifications**: ntfy.sh integration — outgoing (strategic), incoming (from phone), agents (operational).
 - **Triggers**: launchd/systemd automation for briefings and syncs.
 
 ## Installation
@@ -193,9 +193,9 @@ triggers:
 notifications:
   provider: ntfy
   topics:
-    pai: your-username-pai        # Strategic (Mag)
-    agents: your-username-agents  # Operational (workers)
-    public: your-username-public  # Public broadcasts
+    outgoing: your-username-from-Mag  # Mag → user (strategic, push to phone)
+    incoming: your-username-to-Mag    # user → Mag (messages from phone)
+    agents: your-username-agents      # system → user (operational)
 ```
 
 ## CLI Reference
@@ -237,9 +237,9 @@ ludics slot <n> note "text"    # Add runtime note to slot n
 ### Notifications
 
 ```bash
-ludics notify pai <msg>        # Send strategic notification
+ludics notify outgoing <msg>   # Send strategic notification (alias: pai)
 ludics notify agents <msg>     # Send operational notification
-ludics notify public <msg>     # Send public broadcast
+ludics notify subscribe        # Subscribe to incoming messages (long-running)
 ludics notify recent [n]       # Show recent notifications
 ```
 

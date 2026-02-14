@@ -17,8 +17,11 @@ export interface LudicsFullConfig {
   triggers?: Record<string, unknown>;
   notifications?: {
     provider?: string;
+    /** Topic keys: outgoing (Mag→user), incoming (user→Mag), agents (operational) */
     topics?: Record<string, string>;
     priorities?: Record<string, number>;
+    /** Bearer token for ntfy.sh authentication */
+    token?: string;
   };
   dashboard?: { port?: number; ttl?: number };
   network?: { mode?: string; hostname?: string; nodes?: unknown[] };

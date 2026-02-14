@@ -112,9 +112,9 @@ Commands:
   mag queue                    Show pending queue requests
   mag context                  Pre-compute briefing context file
 
-  notify pai <msg>             Send strategic notification
+  notify outgoing <msg>        Send strategic notification (alias: pai)
   notify agents <msg>          Send operational notification
-  notify public <msg>          Send public broadcast
+  notify subscribe             Subscribe to incoming messages (long-running)
   notify recent [n]            Show recent notifications
 
   dashboard generate           Generate JSON data for dashboard
