@@ -29,10 +29,6 @@ bun run build    # compiles bin/ludics
 export PATH="$PATH:$(pwd)/bin"
 ```
 
-> **Note:** `ludics init` (automated setup of state repo, hooks, skills, and triggers)
-> is not yet migrated to TypeScript. For now, set up your state repo manually and run
-> migrated commands directly. See the Configuration section below.
-
 ### Dependencies
 
 **Required: [Bun](https://bun.sh) runtime (v1.1+)**

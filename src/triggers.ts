@@ -2,20 +2,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { join, basename } from "path";
-import { loadConfigSync } from "./config.ts";
-
-function ludicsRoot(): string {
-  // Use process.execPath — in compiled Bun binaries, process.argv[1] is a
-  // virtual /$bunfs/... path, but process.execPath is the real filesystem path.
-  const execPath = process.execPath;
-  if (execPath.includes("/bin/")) {
-    return execPath.replace(/\/bin\/.*$/, "");
-  }
-  if (execPath.includes("/src/")) {
-    return execPath.replace(/\/src\/.*$/, "");
-  }
-  return process.cwd();
-}
+import { loadConfigSync, ludicsRoot } from "./config.ts";
 
 function binPath(): string {
   // The binary is the compiled entry point

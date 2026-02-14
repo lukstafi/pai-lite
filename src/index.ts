@@ -14,6 +14,7 @@ import { runDashboard } from "./dashboard.ts";
 import { runNetwork } from "./network.ts";
 import { runFederation } from "./federation.ts";
 import { runTriggers } from "./triggers.ts";
+import { runInit } from "./init.ts";
 import { slotsList } from "./slots/index.ts";
 import { flowReady, flowCritical } from "./flow.ts";
 import { runQuote } from "./quote.ts";
@@ -30,6 +31,7 @@ const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   network: runNetwork,
   federation: runFederation,
   triggers: runTriggers,
+  init: runInit,
   quote: async () => runQuote(),
   sync: async () => stateFullSync(),
   state: async (args) => {

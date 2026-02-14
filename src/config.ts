@@ -24,7 +24,18 @@ export interface LudicsFullConfig {
   network?: { mode?: string; hostname?: string; nodes?: unknown[] };
 }
 
-function pointerConfigPath(): string {
+export function ludicsRoot(): string {
+  const execPath = process.execPath;
+  if (execPath.includes("/bin/")) {
+    return execPath.replace(/\/bin\/.*$/, "");
+  }
+  if (execPath.includes("/src/")) {
+    return execPath.replace(/\/src\/.*$/, "");
+  }
+  return process.cwd();
+}
+
+export function pointerConfigPath(): string {
   if (process.env.LUDICS_CONFIG) return process.env.LUDICS_CONFIG;
   if (process.env.PAI_LITE_CONFIG) return process.env.PAI_LITE_CONFIG;
   const newPath = join(process.env.HOME!, ".config/ludics/config.yaml");
