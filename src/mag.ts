@@ -141,6 +141,10 @@ function queuePopSkill(): string | null {
       return "/ludics-techdebt";
     case "message":
       return "/ludics-read-inbox";
+    case "feedback-digest": {
+      const repo = String(request.repo ?? "");
+      return `/ludics-feedback-digest ${repo}`;
+    }
     default:
       console.error(`ludics: mag queue-pop: unknown action: ${action}`);
       return null;
@@ -726,6 +730,13 @@ export async function runMag(args: string[]): Promise<void> {
     case "context":
       magContext();
       break;
+    case "feedback-digest": {
+      const repo = args[1];
+      if (!repo) throw new Error("repo required (e.g., owner/repo)");
+      queueRequest("feedback-digest", `"repo":"${repo}"`);
+      console.log(`Queued feedback-digest request for ${repo}`);
+      break;
+    }
     case "queue-pop": {
       // Called by the stop hook to check if there's a queued skill to run
       const cwd = args[1] ?? "";
@@ -743,6 +754,6 @@ export async function runMag(args: string[]): Promise<void> {
       break;
     }
     default:
-      throw new Error(`unknown mag command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context)`);
+      throw new Error(`unknown mag command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context, feedback-digest)`);
   }
 }
