@@ -16,7 +16,7 @@ This skill is invoked when:
 
 ## Process
 
-1. **Read inbox**: Run `ludics mag inbox` to consume pending messages.
+1. **Read inbox**: Run `ludics mag inbox --consume` to consume pending messages.
    The command prints messages, archives them to `mag/past-messages.md`, and clears the inbox.
 
 2. **Act on messages**: For each message, determine the appropriate action:
@@ -49,5 +49,5 @@ This skill is invoked when:
 
 ## Delegation Strategy
 
-- **CLI tools**: `ludics mag inbox` for message consumption
+- **CLI tools**: `ludics mag inbox --consume` for message consumption
 - **Opus**: Interpret messages, decide actions, update files

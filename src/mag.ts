@@ -651,13 +651,24 @@ function magMessage(text: string): void {
   console.log("Message sent to Mag inbox");
 }
 
-function magInbox(): void {
+function magInbox(consume: boolean = false): void {
   const inboxFile = join(harnessDir(), "mag", "inbox.md");
   if (!existsSync(inboxFile)) {
     console.log("No pending messages");
     return;
   }
-  console.log(readFileSync(inboxFile, "utf-8"));
+  const content = readFileSync(inboxFile, "utf-8");
+  console.log(content);
+
+  if (consume && content.trim()) {
+    // Append to past-messages.md
+    const pastFile = join(harnessDir(), "mag", "past-messages.md");
+    const existing = existsSync(pastFile) ? readFileSync(pastFile, "utf-8") : "# Past Messages\n";
+    writeFileSync(pastFile, existing + "\n" + content.replace(/^# Mag Inbox\n?/, ""));
+
+    // Clear inbox
+    writeFileSync(inboxFile, "# Mag Inbox\n");
+  }
 }
 
 function magContext(): void {
@@ -720,7 +731,7 @@ export async function runMag(args: string[]): Promise<void> {
       break;
     }
     case "inbox":
-      magInbox();
+      magInbox(args.includes("--consume"));
       break;
     case "queue":
       // Reuse the existing queueShow
