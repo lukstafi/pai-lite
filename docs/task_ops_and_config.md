@@ -12,7 +12,7 @@ Harden operational tooling: config parsing/templates, triggers, and doctor check
 ## Deliverables
 - Config helpers in `lib/common.sh` (or new lib) for mag/notifications.
 - Updated templates:
-  - `templates/config.example.yaml`
+  - `templates/config.reference.yaml`
   - `templates/harness/config.yaml`
 - Trigger updates in `lib/triggers.sh`:
   - StartCalendarInterval (morning briefing)
@@ -26,7 +26,7 @@ Harden operational tooling: config parsing/templates, triggers, and doctor check
 - `lib/common.sh` (config helpers)
 - `lib/triggers.sh`
 - `bin/ludics` (doctor + trigger subcommands)
-- `templates/config.example.yaml`
+- `templates/config.reference.yaml`
 - `templates/harness/config.yaml`
 
 ## Suggested Approach

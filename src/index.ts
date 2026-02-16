@@ -75,6 +75,9 @@ Commands:
   slot <n> start               Start agent session (adapter)
   slot <n> stop                Stop agent session (adapter)
   slot <n> note "text"         Add runtime note to slot n
+  slot <n> preempt <task-id> [-a adapter] [-s session] [-p path]
+                               Preempt slot for priority task (stashes current work)
+  slot <n> restore             Restore previously preempted work to slot
 
   tasks sync                   Aggregate tasks and convert to task files
   tasks list                   Show unified task list

@@ -25,7 +25,7 @@ Implement Mag lifecycle, queue handling integration, skills scaffolding, and mem
 - `templates/hooks/ludics-on-stop.sh`
 - `templates/mag/` (new)
 - `skills/` (new)
-- `templates/config.example.yaml` + `templates/harness/config.yaml` (mag config sections)
+- `templates/config.reference.yaml` + `templates/harness/config.yaml` (mag config sections)
 
 ## Suggested Approach
 1) Add Mag session commands first (tmux-based like claude-code).

@@ -5,6 +5,7 @@ import { join, dirname } from "path";
 import YAML from "yaml";
 import { harnessDir, loadConfigSync, slotsFilePath } from "./config.ts";
 import { parseSlotBlocks, getField, getProcess, getTask, getMode } from "./slots/markdown.ts";
+import { readStash } from "./slots/preempt.ts";
 import { getUrl } from "./network.ts";
 import { startDashboardServer } from "./dashboard-server.ts";
 
@@ -24,6 +25,8 @@ interface SlotJson {
   started: string | null;
   phase: string | null;
   terminals: Record<string, string> | null;
+  preempted: boolean;
+  preemptedTask: string | null;
 }
 
 function lookupTaskContent(taskId: string): string | null {
@@ -71,6 +74,9 @@ function generateSlots(): SlotJson[] {
     const taskId = empty ? null : getTask(block).trim() || null;
     const taskContent = taskId && taskId !== "null" ? lookupTaskContent(taskId) : null;
 
+    // Check for preemption stash
+    const stash = readStash(num);
+
     result.push({
       number: num,
       empty,
@@ -81,6 +87,8 @@ function generateSlots(): SlotJson[] {
       started: empty ? null : getField(block, "Started").trim() || null,
       phase: empty ? null : phase,
       terminals: empty ? null : Object.keys(terminals).length > 0 ? terminals : null,
+      preempted: stash !== null,
+      preemptedTask: stash?.previousTask ?? null,
     });
   }
 

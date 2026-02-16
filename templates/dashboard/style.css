@@ -163,6 +163,21 @@ main {
     color: var(--warning);
 }
 
+.slot-status.preempted .status-indicator {
+    background-color: var(--warning);
+}
+
+.slot-status.preempted .status-text {
+    color: var(--warning);
+}
+
+.preempted-notice {
+    color: var(--warning);
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-bottom: 0.25rem;
+}
+
 .slot-status.warning .status-indicator {
     background-color: var(--warning);
 }

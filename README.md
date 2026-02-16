@@ -153,7 +153,7 @@ ludics uses a two-tier config:
    ```
 2. **Full config** (`~/state-repo/harness/config.yaml`): projects, adapters, triggers, notifications — once this exists, the pointer config is only used to locate it.
 
-For the full list of options and their defaults, see [`templates/config.example.yaml`](templates/config.example.yaml).
+For the full list of options and their defaults, see [`templates/config.reference.yaml`](templates/config.reference.yaml).
 
 ### Example full config
 

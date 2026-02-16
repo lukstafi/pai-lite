@@ -11,7 +11,7 @@ export interface LudicsFullConfig {
   state_path: string;
   staleThresholdSeconds: number;
   slots?: { count?: number };
-  projects?: Array<{ name: string; repo: string; issues?: boolean }>;
+  projects?: Array<{ name: string; repo: string; issues?: boolean; priority?: boolean }>;
   adapters?: Record<string, { enabled?: boolean }>;
   mag?: Record<string, unknown>;
   triggers?: Record<string, unknown>;
@@ -130,4 +130,17 @@ export function slotsFilePath(harness?: string): string {
 export function slotsCount(): number {
   const config = loadConfigSync();
   return config.slots?.count ?? 6;
+}
+
+export function priorityProjects(): string[] {
+  const config = loadConfigSync();
+  return (config.projects ?? []).filter((p) => p.priority).map((p) => p.name);
+}
+
+export function preemptAutonomy(): "auto" | "suggest" {
+  const config = loadConfigSync();
+  const mag = config.mag as Record<string, unknown> | undefined;
+  const levels = mag?.autonomy_level as Record<string, unknown> | undefined;
+  const val = levels?.preempt_slots;
+  return val === "auto" ? "auto" : "suggest";
 }

@@ -2,7 +2,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, appendFileSync } from "fs";
 import { join, dirname } from "path";
-import { loadConfigSync, harnessDir } from "../config.ts";
+import { loadConfigSync, harnessDir, priorityProjects, preemptAutonomy, slotsCount } from "../config.ts";
+import { slotsFilePath } from "../config.ts";
+import { parseSlotBlocks, getProcess, getTask } from "../slots/markdown.ts";
 import { writeTaskFile } from "./markdown.ts";
 
 function yamlEscape(value: string): string {
@@ -97,6 +99,9 @@ export async function tasksSync(): Promise<void> {
 
   // Queue elaboration for new ready tasks
   tasksQueueElaborations();
+
+  // Queue preemptions for priority project tasks
+  tasksQueuePreemptions();
 }
 
 export async function tasksConvert(): Promise<void> {
@@ -233,4 +238,101 @@ function tasksNeedsElaborationList(tasksDir: string): string[] {
   return result;
 }
 
-export { tasksNeedsElaborationList, tasksQueueElaborations, contentFingerprint };
+function tasksQueuePreemptions(): void {
+  const priProjects = priorityProjects();
+  if (priProjects.length === 0) return;
+
+  const harness = harnessDir();
+  const tasksDir = join(harness, "tasks");
+  if (!existsSync(tasksDir)) return;
+
+  // Check if all slots are occupied (otherwise normal flow ready path suffices)
+  const slotsFile = slotsFilePath(harness);
+  if (!existsSync(slotsFile)) return;
+  const slotsContent = readFileSync(slotsFile, "utf-8");
+  const blocks = parseSlotBlocks(slotsContent);
+  const count = slotsCount();
+  let hasEmpty = false;
+  for (let i = 1; i <= count; i++) {
+    const block = blocks.get(i);
+    const process = block ? getProcess(block).trim() : "(empty)";
+    if (!process || process === "(empty)") { hasEmpty = true; break; }
+  }
+  if (hasEmpty) return; // empty slot available, no need to preempt
+
+  const queueFile = join(harness, "mag", "queue.jsonl");
+  let alreadyQueued = "";
+  if (existsSync(queueFile)) {
+    alreadyQueued = readFileSync(queueFile, "utf-8");
+  }
+
+  // Collect projects that already have a task in-flight (in-progress or preempted in a slot)
+  // to avoid thrashing with multiple preemptions for the same project
+  const projectsInFlight = new Set<string>();
+  for (let i = 1; i <= count; i++) {
+    const block = blocks.get(i);
+    if (!block) continue;
+    const slotTaskId = getTask(block).trim();
+    if (!slotTaskId || slotTaskId === "null") continue;
+    const taskFile = join(tasksDir, `${slotTaskId}.md`);
+    if (!existsSync(taskFile)) continue;
+    const taskContent = readFileSync(taskFile, "utf-8");
+    const pm = taskContent.match(/^project:\s*(.+)$/m);
+    if (pm && priProjects.includes(pm[1]!.trim())) {
+      projectsInFlight.add(pm[1]!.trim());
+    }
+  }
+
+  // Also count projects already queued for preemption
+  const queuedLines = alreadyQueued.split("\n").filter((l) => l.includes('"action":"preempt"'));
+  for (const line of queuedLines) {
+    try {
+      const req = JSON.parse(line) as Record<string, unknown>;
+      const qTask = String(req.task ?? "");
+      if (!qTask) continue;
+      const taskFile = join(tasksDir, `${qTask}.md`);
+      if (!existsSync(taskFile)) continue;
+      const taskContent = readFileSync(taskFile, "utf-8");
+      const pm = taskContent.match(/^project:\s*(.+)$/m);
+      if (pm && priProjects.includes(pm[1]!.trim())) {
+        projectsInFlight.add(pm[1]!.trim());
+      }
+    } catch { /* skip */ }
+  }
+
+  const files = readdirSync(tasksDir).filter((f: string) => f.endsWith(".md"));
+  let queued = 0;
+
+  for (const f of files) {
+    const content = readFileSync(join(tasksDir, f), "utf-8");
+    const idMatch = content.match(/^id:\s*(.+)$/m);
+    if (!idMatch) continue;
+    const id = idMatch[1]!.trim();
+
+    const statusMatch = content.match(/^status:\s*(.+)$/m);
+    if (!statusMatch || statusMatch[1]!.trim() !== "ready") continue;
+
+    const projectMatch = content.match(/^project:\s*(.+)$/m);
+    if (!projectMatch) continue;
+    const project = projectMatch[1]!.trim();
+
+    if (!priProjects.includes(project)) continue;
+    if (projectsInFlight.has(project)) continue; // one preemption per project at a time
+    if (alreadyQueued.includes(`"task":"${id}"`) && alreadyQueued.includes('"action":"preempt"')) continue;
+
+    mkdirSync(dirname(queueFile), { recursive: true });
+    const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const requestId = `req-${Math.floor(Date.now() / 1000)}-${process.pid}`;
+    const autonomy = preemptAutonomy();
+    const request = `{"id":"${requestId}","action":"preempt","timestamp":"${timestamp}","task":"${id}","autonomy":"${autonomy}"}`;
+    appendFileSync(queueFile, request + "\n");
+    projectsInFlight.add(project); // prevent queuing another from same project in this pass
+    queued++;
+  }
+
+  if (queued > 0) {
+    console.error(`ludics: Queued ${queued} priority task(s) for preemption`);
+  }
+}
+
+export { tasksNeedsElaborationList, tasksQueueElaborations, tasksQueuePreemptions, contentFingerprint };

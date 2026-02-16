@@ -650,7 +650,7 @@ ludics/
 │   ├── claude-code.sh
 │   └── claude-ai.sh
 └── templates/
-    ├── config.example.yaml
+    ├── config.reference.yaml
     ├── slots.example.md
     └── launchd/                   # LaunchAgent plist templates
 ```

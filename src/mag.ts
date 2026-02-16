@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from "fs";
 import { join } from "path";
 import { harnessDir, loadConfigSync } from "./config.ts";
+import { listStashes } from "./slots/preempt.ts";
 import { queueRequest, queuePop, queuePending } from "./queue.ts";
 import { getUrl } from "./network.ts";
 import { federationShouldRunMag } from "./federation.ts";
@@ -219,6 +220,11 @@ function queuePopSkill(): string | null {
       const repo = String(request.repo ?? "");
       return `/ludics-feedback-digest ${repo}`;
     }
+    case "preempt": {
+      const task = String(request.task ?? "");
+      const autonomy = String(request.autonomy ?? "suggest");
+      return `/ludics-preempt ${task} ${autonomy}`;
+    }
     default:
       console.error(`ludics: mag queue-pop: unknown action: ${action}`);
       return null;
@@ -290,6 +296,15 @@ function briefingPrecomputeContext(): void {
     }
   }
 
+  // Preempted slots
+  let preemptedOutput = "(none)";
+  const stashes = listStashes();
+  if (stashes.length > 0) {
+    preemptedOutput = stashes.map((s) =>
+      `Slot ${s.slotNum}: preempted "${s.previousProcess}" (task=${s.previousTask}) at ${s.preemptedAt} for ${s.preemptingTask}`
+    ).join("\n");
+  }
+
   const contextContent = `# Briefing Context
 
 Generated: ${timestamp}
@@ -302,6 +317,10 @@ Existing briefing date: ${existingDate}
 ## Slots State
 
 ${slotsOutput}
+
+## Preempted Slots
+
+${preemptedOutput}
 
 ## Sessions Report
 

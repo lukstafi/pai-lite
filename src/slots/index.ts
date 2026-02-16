@@ -9,6 +9,8 @@ import { stateCommit } from "../state.ts";
 import { journalAppend } from "../journal.ts";
 import { runAdapterAction, readAdapterState } from "../adapters/index.ts";
 import type { AdapterContext } from "../adapters/index.ts";
+import { hasStash, readStash, writeStash, removeStash } from "./preempt.ts";
+import type { PreemptStash } from "./preempt.ts";
 
 function ensureSlotsFile(): string {
   const file = slotsFilePath();
@@ -228,6 +230,94 @@ export function slotClear(slotNum: number, finalStatus: string = "ready"): void 
   }
 
   stateCommit(`slot ${slotNum}: cleared (status=${finalStatus})`);
+
+  // Auto-restore preempted work when priority task completes
+  if (finalStatus === "done" && hasStash(slotNum)) {
+    console.error(`ludics: auto-restoring preempted work to slot ${slotNum}`);
+    slotRestore(slotNum);
+  }
+}
+
+export function slotPreempt(
+  slotNum: number,
+  taskId: string,
+  adapter: string = "manual",
+  session: string = "",
+  path: string = "",
+): void {
+  const file = ensureSlotsFile();
+  const blocks = loadBlocks(file);
+  const count = slotsCount();
+  validateRange(slotNum, count);
+
+  const block = blocks.get(slotNum) ?? "";
+  const currentProcess = block ? getProcess(block).trim() : "";
+  const isEmpty = !currentProcess || currentProcess === "(empty)";
+
+  // If slot is empty, just assign directly — no stash needed
+  if (isEmpty) {
+    slotAssign(slotNum, taskId, adapter, session, path);
+    return;
+  }
+
+  // No double preemption
+  if (hasStash(slotNum)) {
+    throw new Error(`slot ${slotNum} already has a preempted stash (no double preemption)`);
+  }
+
+  // Save current slot state to stash
+  const currentTask = getTask(block).trim();
+  const stash: PreemptStash = {
+    slotNum,
+    previousTask: currentTask,
+    previousProcess: currentProcess,
+    previousMode: getMode(block).trim(),
+    previousSession: getSession(block).trim(),
+    previousPath: getPath(block).trim(),
+    previousStarted: getField(block, "Started").trim(),
+    preemptedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z").replace(/:\d{2}Z$/, "Z"),
+    preemptingTask: taskId,
+  };
+  writeStash(stash);
+
+  // Set previous task status to "preempted"
+  if (currentTask && currentTask !== "null") {
+    taskUpdateFrontmatter(currentTask, "status", "preempted");
+  }
+
+  // Assign the new priority task
+  slotAssign(slotNum, taskId, adapter, session, path);
+
+  journalAppend("slot", `Slot ${slotNum} preempted: ${currentProcess} → ${taskId}`);
+  stateCommit(`slot ${slotNum}: preempt for ${taskId}`);
+}
+
+export function slotRestore(slotNum: number): void {
+  const count = slotsCount();
+  validateRange(slotNum, count);
+
+  const stash = readStash(slotNum);
+  if (!stash) {
+    throw new Error(`slot ${slotNum} has no preempted stash to restore`);
+  }
+
+  // Restore previous assignment
+  const prevAdapter = stash.previousMode === "null" ? "manual" : stash.previousMode;
+  const prevSession = stash.previousSession === "null" ? "" : stash.previousSession;
+  const prevPath = stash.previousPath === "null" ? "" : stash.previousPath;
+  const prevTask = stash.previousTask === "null" ? stash.previousProcess : stash.previousTask;
+
+  slotAssign(slotNum, prevTask, prevAdapter, prevSession, prevPath);
+
+  // Restore previous task status to "in-progress"
+  if (stash.previousTask && stash.previousTask !== "null") {
+    taskUpdateFrontmatter(stash.previousTask, "status", "in-progress");
+  }
+
+  removeStash(slotNum);
+
+  journalAppend("slot", `Slot ${slotNum} restored: ${stash.previousProcess} (from preempt by ${stash.preemptingTask})`);
+  stateCommit(`slot ${slotNum}: restored ${stash.previousProcess}`);
 }
 
 export function slotNote(slotNum: number, note: string): void {
@@ -396,6 +486,27 @@ export async function runSlot(args: string[]): Promise<void> {
       slotNote(slotNum, noteText);
       break;
     }
+
+    case "preempt": {
+      const preemptTask = args[2];
+      if (!preemptTask) throw new Error("task id required for preempt");
+      let adapter = "manual";
+      let session = "";
+      let path = "";
+      for (let i = 3; i < args.length; i++) {
+        switch (args[i]) {
+          case "-a": adapter = args[++i] ?? "manual"; break;
+          case "-s": session = args[++i] ?? ""; break;
+          case "-p": path = args[++i] ?? ""; break;
+        }
+      }
+      slotPreempt(slotNum, preemptTask, adapter, session, path);
+      break;
+    }
+
+    case "restore":
+      slotRestore(slotNum);
+      break;
 
     default:
       throw new Error(`unknown slot subcommand: ${sub}`);
