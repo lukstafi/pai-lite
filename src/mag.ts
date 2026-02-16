@@ -7,6 +7,7 @@ import { queueRequest, queuePop, queuePending } from "./queue.ts";
 import { getUrl } from "./network.ts";
 import { federationShouldRunMag } from "./federation.ts";
 import { journalAppend } from "./journal.ts";
+import { notifyOutgoing } from "./notify.ts";
 import {
   tmuxAvailable,
   tmuxHasSession,
@@ -64,6 +65,57 @@ function nudgeThrottled(): boolean {
 function writeNudgeTimestamp(): void {
   mkdirSync(magStateDir(), { recursive: true });
   writeFileSync(nudgeTimestampFile(), String(Math.floor(Date.now() / 1000)));
+}
+
+function lastCaptureHashFile(): string {
+  return join(magStateDir(), "last-capture.hash");
+}
+
+function publishTerminalState(): void {
+  const raw = tmuxCapture(MAG_SESSION_NAME, 50);
+  if (!raw) return;
+
+  const lines = raw.split("\n");
+
+  // Find last ⏺ line (Claude Code output marker)
+  let startIdx = 0;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i]!.includes("⏺")) {
+      startIdx = i;
+      break;
+    }
+  }
+
+  // Find last prompt line and cut there (drop status tagline below it)
+  let endIdx = lines.length;
+  for (let i = lines.length - 1; i >= startIdx; i--) {
+    if (lines[i]!.includes("❯")) {
+      endIdx = i; // exclude the prompt line itself
+      break;
+    }
+  }
+
+  const cleaned = lines.slice(startIdx, endIdx)
+    .filter((l) => !l.match(/^[─]{4,}/));  // drop line separators
+
+  const snippet = cleaned.join("\n").trim();
+  if (!snippet) return;
+
+  // Dedup: hash and compare to previous
+  const hasher = new Bun.CryptoHasher("md5");
+  hasher.update(snippet);
+  const hash = hasher.digest("hex");
+
+  const hashFile = lastCaptureHashFile();
+  if (existsSync(hashFile)) {
+    const prev = readFileSync(hashFile, "utf-8").trim();
+    if (prev === hash) return; // unchanged
+  }
+
+  mkdirSync(magStateDir(), { recursive: true });
+  writeFileSync(hashFile, hash);
+
+  notifyOutgoing(snippet, 2, "Mag terminal");
 }
 
 function magSignal(status: string, message: string = ""): void {
@@ -302,6 +354,9 @@ export function magStart(args: string[]): void {
   // Session already exists - keepalive path
   if (magIsRunning()) {
     if (useTtyd) ensureTtyd();
+
+    // Publish terminal state to ntfy (dedup'd)
+    publishTerminalState();
 
     // Nudge if queue has items, but throttle to avoid spamming
     if (queuePending() && !nudgeThrottled()) {
