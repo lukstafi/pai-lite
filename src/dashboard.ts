@@ -19,10 +19,21 @@ interface SlotJson {
   empty: boolean;
   process: string | null;
   task: string | null;
+  taskContent: string | null;
   mode: string | null;
   started: string | null;
   phase: string | null;
   terminals: Record<string, string> | null;
+}
+
+function lookupTaskContent(taskId: string): string | null {
+  const tasksDir = join(harnessDir(), "tasks");
+  const taskFile = join(tasksDir, taskId + ".md");
+  if (!existsSync(taskFile)) return null;
+  const content = readFileSync(taskFile, "utf-8");
+  // Strip YAML frontmatter, return the markdown body
+  const body = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+  return body || null;
 }
 
 function generateSlots(): SlotJson[] {
@@ -57,11 +68,15 @@ function generateSlots(): SlotJson[] {
     const phaseMatch = block.match(/^- Phase:\s*(.+)$/m);
     if (phaseMatch) phase = phaseMatch[1]!.trim();
 
+    const taskId = empty ? null : getTask(block).trim() || null;
+    const taskContent = taskId && taskId !== "null" ? lookupTaskContent(taskId) : null;
+
     result.push({
       number: num,
       empty,
       process: empty ? null : process,
-      task: empty ? null : getTask(block).trim() || null,
+      task: taskId,
+      taskContent,
       mode: empty ? null : getMode(block).trim() || null,
       started: empty ? null : getField(block, "Started").trim() || null,
       phase: empty ? null : phase,
