@@ -44,6 +44,28 @@ function triggerSkill(session: string, cmd: string): void {
   tmuxSendKeys(session, "Enter");
 }
 
+const NUDGE_THROTTLE_SECONDS = 900; // 15 minutes between "Continue." nudges
+
+function nudgeTimestampFile(): string {
+  return join(magStateDir(), "last-nudge.epoch");
+}
+
+function nudgeThrottled(): boolean {
+  const file = nudgeTimestampFile();
+  if (!existsSync(file)) return false;
+  try {
+    const lastEpoch = parseInt(readFileSync(file, "utf-8").trim(), 10);
+    return (Math.floor(Date.now() / 1000) - lastEpoch) < NUDGE_THROTTLE_SECONDS;
+  } catch {
+    return false;
+  }
+}
+
+function writeNudgeTimestamp(): void {
+  mkdirSync(magStateDir(), { recursive: true });
+  writeFileSync(nudgeTimestampFile(), String(Math.floor(Date.now() / 1000)));
+}
+
 function magSignal(status: string, message: string = ""): void {
   const dir = magStateDir();
   mkdirSync(dir, { recursive: true });
@@ -281,10 +303,11 @@ export function magStart(args: string[]): void {
   if (magIsRunning()) {
     if (useTtyd) ensureTtyd();
 
-    // Nudge if queue has items
-    if (queuePending()) {
+    // Nudge if queue has items, but throttle to avoid spamming
+    if (queuePending() && !nudgeThrottled()) {
       const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
       triggerSkill(MAG_SESSION_NAME, `Continue. (ludics automatic message, current time: ${now})`);
+      writeNudgeTimestamp();
     }
     return;
   }

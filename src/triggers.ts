@@ -211,19 +211,23 @@ function triggersInstallMacos(): void {
   const config = loadConfigSync();
   const magEnabled = (config.mag as Record<string, unknown> | undefined)?.enabled;
   if (magEnabled === true || magEnabled === "true") {
+    const mag = config.mag as Record<string, unknown> | undefined;
+    const keepaliveInterval = String(mag?.keepalive_interval ?? "60");
     const label = "com.ludics.mag";
     const content = [
       PLIST_HEADER,
       `  <key>Label</key>\n  <string>${label}</string>`,
       `  <key>RunAtLoad</key>\n  <true/>`,
-      `  <key>StartInterval</key>\n  <integer>900</integer>`,
+      `  <key>StartInterval</key>\n  <integer>${keepaliveInterval}</integer>`,
       plistEnv(),
       plistArgs(bin, "mag", "start"),
       plistLogs("mag"),
       PLIST_FOOTER,
     ].join("\n");
     installPlist(label, content);
-    console.log("Installed launchd trigger: mag (keepalive every 15m)");
+    const secs = parseInt(keepaliveInterval);
+    const intervalLabel = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60 ? secs % 60 + "s" : ""}` : `${secs}s`;
+    console.log(`Installed launchd trigger: mag (keepalive every ${intervalLabel})`);
   }
 
   // Dashboard trigger
@@ -352,10 +356,14 @@ function triggersInstallLinux(): void {
   const config = loadConfigSync();
   const magEnabled = (config.mag as Record<string, unknown> | undefined)?.enabled;
   if (magEnabled === true || magEnabled === "true") {
+    const mag = config.mag as Record<string, unknown> | undefined;
+    const keepaliveInterval = String(mag?.keepalive_interval ?? "60");
     writeSystemdUnit("ludics-mag.service", `[Unit]\nDescription=ludics Mag keepalive\n\n[Service]\nType=oneshot\nExecStart=${bin} mag start\n`);
-    writeSystemdUnit("ludics-mag.timer", `[Unit]\nDescription=ludics Mag keepalive timer\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=900s\nUnit=ludics-mag.service\n\n[Install]\nWantedBy=timers.target\n`);
+    writeSystemdUnit("ludics-mag.timer", `[Unit]\nDescription=ludics Mag keepalive timer\n\n[Timer]\nOnBootSec=60\nOnUnitActiveSec=${keepaliveInterval}s\nUnit=ludics-mag.service\n\n[Install]\nWantedBy=timers.target\n`);
     enableSystemdUnit("ludics-mag.timer");
-    console.log("Installed systemd trigger: mag (keepalive every 15m)");
+    const secs = parseInt(keepaliveInterval);
+    const intervalLabel = secs >= 60 ? `${Math.floor(secs / 60)}m${secs % 60 ? secs % 60 + "s" : ""}` : `${secs}s`;
+    console.log(`Installed systemd trigger: mag (keepalive every ${intervalLabel})`);
   }
 
   // Dashboard
