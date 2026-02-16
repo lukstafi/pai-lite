@@ -75,24 +75,41 @@ function renderSlots(slots) {
 
         const statusDiv = tile.querySelector('.slot-status');
         const statusText = tile.querySelector('.status-text');
-        const taskP = tile.querySelector('.task');
-        const modeP = tile.querySelector('.mode');
-        const phaseP = tile.querySelector('.phase');
+        const detailsDiv = tile.querySelector('.slot-details');
         const linksDiv = tile.querySelector('.slot-links');
+
+        const hasTask = slot.task && slot.task !== 'null';
+        const isProjectReserved = !slot.empty && slot.process && !hasTask;
 
         if (slot.empty || !slot.process) {
             statusDiv.className = 'slot-status empty';
             statusText.textContent = 'Empty';
-            taskP.textContent = '--';
-            modeP.textContent = '--';
-            phaseP.textContent = '--';
+            detailsDiv.innerHTML = '';
             linksDiv.innerHTML = '';
         } else {
-            statusDiv.className = 'slot-status active';
-            statusText.textContent = 'Active';
-            taskP.textContent = slot.task || slot.process;
-            modeP.textContent = slot.mode || '--';
-            phaseP.textContent = slot.phase || '--';
+            if (isProjectReserved) {
+                statusDiv.className = 'slot-status reserved';
+                statusText.textContent = 'Project';
+            } else {
+                statusDiv.className = 'slot-status active';
+                statusText.textContent = 'Active';
+            }
+
+            let html = `<p class="process" title="${escapeHtml(slot.process)}">${escapeHtml(slot.process)}</p>`;
+            if (hasTask) {
+                html += `<p class="task-id"><span class="label">Task:</span> ${escapeHtml(slot.task)}</p>`;
+            }
+            if (slot.mode) {
+                html += `<p class="mode"><span class="label">Mode:</span> ${escapeHtml(slot.mode)}</p>`;
+            }
+            if (slot.phase) {
+                html += `<p class="phase"><span class="label">Phase:</span> ${escapeHtml(slot.phase)}</p>`;
+            }
+            if (slot.started) {
+                html += `<p class="started"><span class="label">Started:</span> ${formatTime(slot.started)}</p>`;
+            }
+
+            detailsDiv.innerHTML = html;
 
             // Build terminal links
             let links = '';

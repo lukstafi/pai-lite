@@ -24,7 +24,9 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.5;
-    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header */
@@ -35,6 +37,7 @@ header {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 header h1 {
@@ -78,9 +81,11 @@ header h1 {
     color: var(--accent);
 }
 
-/* Main Layout */
+/* Main Layout — fills remaining viewport height */
 main {
     padding: 1.5rem 2rem;
+    flex: 1;
+    min-height: 0;
 }
 
 .grid-container {
@@ -89,13 +94,16 @@ main {
     gap: 1.5rem;
     max-width: 1400px;
     margin: 0 auto;
+    height: 100%;
 }
 
-/* Slots Grid */
+/* Slots Grid — 3x2 filling available height */
 .slots-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
     gap: 1rem;
+    min-height: 0;
 }
 
 .slot-tile {
@@ -104,6 +112,9 @@ main {
     padding: 1rem;
     border: 1px solid var(--border);
     transition: border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .slot-tile:hover {
@@ -115,6 +126,7 @@ main {
     font-weight: 500;
     margin-bottom: 0.75rem;
     color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 .slot-status {
@@ -122,6 +134,7 @@ main {
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
+    flex-shrink: 0;
 }
 
 .status-indicator {
@@ -138,6 +151,14 @@ main {
     background-color: var(--empty);
     border: 2px solid var(--empty);
     background-color: transparent;
+}
+
+.slot-status.reserved .status-indicator {
+    background-color: var(--warning);
+}
+
+.slot-status.reserved .status-text {
+    color: var(--warning);
 }
 
 .slot-status.warning .status-indicator {
@@ -159,19 +180,40 @@ main {
 .slot-details {
     font-size: 0.875rem;
     color: var(--text-secondary);
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .slot-details p {
     margin-bottom: 0.25rem;
 }
 
-.slot-details .task {
+.slot-details .process {
     color: var(--text-primary);
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 0.5rem;
+}
+
+.slot-details .label {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.slot-details .task-id {
+    color: var(--accent);
+    font-family: monospace;
+    font-size: 0.8rem;
 }
 
 .slot-links {
     margin-top: 0.75rem;
+    flex-shrink: 0;
 }
 
 .slot-links a {
@@ -190,6 +232,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .panel {
@@ -197,6 +241,10 @@ main {
     border-radius: 8px;
     padding: 1rem;
     border: 1px solid var(--border);
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
 .panel h2 {
@@ -206,10 +254,14 @@ main {
     letter-spacing: 0.05em;
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
+    flex-shrink: 0;
 }
 
 .panel ul {
     list-style: none;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .panel li {
@@ -234,6 +286,7 @@ main {
     font-size: 0.75rem;
     color: var(--accent);
     text-decoration: none;
+    flex-shrink: 0;
 }
 
 .view-all:hover {
@@ -330,6 +383,7 @@ footer {
     font-size: 0.75rem;
     color: var(--text-secondary);
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 footer a {
@@ -341,15 +395,22 @@ footer a {
 @media (max-width: 1024px) {
     .grid-container {
         grid-template-columns: 1fr;
+        height: auto;
     }
 
     .slots-grid {
         grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: auto;
+    }
+
+    .slot-tile {
+        max-height: 280px;
     }
 
     .sidebar {
         flex-direction: row;
         flex-wrap: wrap;
+        overflow-y: visible;
     }
 
     .sidebar .panel {
