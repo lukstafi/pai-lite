@@ -5,7 +5,7 @@ import { join, dirname } from "path";
 import { loadConfigSync, harnessDir, priorityProjects, preemptAutonomy, slotsCount } from "../config.ts";
 import { slotsFilePath } from "../config.ts";
 import { parseSlotBlocks, getProcess, getTask } from "../slots/markdown.ts";
-import { writeTaskFile } from "./markdown.ts";
+import { writeTaskFile, updateFrontmatterField } from "./markdown.ts";
 
 function yamlEscape(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -328,7 +328,11 @@ function tasksQueuePreemptions(): void {
 
     if (!priProjects.includes(project)) continue;
     if (projectsInFlight.has(project)) continue; // one preemption per project at a time
-    if (alreadyQueued.includes(`"task":"${id}"`) && alreadyQueued.includes('"action":"preempt"')) continue;
+    // Check per-line that this exact task already has a preempt entry queued
+    const alreadyQueuedForTask = alreadyQueued.split("\n").some(
+      (line) => line.includes(`"task":"${id}"`) && line.includes('"action":"preempt"'),
+    );
+    if (alreadyQueuedForTask) continue;
 
     mkdirSync(dirname(queueFile), { recursive: true });
     const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -336,6 +340,9 @@ function tasksQueuePreemptions(): void {
     const autonomy = preemptAutonomy();
     const request = `{"id":"${requestId}","action":"preempt","timestamp":"${timestamp}","task":"${id}","autonomy":"${autonomy}"}`;
     appendFileSync(queueFile, request + "\n");
+    // Mark task immediately so subsequent syncs won't re-queue it
+    // (closes the race window between queue-pop and actual slot assignment)
+    updateFrontmatterField(join(tasksDir, f), "status", "preempt-queued");
     projectsInFlight.add(project); // prevent queuing another from same project in this pass
     queued++;
   }

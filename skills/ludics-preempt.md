@@ -52,6 +52,9 @@ This skill is invoked when:
    ludics notify outgoing "Priority task $TASK_ID ready. Recommend preempting slot N (currently: <description>). Run: ludics slot N preempt $TASK_ID"
    ```
 
+   ### On failure / no suitable slot
+   If no slot can be preempted (e.g., all run priority project tasks), reset the task status so it can be reconsidered later. The task status was set to `preempt-queued` when the request was queued; update the task file's `status:` field back to `ready` if preemption doesn't happen.
+
 ## Output Format
 
 ```markdown
