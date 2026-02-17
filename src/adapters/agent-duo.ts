@@ -5,6 +5,7 @@ import type { Adapter } from "./types.ts";
 
 const adapter = createOrchestratedAdapter({
   modeLabel: "agent-duo",
+  modeFilter: "duo",
   statusSectionLabel: "Agents",
   statusFiles: [
     { label: "Claude", fileName: "claude.status" },

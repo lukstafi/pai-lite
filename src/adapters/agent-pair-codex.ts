@@ -6,7 +6,7 @@ import type { Adapter } from "./types.ts";
 
 const adapter = createOrchestratedAdapter({
   modeLabel: "agent-pair-codex",
-  modeFilter: "solo",
+  modeFilter: "pair",
   statusSectionLabel: "Roles",
   statusFiles: [
     { label: "Coder", fileName: "coder.status" },
@@ -18,9 +18,9 @@ const adapter = createOrchestratedAdapter({
     REVIEWER_PORT: "Reviewer",
   },
   worktreeKeys: ["coder", "reviewer"],
-  cliCommand: "agent-solo",
-  cliStartArgs: "--codex",
-  cliStartHint: "agent-solo start requires explicit coder selection. This adapter defaults to --codex (coder=codex, reviewer=claude).",
+  cliCommand: "agent-pair",
+  cliStartArgs: "--coder codex --reviewer claude",
+  cliStartHint: "This adapter starts agent-pair with coder=codex and reviewer=claude.",
 });
 
 export const { readState, start, stop, lastActivity } = adapter;

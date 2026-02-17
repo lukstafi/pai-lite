@@ -189,7 +189,7 @@ export function latestMtime(paths: string[]): string | null {
  * Resolve the project directory for an adapter context.
  * Checks ~/session, ~/repos/session, and optionally .peer-sync subdirectories.
  * @param session - session name from AdapterContext
- * @param checkPeerSync - also check for .peer-sync subdirectories (duo/solo)
+ * @param checkPeerSync - also check for .peer-sync subdirectories (duo/pair)
  */
 export function resolveProjectDir(session: string, checkPeerSync: boolean = false): string {
   if (session && session !== "null") {

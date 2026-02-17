@@ -53,7 +53,7 @@ describe("readBasicState", () => {
         round: 3,
         session: "json-session",
         feature: "json-feat",
-        mode: "solo",
+        mode: "pair",
       }),
     );
 
@@ -62,7 +62,7 @@ describe("readBasicState", () => {
     expect(state.round).toBe("3");
     expect(state.session).toBe("json-session");
     expect(state.feature).toBe("json-feat");
-    expect(state.mode).toBe("solo");
+    expect(state.mode).toBe("pair");
   });
 
   test("returns empty strings for missing directory", () => {

@@ -28,12 +28,12 @@ export interface OrchestratedStatusFile {
 
 export interface OrchestratedConfig {
   modeLabel: string;                     // e.g. "agent-duo" | "agent-pair-codex"
-  modeFilter?: string;                   // undefined for duo, "solo" for solo
+  modeFilter?: string;                   // optional filter against .peer-sync/mode (e.g. "duo", "pair")
   statusSectionLabel: string;            // "Agents" | "Roles"
   statusFiles: OrchestratedStatusFile[]; // which status files to check
   portLabels: Record<string, string>;    // PORT_KEY → display label
   worktreeKeys: string[];                // which worktree keys to display
-  cliCommand: string;                    // e.g. "agent-duo" | "agent-solo"
+  cliCommand: string;                    // e.g. "agent-duo" | "agent-pair"
   cliStartArgs?: string;                 // e.g. "--codex" for pair-codex
   cliStartHint?: string;                 // extra guidance for start command options
   cliStopArgs?: string;                  // optional extra args for stop commands
