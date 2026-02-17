@@ -191,6 +191,12 @@ function queuePopSkill(): string | null {
   // Remove from queue atomically
   writeFileSync(queueFile, lines.slice(1).join("\n") + (lines.length > 1 ? "\n" : ""));
 
+  // Write request ID to file so skills can read it (env vars can't be set mid-session)
+  if (requestId) {
+    const requestIdFile = join(harnessDir(), "mag", "current-request-id");
+    writeFileSync(requestIdFile, requestId);
+  }
+
   // Map action to skill command
   switch (action) {
     case "briefing":
@@ -403,6 +409,13 @@ export function magStart(args: string[]): void {
   tmuxNewSession(MAG_SESSION_NAME, workingDir);
 
   magSignal("running", "session started");
+
+  // Export environment variables for skills
+  const statePath = harnessDir();
+  const resultsPath = join(statePath, "mag", "results");
+  mkdirSync(resultsPath, { recursive: true });
+  tmuxSendCommand(MAG_SESSION_NAME, `export LUDICS_STATE_PATH="${statePath}" LUDICS_RESULTS_DIR="${resultsPath}"`);
+  Bun.spawnSync(["sleep", "0.5"], { stdout: "pipe", stderr: "pipe" });
 
   // Start Claude Code
   const hasClaude = Bun.spawnSync(["which", "claude"], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;

@@ -10,9 +10,9 @@ This skill is invoked when:
 
 ## Inputs
 
-- `$LUDICS_STATE_PATH`: Path to the harness directory
-- `$LUDICS_REQUEST_ID`: Request ID for writing results
-- `$LUDICS_RESULTS_DIR`: Directory for writing result JSON
+- `$LUDICS_STATE_PATH`: Path to the harness directory (environment variable)
+- `$LUDICS_RESULTS_DIR`: Directory for writing result JSON (environment variable)
+- **Request ID**: Read from file `$LUDICS_STATE_PATH/mag/current-request-id` — use as `LUDICS_REQUEST_ID` in result JSON
 
 ## Process
 
@@ -31,7 +31,8 @@ This skill is invoked when:
    ```
 
 4. **Write result**:
-   - Write result JSON to `$LUDICS_RESULTS_DIR/$LUDICS_REQUEST_ID.json`
+   - Read request ID: `REQ_ID=$(cat "$LUDICS_STATE_PATH/mag/current-request-id")`
+   - Write result JSON to `$LUDICS_RESULTS_DIR/$REQ_ID.json`
 
 ## Output Format
 

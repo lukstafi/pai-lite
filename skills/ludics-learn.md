@@ -10,7 +10,7 @@ This skill is invoked when:
 
 ## Inputs
 
-- `$LUDICS_STATE_PATH`: Path to the harness directory
+- `$LUDICS_STATE_PATH`: Path to the harness directory (environment variable)
 - Previous message context (the correction)
 
 ## Process

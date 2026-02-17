@@ -15,8 +15,8 @@ This skill is invoked:
 
 ## Inputs
 
-- `$LUDICS_STATE_PATH`: Path to the harness directory
-- `$LUDICS_REQUEST_ID`: Request ID for writing results
+- `$LUDICS_STATE_PATH`: Path to the harness directory (environment variable)
+- **Request ID**: Read from file `$LUDICS_STATE_PATH/mag/current-request-id` — use as `LUDICS_REQUEST_ID` in result JSON
 
 ## Process
 
