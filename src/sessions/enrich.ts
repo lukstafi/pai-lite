@@ -31,9 +31,19 @@ async function readOrchestration(peerSyncDir: string): Promise<Orchestration> {
   const feature = await readFileText(join(peerSyncDir, "feature"));
   const phase = await readFileText(join(peerSyncDir, "phase"));
   const round = await readFileText(join(peerSyncDir, "round"));
+  const coderAgent = await readFileText(join(peerSyncDir, "coder-agent"));
+
+  let type: Orchestration["type"];
+  if (mode === "solo") {
+    if (coderAgent === "codex") type = "agent-pair-codex";
+    else if (coderAgent === "claude") type = "agent-pair-claude";
+    else type = "agent-pair";
+  } else {
+    type = "agent-duo";
+  }
 
   return {
-    type: mode === "solo" ? "agent-solo" : "agent-duo",
+    type,
     mode,
     feature,
     phase,

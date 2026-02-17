@@ -12,6 +12,7 @@ export function emptyBlock(slot: number): string {
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -63,6 +64,7 @@ export function getTask(block: string): string { return getField(block, "Task");
 export function getMode(block: string): string { return getField(block, "Mode"); }
 export function getSession(block: string): string { return getField(block, "Session"); }
 export function getPath(block: string): string { return getField(block, "Path"); }
+export function getAdapterArgs(block: string): string { return getField(block, "Adapter Args"); }
 
 export function writeSlotFile(filePath: string, blocks: Map<number, string>, count: number): void {
   const parts: string[] = ["# Slots\n\n"];

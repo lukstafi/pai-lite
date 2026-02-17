@@ -17,7 +17,6 @@ const adapter = createOrchestratedAdapter({
   },
   worktreeKeys: ["claude", "codex"],
   cliCommand: "agent-duo",
-  cliModeFlag: "",
 });
 
 export const { readState, start, stop, lastActivity } = adapter;

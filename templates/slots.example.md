@@ -8,6 +8,7 @@
 **Session:** concat-einsum
 **Path:** /Users/lukstafi/repos/ocannl
 **Started:** 2026-01-29T14:00Z
+**Adapter Args:** --clarify --plan --auto-run
 
 **Terminals:**
 - Orchestrator: http://localhost:7680
@@ -33,6 +34,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -50,6 +52,7 @@
 **Session:** minidebug
 **Path:** null
 **Started:** 2026-01-29T10:00Z
+**Adapter Args:** null
 
 **Terminals:**
 - Claude Code: tmux session `minidebug`
@@ -71,6 +74,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -88,6 +92,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -105,6 +110,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 

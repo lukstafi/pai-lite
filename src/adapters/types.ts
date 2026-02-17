@@ -5,6 +5,7 @@ export interface AdapterContext {
   mode: string;
   session: string;
   taskId: string;
+  adapterArgs: string;
   process: string;
   harnessDir: string;
   stateRepoDir: string;

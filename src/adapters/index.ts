@@ -7,7 +7,8 @@ export type { AdapterContext } from "./types.ts";
 import * as agentClaude from "./agent-claude.ts";
 import * as agentCodex from "./agent-codex.ts";
 import * as agentDuo from "./agent-duo.ts";
-import * as agentSolo from "./agent-solo.ts";
+import * as agentPairCodex from "./agent-pair-codex.ts";
+import * as agentPairClaude from "./agent-pair-claude.ts";
 import * as claudeAi from "./claude-ai.ts";
 import * as chatgptCom from "./chatgpt-com.ts";
 import * as manual from "./manual.ts";
@@ -16,7 +17,9 @@ const adapters: Record<string, Adapter> = {
   "agent-claude": agentClaude,
   "agent-codex": agentCodex,
   "agent-duo": agentDuo,
-  "agent-solo": agentSolo,
+  "agent-pair-codex": agentPairCodex,
+  "agent-pair-claude": agentPairClaude,
+  "agent-pair": agentPairCodex,
   "claude-ai": claudeAi,
   "chatgpt-com": chatgptCom,
   "manual": manual,

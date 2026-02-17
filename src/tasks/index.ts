@@ -64,7 +64,12 @@ function tasksShow(taskId: string): void {
   console.log(output.join("\n"));
 }
 
-function tasksCreate(title: string, project: string = "personal", priority: string = "B"): void {
+function tasksCreate(
+  title: string,
+  project: string = "personal",
+  priority: string = "B",
+  usesBrowser: boolean = false,
+): void {
   const dir = tasksDir();
   mkdirSync(dir, { recursive: true });
 
@@ -88,6 +93,7 @@ dependencies:
   subtask_of: null
 effort: medium
 context: ${project}
+uses_browser: ${usesBrowser}
 slot: null
 adapter: null
 created: ${today}
@@ -179,6 +185,7 @@ dependencies:
   subtask_of: null
 effort: ${s.effort}
 context: ${s.context}
+uses_browser: false
 slot: null
 adapter: null
 created: ${today}
@@ -337,7 +344,24 @@ export async function runTasks(args: string[]): Promise<void> {
     case "create": {
       const title = args[1];
       if (!title) throw new Error("title required");
-      tasksCreate(title, args[2], args[3]);
+      let project: string | undefined;
+      let priority: string | undefined;
+      let usesBrowser = false;
+      for (let i = 2; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--uses-browser") {
+          usesBrowser = true;
+          continue;
+        }
+        if (!project) {
+          project = a;
+          continue;
+        }
+        if (!priority) {
+          priority = a;
+        }
+      }
+      tasksCreate(title, project, priority, usesBrowser);
       break;
     }
     case "files":

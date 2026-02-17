@@ -8,6 +8,7 @@ export interface SlotBlock {
   session: string;
   path: string;
   started: string;
+  adapterArgs: string;
   terminals: string;
   runtime: string;
   git: string;

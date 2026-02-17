@@ -8,6 +8,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -25,6 +26,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -42,6 +44,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -59,6 +62,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -76,6 +80,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 
@@ -93,6 +98,7 @@
 **Session:** null
 **Path:** null
 **Started:** null
+**Adapter Args:** null
 
 **Terminals:**
 

@@ -1,4 +1,4 @@
-// Shared logic for agent-duo and agent-solo adapters.
+// Shared logic for orchestrated adapters (agent-duo + agent-pair variants).
 //
 // Both adapters share ~80% structure. The differences are parameterized
 // via OrchestratedConfig.
@@ -27,14 +27,16 @@ export interface OrchestratedStatusFile {
 }
 
 export interface OrchestratedConfig {
-  modeLabel: string;                     // "agent-duo" | "agent-solo"
+  modeLabel: string;                     // e.g. "agent-duo" | "agent-pair-codex"
   modeFilter?: string;                   // undefined for duo, "solo" for solo
   statusSectionLabel: string;            // "Agents" | "Roles"
   statusFiles: OrchestratedStatusFile[]; // which status files to check
   portLabels: Record<string, string>;    // PORT_KEY → display label
   worktreeKeys: string[];                // which worktree keys to display
-  cliCommand: string;                    // "agent-duo" (both use agent-duo CLI)
-  cliModeFlag: string;                   // "" for duo, "--mode solo" for solo
+  cliCommand: string;                    // e.g. "agent-duo" | "agent-solo"
+  cliStartArgs?: string;                 // e.g. "--codex" for pair-codex
+  cliStartHint?: string;                 // extra guidance for start command options
+  cliStopArgs?: string;                  // optional extra args for stop commands
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +123,8 @@ function appendSessionState(
 // ---------------------------------------------------------------------------
 
 export function createOrchestratedAdapter(cfg: OrchestratedConfig): Adapter {
-  const modeFlag = cfg.cliModeFlag ? ` ${cfg.cliModeFlag}` : "";
+  const startArgs = cfg.cliStartArgs ? ` ${cfg.cliStartArgs}` : "";
+  const stopArgs = cfg.cliStopArgs ? ` ${cfg.cliStopArgs}` : "";
 
   function readState(ctx: AdapterContext): string | null {
     const projectDir = resolveProjectDir(ctx.session, true);
@@ -151,16 +154,16 @@ export function createOrchestratedAdapter(cfg: OrchestratedConfig): Adapter {
     const projectDir = resolveProjectDir(ctx.session, true);
     const count = sessionCount(projectDir, cfg.modeFilter);
     const parts: string[] = [];
+    const adapterArgs = ctx.adapterArgs ? ` ${ctx.adapterArgs}` : "";
 
-    parts.push(`${cfg.modeLabel} start: Use the ${cfg.cliCommand} CLI${modeFlag ? ` with ${cfg.cliModeFlag}` : ""} to launch sessions.`);
+    parts.push(`${cfg.modeLabel} start: Use the ${cfg.cliCommand} CLI to launch sessions.`);
+    if (cfg.cliStartHint) parts.push(cfg.cliStartHint);
     if (count > 0) parts.push(`Project has ${count}${cfg.modeFilter ? ` ${cfg.modeFilter}` : ""} sessions.`);
 
-    if (ctx.taskId && ctx.session) {
-      parts.push(`Suggested command:\n  cd ${projectDir} && ${cfg.cliCommand} start${modeFlag} --session ${ctx.session} --task ${ctx.taskId}`);
-    } else if (ctx.taskId) {
-      parts.push(`Suggested command:\n  cd ${projectDir} && ${cfg.cliCommand} start${modeFlag} --task ${ctx.taskId}`);
+    if (ctx.taskId) {
+      parts.push(`Suggested command:\n  cd ${projectDir} && ${cfg.cliCommand} start ${ctx.taskId}${startArgs}${adapterArgs}`);
     } else {
-      parts.push(`Usage:\n  cd ${projectDir} && ${cfg.cliCommand} start${modeFlag} <feature1> <feature2> ... [--auto-run]`);
+      parts.push(`Usage:\n  cd ${projectDir} && ${cfg.cliCommand} start <feature1> <feature2> ...${startArgs}${adapterArgs || " [adapter args]"} [--auto-run]`);
     }
 
     return parts.join("\n");
@@ -177,13 +180,13 @@ export function createOrchestratedAdapter(cfg: OrchestratedConfig): Adapter {
 
     if (count === 0) {
       parts.push(`No active ${cfg.modeLabel} sessions detected in ${projectDir}`);
-      parts.push(`Usage:\n  cd ${projectDir} && ${cfg.cliCommand} stop${modeFlag} [--feature <name>]`);
+      parts.push(`Usage:\n  cd ${projectDir} && ${cfg.cliCommand} stop${stopArgs} [--feature <name>]`);
     } else {
       parts.push(`Project has ${count}${cfg.modeFilter ? ` ${cfg.modeFilter}` : ""} sessions.`);
       parts.push(`Active${cfg.modeFilter ? ` ${cfg.modeFilter}` : ""} sessions:`);
       for (const s of filtered) parts.push(`  - ${s.feature}`);
-      parts.push(`To stop all:\n  cd ${projectDir} && ${cfg.cliCommand} stop${modeFlag}`);
-      parts.push(`To stop specific feature:\n  cd ${projectDir} && ${cfg.cliCommand} stop${modeFlag} --feature <feature-name>`);
+      parts.push(`To stop all:\n  cd ${projectDir} && ${cfg.cliCommand} stop${stopArgs}`);
+      parts.push(`To stop specific feature:\n  cd ${projectDir} && ${cfg.cliCommand} stop${stopArgs} --feature <feature-name>`);
     }
 
     return parts.join("\n");

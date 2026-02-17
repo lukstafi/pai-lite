@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { harnessDir, slotsFilePath, slotsCount, stateRepoDir, loadConfigSync } from "../config.ts";
-import { parseSlotBlocks, getField, getTask, getMode, getSession, getProcess, getPath,
+import { parseSlotBlocks, getField, getTask, getMode, getSession, getProcess, getPath, getAdapterArgs,
          emptyBlock, writeSlotFile, addNoteToBlock, mergeAdapterState } from "./markdown.ts";
 import { stateCommit } from "../state.ts";
 import { journalAppend } from "../journal.ts";
@@ -132,6 +132,7 @@ export function slotAssign(
   adapter: string = "manual",
   session: string = "",
   path: string = "",
+  adapterArgs: string = "",
 ): void {
   const file = ensureSlotsFile();
   const blocks = loadBlocks(file);
@@ -144,6 +145,7 @@ export function slotAssign(
   if (path && path !== "/") {
     path = path.replace(/\/$/, "");
   }
+  adapterArgs = adapterArgs.trim();
 
   // Determine task ID vs description
   let taskId: string;
@@ -173,7 +175,9 @@ export function slotAssign(
         session = String(slotNum);
         break;
       case "agent-duo":
-      case "agent-solo":
+      case "agent-pair":
+      case "agent-pair-codex":
+      case "agent-pair-claude":
         session = "null";
         break;
       default:
@@ -190,6 +194,7 @@ export function slotAssign(
 **Session:** ${session}
 **Path:** ${path || "null"}
 **Started:** ${started}
+**Adapter Args:** ${adapterArgs || "null"}
 
 **Terminals:**
 
@@ -288,6 +293,7 @@ export function slotPreempt(
   adapter: string = "manual",
   session: string = "",
   path: string = "",
+  adapterArgs: string = "",
 ): void {
   const file = ensureSlotsFile();
   const blocks = loadBlocks(file);
@@ -300,7 +306,7 @@ export function slotPreempt(
 
   // If slot is empty, just assign directly — no stash needed
   if (isEmpty) {
-    slotAssign(slotNum, taskId, adapter, session, path);
+    slotAssign(slotNum, taskId, adapter, session, path, adapterArgs);
     return;
   }
 
@@ -319,6 +325,7 @@ export function slotPreempt(
     previousSession: getSession(block).trim(),
     previousPath: getPath(block).trim(),
     previousStarted: getField(block, "Started").trim(),
+    previousAdapterArgs: getAdapterArgs(block).trim(),
     preemptedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z").replace(/:\d{2}Z$/, "Z"),
     preemptingTask: taskId,
   };
@@ -330,7 +337,7 @@ export function slotPreempt(
   }
 
   // Assign the new priority task
-  slotAssign(slotNum, taskId, adapter, session, path);
+  slotAssign(slotNum, taskId, adapter, session, path, adapterArgs);
 
   journalAppend("slot", `Slot ${slotNum} preempted: ${currentProcess} → ${taskId}`);
   stateCommit(`slot ${slotNum}: preempt for ${taskId}`);
@@ -349,9 +356,12 @@ export function slotRestore(slotNum: number): void {
   const prevAdapter = stash.previousMode === "null" ? "manual" : stash.previousMode;
   const prevSession = stash.previousSession === "null" ? "" : stash.previousSession;
   const prevPath = stash.previousPath === "null" ? "" : stash.previousPath;
+  const prevAdapterArgs = !stash.previousAdapterArgs || stash.previousAdapterArgs === "null"
+    ? ""
+    : stash.previousAdapterArgs;
   const prevTask = stash.previousTask === "null" ? stash.previousProcess : stash.previousTask;
 
-  slotAssign(slotNum, prevTask, prevAdapter, prevSession, prevPath);
+  slotAssign(slotNum, prevTask, prevAdapter, prevSession, prevPath, prevAdapterArgs);
 
   // Restore previous task status to "in-progress"
   if (stash.previousTask && stash.previousTask !== "null") {
@@ -383,6 +393,7 @@ function makeAdapterContext(slotNum: number, block: string): AdapterContext {
   const mode = getMode(block).trim();
   const session = getSession(block).trim();
   const taskIdRaw = getTask(block).trim();
+  const adapterArgs = getAdapterArgs(block).trim();
   const process = getProcess(block).trim();
 
   return {
@@ -390,6 +401,7 @@ function makeAdapterContext(slotNum: number, block: string): AdapterContext {
     mode: mode === "null" ? "" : mode,
     session: session === "null" ? "" : session,
     taskId: taskIdRaw === "null" ? "" : taskIdRaw,
+    adapterArgs: adapterArgs === "null" ? "" : adapterArgs,
     process: process === "(empty)" ? "" : process,
     harnessDir: harnessDir(),
     stateRepoDir: stateRepoDir(),
@@ -505,14 +517,19 @@ export async function runSlot(args: string[]): Promise<void> {
       let adapter = "manual";
       let session = "";
       let path = "";
+      let adapterArgs = "";
       for (let i = 3; i < args.length; i++) {
         switch (args[i]) {
           case "-a": adapter = args[++i] ?? "manual"; break;
           case "-s": session = args[++i] ?? ""; break;
           case "-p": path = args[++i] ?? ""; break;
+          case "-A":
+          case "--adapter-args":
+            adapterArgs = args[++i] ?? "";
+            break;
         }
       }
-      slotAssign(slotNum, taskOrDesc, adapter, session, path);
+      slotAssign(slotNum, taskOrDesc, adapter, session, path, adapterArgs);
       break;
     }
 
@@ -547,14 +564,19 @@ export async function runSlot(args: string[]): Promise<void> {
       let adapter = "manual";
       let session = "";
       let path = "";
+      let adapterArgs = "";
       for (let i = 3; i < args.length; i++) {
         switch (args[i]) {
           case "-a": adapter = args[++i] ?? "manual"; break;
           case "-s": session = args[++i] ?? ""; break;
           case "-p": path = args[++i] ?? ""; break;
+          case "-A":
+          case "--adapter-args":
+            adapterArgs = args[++i] ?? "";
+            break;
         }
       }
-      slotPreempt(slotNum, preemptTask, adapter, session, path);
+      slotPreempt(slotNum, preemptTask, adapter, session, path, adapterArgs);
       break;
     }
 

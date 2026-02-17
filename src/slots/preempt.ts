@@ -12,6 +12,7 @@ export interface PreemptStash {
   previousSession: string;
   previousPath: string;
   previousStarted: string;
+  previousAdapterArgs?: string;
   preemptedAt: string;
   preemptingTask: string;
 }

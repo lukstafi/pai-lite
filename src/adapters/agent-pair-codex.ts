@@ -1,10 +1,11 @@
-// Agent-solo adapter — delegates to shared orchestrated-adapter module
+// Agent-pair-codex adapter — coder is Codex, reviewer is Claude.
+// Delegates to shared orchestrated-adapter module.
 
 import { createOrchestratedAdapter } from "./orchestrated-adapter.ts";
 import type { Adapter } from "./types.ts";
 
 const adapter = createOrchestratedAdapter({
-  modeLabel: "agent-solo",
+  modeLabel: "agent-pair-codex",
   modeFilter: "solo",
   statusSectionLabel: "Roles",
   statusFiles: [
@@ -17,8 +18,9 @@ const adapter = createOrchestratedAdapter({
     REVIEWER_PORT: "Reviewer",
   },
   worktreeKeys: ["coder", "reviewer"],
-  cliCommand: "agent-duo",
-  cliModeFlag: "--mode solo",
+  cliCommand: "agent-solo",
+  cliStartArgs: "--codex",
+  cliStartHint: "agent-solo start requires explicit coder selection. This adapter defaults to --codex (coder=codex, reviewer=claude).",
 });
 
 export const { readState, start, stop, lastActivity } = adapter;

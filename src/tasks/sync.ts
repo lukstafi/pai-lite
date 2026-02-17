@@ -123,6 +123,7 @@ export async function tasksConvert(): Promise<void> {
   let currentId = "";
   let currentTitle = "";
   let currentSource = "";
+  let currentUsesBrowser = false;
   let currentRepo = "";
   let currentUrl = "";
   let currentLabels = "";
@@ -132,6 +133,7 @@ export async function tasksConvert(): Promise<void> {
     if (!currentId) return;
     const created = writeTaskFile(
       tasksDir, currentId, currentTitle, currentSource,
+      currentUsesBrowser,
       currentRepo, currentUrl, currentLabels, today, currentPath || undefined,
     );
     if (created) count++;
@@ -146,6 +148,7 @@ export async function tasksConvert(): Promise<void> {
       currentId = m[1]!.replace(/"/g, "");
       currentTitle = "";
       currentSource = "";
+      currentUsesBrowser = false;
       currentRepo = "";
       currentUrl = "";
       currentLabels = "";
@@ -158,6 +161,13 @@ export async function tasksConvert(): Promise<void> {
 
     m = line.match(/^\s*source:\s*(.+)$/);
     if (m) { currentSource = m[1]!; continue; }
+
+    m = line.match(/^\s*uses_browser:\s*(.+)$/);
+    if (m) {
+      const v = m[1]!.trim().toLowerCase();
+      currentUsesBrowser = v === "true" || v === "1" || v === "yes";
+      continue;
+    }
 
     m = line.match(/^\s*repo:\s*(.+)$/);
     if (m) { currentRepo = m[1]!; continue; }

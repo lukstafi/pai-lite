@@ -23,13 +23,16 @@ projects:
     issues: true          # Chores, reminders, etc.
 
 # Adapter settings
-# Available adapters: agent-duo, agent-solo, claude-code, claude-ai,
+# Available adapters: agent-duo, agent-pair-codex, agent-pair-claude,
+#                     claude-code, claude-ai,
 #                     chatgpt-com, codex, manual
 adapters:
   agent-duo:
     enabled: true         # Dual agent system (Claude + Codex)
-  agent-solo:
-    enabled: false        # Single agent system
+  agent-pair-codex:
+    enabled: false        # Pair workflow (coder=Codex, reviewer=Claude)
+  agent-pair-claude:
+    enabled: false        # Pair workflow (coder=Claude, reviewer=Codex)
   claude-code:
     enabled: true         # Claude Code CLI
   claude-ai:

@@ -5,6 +5,16 @@ import { join, dirname } from "path";
 import YAML from "yaml";
 import type { TaskFrontmatter } from "./types.ts";
 
+function asBoolean(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
+  if (typeof value === "number") return value !== 0;
+  return false;
+}
+
 export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> & { id: string; title: string } {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (!fmMatch) throw new Error("no frontmatter found");
@@ -26,6 +36,7 @@ export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> 
     },
     effort: String(data.effort ?? "medium"),
     context: String(data.context ?? ""),
+    uses_browser: asBoolean(data.uses_browser),
     slot: data.slot ? String(data.slot) : null,
     adapter: data.adapter ? String(data.adapter) : null,
     created: String(data.created ?? ""),
@@ -156,6 +167,7 @@ export function writeTaskFile(
   id: string,
   title: string,
   source: string,
+  usesBrowser: boolean,
   repo: string,
   url: string,
   labels: string,
@@ -195,6 +207,7 @@ dependencies:
   subtask_of: null
 effort: medium
 context: ${project}
+uses_browser: ${usesBrowser}
 slot: null
 adapter: null
 created: ${today}

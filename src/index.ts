@@ -68,14 +68,14 @@ Commands:
   slots                        Show all slots
   slots refresh                Refresh slot state from adapters
   slot <n>                     Show slot n
-  slot <n> assign <task|desc> [-a adapter] [-s session] [-p path]
+  slot <n> assign <task|desc> [-a adapter] [-s session] [-p path] [-A "adapter args"]
                                Assign a task to slot n
   slot <n> clear [done|abandoned]
                                Clear slot n (optionally mark task done/abandoned)
   slot <n> start               Start agent session (adapter)
   slot <n> stop                Stop agent session (adapter)
   slot <n> note "text"         Add runtime note to slot n
-  slot <n> preempt <task-id> [-a adapter] [-s session] [-p path]
+  slot <n> preempt <task-id> [-a adapter] [-s session] [-p path] [-A "adapter args"]
                                Preempt slot for priority task (stashes current work)
   slot <n> restore             Restore previously preempted work to slot
 
@@ -83,7 +83,8 @@ Commands:
   tasks list                   Show unified task list
   tasks show <id>              Show task details
   tasks convert                Convert tasks.yaml to individual task files (also run by sync)
-  tasks create <title>         Create a new task manually
+  tasks create <title> [project] [priority] [--uses-browser]
+                               Create a new task manually
   tasks files                  List individual task files
   tasks samples                Create sample tasks for testing
   tasks needs-elaboration      List tasks needing elaboration

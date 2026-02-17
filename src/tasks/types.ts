@@ -15,6 +15,7 @@ export interface TaskFrontmatter {
   };
   effort: string; // small, medium, large
   context: string;
+  uses_browser: boolean;
   slot: string | null;
   adapter: string | null;
   created: string;
@@ -33,6 +34,7 @@ export interface TaskYamlEntry {
   id: string;
   title: string;
   source: string;
+  uses_browser?: boolean;
   repo?: string;
   url?: string;
   labels?: string;
