@@ -1,21 +1,37 @@
 # ludics Architecture
 
-*Design document — describes the target architecture, not necessarily the current implementation.*
+*Living document — describes the current implementation.*
 
 ## Overview
 
 ludics is a lightweight personal AI infrastructure — a harness for humans working with AI agents. It manages concurrent agent sessions (slots), orchestrates autonomous task analysis (Mag), and maintains flow-based task management.
 
-**Core philosophy: "Autonomy babysitting automation"**
+**Core philosophy: "Autonomous minds, deterministic rails"**
 - **Autonomous layer**: AI agents make strategic decisions (Mag, workers)
-- **Automation layer**: Deterministic scripts execute reliably (triggers, adapters, sync)
+- **Automation layer**: Deterministic code executes reliably (triggers, adapters, sync)
 - The autonomous layer supervises; the automation layer provides predictable, deterministic behavior.
+
+## Technology Stack
+
+ludics is implemented in **100% TypeScript**, compiled to a standalone binary via Bun:
+
+- **Runtime**: [Bun](https://bun.sh/) (v1.1+) — fast TypeScript runtime with native compilation
+- **Build**: `bun build --compile src/index.ts --outfile bin/ludics` → ~60MB standalone binary
+- **Dependencies**: Minimal — only `yaml` (npm) for YAML parsing; everything else is stdlib
+- **Shell integration**: Shell commands are invoked via `Bun.spawnSync()` / `Bun.spawn()` where needed (tmux, git, gh, curl, etc.)
+
+**Why TypeScript + Bun?**
+- Type safety for configuration parsing and adapter interfaces
+- Fast startup (Bun's compiled binary is instant)
+- Native async/await for shell process orchestration
+- Single binary deployment (no runtime dependency for users)
+- Module system for clean separation of concerns (~22 modules, ~9K lines)
 
 ## Architectural Layers
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              THE MAG (Autonomous - Lifelong)             │
+│              THE MAG (Autonomous - Lifelong)               │
 │         Claude Opus 4.5 in Claude Code (tmux/ttyd)         │
 │                                                            │
 │  Invoked by automation when AI judgment needed:            │
@@ -26,7 +42,7 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 │                                                            │
 │  Uses native Claude Code capabilities:                     │
 │  • Task tool → Haiku/Sonnet subagents for fast tasks       │
-│  • CLI tools (yq, jq, tsort) for deterministic operations  │
+│  • CLI tools (jq, tsort) for deterministic operations      │
 │  • Skills with embedded delegation patterns                │
 │                                                            │
 │  Writes decisions to git-backed state (persistent)         │
@@ -36,35 +52,40 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 ┌────────────────────────────────────────────────────────────┐
 │           AUTOMATION LAYER (Deterministic - Always On)     │
 │                                                            │
-│  Flow Engine (Bash + CLI tools):                           │
-│    • Maintains dependency graph (tsort, graphviz)          │
-│    • Computes ready queue (yq, jq filtering)               │
-│    • Detects deadline violations (date math)               │
+│  Flow Engine (TypeScript):                                 │
+│    • Maintains dependency graph (Kahn's algorithm)         │
+│    • Computes ready queue (priority + deadline sorting)    │
+│    • Detects deadline violations and stalled work          │
 │                                                            │
-│  Trigger System (launchd):                                 │
-│    • 08:00 → invoke Mag for briefing                     │
-│    • Every 4h → slot health check                          │
-│    • WatchPaths → file changed, sync tasks / health check   │
+│  Trigger System (launchd / systemd):                       │
+│    • 08:00 → invoke Mag for briefing                       │
+│    • Periodic → sync, health check                         │
+│    • WatchPaths → file changed, sync tasks                 │
 │                                                            │
-│  Adapter Monitors (Bash polling):                          │
-│    • Read .peer-sync/ → update slot state                  │
-│    • Detect phase changes → log to journal                 │
+│  Session Discovery (TypeScript pipeline):                  │
+│    • Discover → Enrich → Deduplicate → Classify            │
+│    • Sources: tmux, ttyd, Claude Code, Codex, .peer-sync/  │
 │                                                            │
 │  State Sync (git):                                         │
 │    • Pull from repos → aggregate issues                    │
-│    • Commit Mag's changes                                │
+│    • Commit Mag's changes                                  │
 │    • Push to private repo                                  │
 │                                                            │
 │  Notifications (ntfy.sh):                                  │
 │    • <user>-from-Mag: outgoing strategic updates (→ phone) │
 │    • <user>-to-Mag: incoming messages (phone → Mag)        │
 │    • <user>-agents: Worker task events (operational)        │
+│                                                            │
+│  Federation (TypeScript):                                  │
+│    • Multi-machine Mag coordination                        │
+│    • Seniority-based leader election                       │
+│    • Heartbeat publishing via git-backed state             │
 └────────────┬───────────────────────────────────────────────┘
              │ manages
              ▼
 ┌────────────────────────────────────────────────────────────┐
 │              WORKER SLOTS (Ephemeral AI)                   │
-│                     6 slots (hardcoded)                    │
+│                     6 slots (default)                      │
 │                                                            │
 │  Slot 1: agent-duo on task-042 (coder + reviewer)          │
 │  Slot 2: empty                                             │
@@ -72,6 +93,7 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 │  Slot 4-6: empty                                           │
 │                                                            │
 │  Workers implement tasks, not strategy                     │
+│  Preemption: stash current work for priority tasks         │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,15 +101,15 @@ ludics is a lightweight personal AI infrastructure — a harness for humans work
 
 ### The Mag: Autonomous Coordinator
 
-The **Mag** is a persistent Claude Code instance running in a dedicated tmux session (`ludics-mag`) with ttyd web access enabled by default on port 7679. It provides autonomous strategic thinking while the automation layer handles reliable execution.
+The **Mag** is a persistent Claude Code instance running in a dedicated tmux session (`ludics-mag`) with optional ttyd web access (default port 7679). It provides autonomous strategic thinking while the automation layer handles reliable execution.
 
 **What Mag does (Claude Opus 4.5):**
-- Analyzes GitHub issues for actionability and dependencies (context understanding)
-- Generates morning briefings with strategic suggestions (writing, wisdom)
+- Analyzes GitHub issues for actionability and dependencies
+- Generates morning briefings with strategic suggestions
 - Detects stalled work (tasks in-progress >7 days with no updates)
 - Suggests what to work on next based on priority, deadlines, and dependencies
-- Elaborates high-level tasks into detailed Markdown specifications (SWE tasks)
-- Publishes curated updates to public notification channel
+- Elaborates high-level tasks into detailed Markdown specifications
+- Publishes curated updates to notification channels
 - **Learns from corrections** — updates institutional memory when mistakes are identified
 - **Consolidates learnings** — periodically synthesizes scattered corrections into structured knowledge
 
@@ -98,191 +120,87 @@ The **Mag** is a persistent Claude Code instance running in a dedicated tmux ses
 - **Sonnet**: Medium-complexity tasks, structured generation
 
 *Via CLI tools (deterministic algorithms):*
-- Dependency graph: `yq` to extract, `tsort` for topological order
-- Cycle detection: `tsort` (fails on cycles)
+- Dependency graph: `tsort` for topological order
 - Priority filtering: `jq` for sorting and selection
-- Graph visualization: `graphviz` (dot)
 
-The Mag's skills (defined in the framework) can embed delegation patterns, e.g., a `/ludics-analyze-issue` skill that uses a Haiku subagent for dependency extraction before Mag writes the task file.
+**Skills system** (`skills/` directory, 12 Markdown files):
+
+| Skill | Purpose |
+|-------|---------|
+| `/ludics-briefing` | Morning strategic briefing |
+| `/ludics-suggest` | Task suggestions based on flow state |
+| `/ludics-elaborate` | Detailed spec for a task |
+| `/ludics-analyze-issue` | Parse GitHub issue → create task with dependencies |
+| `/ludics-health-check` | Detect stalled work, approaching deadlines |
+| `/ludics-learn` | Update institutional memory from corrections |
+| `/ludics-sync-learnings` | Consolidate learnings into structured memory |
+| `/ludics-feedback-digest` | Summarize user feedback |
+| `/ludics-read-inbox` | Process incoming messages |
+| `/ludics-preempt` | Plan task preemption |
+| `/ludics-techdebt` | Identify technical debt |
+| `/ludics-new-quote` | Generate motivational quote |
+
+Skills are Markdown files with embedded instructions for Claude Code. They can specify delegation patterns (e.g., use Haiku subagent for extraction before Mag writes a task file).
 
 **How automation invokes Mag:**
-```bash
-# trigger_skill sends the slash command with a brief sleep
-# so the console processes the prompt instead of a raw newline.
 
-# Trigger at 08:00 (launchd)
-trigger_skill ludics-mag "/ludics-briefing"
-# Mag writes to briefing.md
-# Automation reads and notifies
-
-# New issue detected
-trigger_skill ludics-mag "/ludics-analyze-issue ocannl 127"
-# Mag creates task-143.md with inferred dependencies
-
-# User asks for suggestions
-trigger_skill ludics-mag "/ludics-suggest"
-# Mag analyzes flow state, writes suggestions
-```
-
-**Why one lifelong Mag (not multiple specialized agents)?**
-- Builds institutional memory (learns patterns, preferences)
-- Consistent decision-making across analysis, scheduling, briefing
-- Can see connections across projects
-- Simpler mental model (one AI coordinates ludics)
-
-**Why Claude Opus 4.5 for Mag?**
-- **Well-rounded judgment** — strategic thinking over raw benchmark optimization
-- **Strong SWE skills** — task elaboration, detailed specifications
-- **Better writer** — briefings, narratives, contextual understanding
-- **Infrequent invocations** — cost is acceptable for morning briefings, issue analysis
-
-**Why Opus over Sonnet for Mag?**
-- Mag needs **institutional memory** and nuanced judgment
-- Briefings require **depth** over speed
-- Strategic decisions benefit from more capable reasoning
-- Cost is manageable since Mag runs infrequently
-
-**When Haiku/Sonnet subagents make sense:**
-- Fast extraction tasks (parsing dependencies from prose)
-- Structured output generation
-- Lightweight validation checks
-- Any task where latency matters more than depth
-
-### Future: Model Portability
-
-ludics is currently Claude-specific but designed with future model portability in mind. The architecture could support other frontier models (e.g., OpenAI Codex) as Mag backends once they gain equivalent capabilities.
-
-**Current assessment (Feb 2026):**
-
-| Capability | Claude Code | Codex | Notes |
-|------------|-------------|-------|-------|
-| Subagent delegation | ✅ Task tool (Haiku/Sonnet/Opus) | ⚠️ Partial | Codex has multi-agent collaboration mode but no general Task() equivalent |
-| Skills | ✅ Markdown | ✅ Markdown | Already shared via agent-duo skill templates |
-| Tool use | ✅ Native | ✅ Native | Both strong |
-| Long-running sessions | ✅ tmux + ttyd | ✅ Similar | Comparable |
-
-**What's already portable:**
-- **Skills** — agent-duo's skill templates already install to both Claude Code and Codex
-- **Adapters** — read state from sources (`.peer-sync/`, git), not from the model
-- **Mag interface** — `/ludics-briefing`, `/ludics-analyze-issue` are just skill invocations
-- **CLI tools** — yq, jq, tsort don't care which AI invokes them
-
-**Codex subagent status (Feb 2026):**
-
-Codex has adjacent capabilities but not a direct Task tool equivalent:
-- **Codex Cloud**: Parallel tasks in isolated sandboxes, but these are top-level tasks, not mid-conversation subagent spawning
-- **Codex CLI**: Experimental "multi-agent collaboration mode" with sub-agents and fan-out behavior, but tied to that specific feature, not general-purpose
-- **Workaround**: OpenAI Agents SDK can orchestrate multiple agents with Codex as an MCP server (handoffs, guardrails, traces)
-- **CLI profiles**: `codex --profile <name>` for behavior switching, but not isolated-context subagents
-
-What's missing: A first-class, user-invocable `Task()` tool where Mag can say "delegate this extraction to a faster model, get JSON back, continue." Community issue #2604 (276+ reactions) requests this; OpenAI confirmed work is ongoing but no timeline.
-
-**Design principle:** The core architecture (slots, flow engine, triggers, adapters, skills) is already model-agnostic. The Mag's delegation to Haiku/Sonnet subagents is the Claude-specific piece. When Codex ships a general-purpose subagent tool, swapping Mag backend would primarily require adapting the delegation patterns.
-
-**When to revisit:** Check Codex subagent status quarterly. Key signals: official Task-equivalent announcement, or general-purpose subagent spawning in CLI docs.
-
-### Delegation Strategy
-
-The Mag uses **Claude Code's native Task tool** for delegation, not custom API wrappers:
-
-| Task | Approach | Why |
-|------|----------|-----|
-| Extract dependencies from prose | Task → Haiku | Fast, cheap, sufficient |
-| Structured output generation | Task → Sonnet | Better format adherence |
-| Topological sort, cycle detection | `tsort` | Standard Unix tool |
-| Filter/sort tasks | `yq` + `jq` | Fast, scriptable |
-| Graph visualization | `graphviz` | DOT format, renders PNGs |
-| Strategic analysis | Mag (Opus) | Needs judgment, context |
-| Writing briefings | Mag (Opus) | Needs narrative skill |
-
-**Example: `/ludics-analyze-issue` skill**
-```
-1. [Opus] Read issue, assess actionability
-   └─ Not actionable → return early
-
-2. [Task → Haiku] Extract structured data
-   "Return JSON: {blocks: [...], blocked_by: [...]}"
-   └─ Fast extraction
-
-3. [Bash] echo "$new_deps" | tsort 2>&1
-   └─ tsort validates no circular deps (fails on cycle)
-
-4. [Opus] Write task file with context
-```
-
-Skills defined in the framework embed these patterns, keeping Mag's prompts clean.
-
-**Example: `/ludics-learn` skill (institutional memory)**
-
-When the user corrects a mistake, they can invoke `/ludics-learn` to have Mag update its memory:
+Automation writes requests to a JSONL queue (`mag/queue.jsonl`). Mag's stop hook fires when Claude finishes a turn, reads the queue, and processes requests:
 
 ```
-User: "Don't use yq -s on single files, it expects multiple"
-User: /ludics-learn
-
-Mag:
-1. Acknowledges the correction
-2. Writes to mag/memory/corrections.md:
-   ---
-   - date: 2026-02-01
-     context: yq usage
-     correction: "yq -s expects multiple files; use yq eval for single files"
-     source: user feedback
-   ---
-3. If pattern is broader, updates mag/memory/tools.md or CLAUDE.md
+Automation Layer                      Mag (Claude Code)
+     │                                      │
+     │ 1. Writes request                    │
+     ├──────────────────────────────────────>│
+     │    to mag/queue.jsonl                │
+     │                                      │
+     │                                      │ 2. Stop hook fires
+     │                                      │    when Claude ready
+     │                                      │
+     │                                      │ 3. Reads queue
+     │ 4. Reads result                      │    Processes requests
+     <──────────────────────────────────────┤    Writes to mag/results/
 ```
 
-This creates a feedback loop where Mag learns from its mistakes and avoids repeating them.
+The queue module (`src/queue.ts`) handles FIFO request/response:
+- `queueRequest()` — append request, return ID
+- `queuePop()` — FIFO dequeue
+- `writeResult()` — store response to `mag/results/{id}.json`
 
-**Example: `/ludics-sync-learnings` skill (knowledge consolidation)**
-
-Periodically (or on demand), Mag consolidates scattered learnings:
-
-```
-/ludics-sync-learnings
-
-Mag:
-1. Reads mag/memory/corrections.md (recent entries)
-2. Reads journal/*.md (friction points, user feedback)
-3. Groups by theme (tooling, workflow, project-specific)
-4. Updates structured memory files:
-   - mag/memory/tools.md (CLI tool gotchas)
-   - mag/memory/workflows.md (process patterns)
-   - mag/memory/projects/*.md (project-specific knowledge)
-5. Archives processed corrections (moves to corrections-archive.md)
-6. Optionally proposes CLAUDE.md updates for broad patterns
-```
-
-This prevents memory files from becoming cluttered while ensuring learnings are preserved and organized.
+**Mag lifecycle** (implemented in `src/mag.ts`, ~660 lines):
+- `magStart()` — create tmux session, optionally wrap with ttyd
+- `magStop()` — kill tmux session
+- `magAttach()` — connect to tmux session
+- `magLogs()` — show recent terminal activity
+- `magDoctor()` — health check for Mag setup
+- Keepalive/nudge mechanism to keep Mag responsive
+- Terminal publishing: captures last 50 tmux lines, deduplicates via hash, publishes to ntfy.sh
 
 ### The Slot Model: Forcing Function for Parallelization
 
-ludics hardcodes **6 slots** (not configurable) based on cognitive science and forcing functions.
+ludics defaults to **6 slots** (configurable in config.yaml) based on cognitive science and forcing functions.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        SLOT                                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Process:     What's currently running (task/project)       │
+│  Task:        Task ID assigned to this slot                 │
 │  Mode:        How it's running (agent-duo, claude-code...)  │
+│  Session:     Named session identifier                      │
+│  Path:        Working directory path                        │
+│  Started:     Timestamp when assigned                       │
 │  Runtime:     State held while active (context, questions)  │
 │  Terminals:   Links to TUIs, orchestrators                  │
 │  Git:         Worktrees, branches                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Why exactly 6 slots (hardcoded)?**
+**Why fixed slots (hardcoded)?**
 
 1. **Cognitive science**: Human working memory holds roughly 4–7 items. Six slots sits at the upper bound of focused attention.
-
 2. **Forcing function**: Fixed capacity creates pressure to parallelize.
-   - "I have 6 slots. 2 are active. 4 are idle."
-   - "That's wasteful. What else should I parallelize?"
-   - The constraint drives the behavior.
-
-3. **Like Kanban WIP limits**: If configurable, you'd bikeshed ("4 or 8 slots today?") instead of working. The constraint is the feature.
-
-4. **You don't have to use all slots**: Having 6 defined with 2 active is fine. The empty slots create pressure, not waste.
+3. **Like Kanban WIP limits**: The constraint drives the behavior, not bikeshedding about "how many slots today."
+4. **You don't have to use all slots**: Having 6 defined with 2 active is fine. Empty slots create pressure, not waste.
 
 **Key properties:**
 - Slots have no persistent identity — slot 3 isn't "the OCANNL slot"
@@ -290,339 +208,266 @@ ludics hardcodes **6 slots** (not configurable) based on cognitive science and f
 - Runtime state is lost when the slot is cleared
 - The work itself persists (commits, task files) — only the "registers" are ephemeral
 
+**Preemption** (implemented in `src/slots/preempt.ts`):
+
+Slots support preemption for priority tasks:
+- `slot <n> preempt <task-id>` — stashes the current slot state, assigns the priority task
+- `slot <n> restore` — restores the previously stashed state
+- Stash includes: process, task, mode, session, path, started timestamp
+
+**Slot operations** (implemented in `src/slots/index.ts`, ~515 lines):
+- `slotAssign()` — assign task/description to slot (sets adapter, session, started time)
+- `slotClear()` — clear slot, optionally mark task done/abandoned
+- `slotStart()` / `slotStop()` — invoke adapter lifecycle
+- `slotsRefresh()` — poll adapters for state updates
+- Slot changes automatically sync task file frontmatter (status, slot, adapter, started, completed)
+
 ### Flow-Based Task Management
 
-ludics uses **flow-based scheduling** (throughput over latency), not time-based scheduling (org-mode's SCHEDULED dates).
+ludics uses **flow-based scheduling** (throughput over latency), not time-based scheduling.
 
 **What matters:**
-- ✅ **Dependencies**: What blocks what (can't start B until A is done)
-- ✅ **Hard deadlines**: External events only (paper due Feb 14, conference Mar 20)
-- ✅ **Priority**: A (critical) / B (important) / C (nice-to-have)
-- ✅ **Readiness**: Is `blocked_by` empty? Can we start now?
-- ✅ **Status**: `ready` → `in-progress` → `done`
-- ✅ **Effort**: Small / medium / large (for WIP balancing, not time estimates)
-- ✅ **Context**: Tags for minimizing context switches
+- **Dependencies**: What blocks what (can't start B until A is done)
+- **Hard deadlines**: External events only (paper due Feb 14, conference Mar 20)
+- **Priority**: A (critical) / B (important) / C (nice-to-have)
+- **Readiness**: Is `blocked_by` empty? Can we start now?
+- **Status**: `ready` → `in-progress` → `done` (also: `abandoned`, `preempted`, `merged`)
+- **Effort**: Small / medium / large (for WIP balancing)
+- **Context**: Tags for minimizing context switches
 
-**What doesn't matter (for most tasks):**
-- ❌ **SCHEDULED dates**: Arbitrary "work on this Tuesday" creates false pressure
-- ❌ **Time estimates**: "This will take 3 hours" is unknowable and creates anxiety
-- ❌ **Calendar agenda views**: "What's scheduled today" vs "What's ready to start"
+**Flow engine** (implemented in `src/flow.ts`, ~350 lines):
 
-**Exception — recurring tasks:** Some work genuinely recurs (weekly reviews, monthly reports). These can be modeled as tasks with a `recurrence` field that generates new ready tasks when completed.
+All flow logic is native TypeScript — no external tools (yq, jq, tsort) needed:
+- Reads task Markdown files directly, parses YAML frontmatter
+- Cycle detection via Kahn's algorithm (topological sort)
+- Priority sorting: A > B > C, then deadline proximity
 
-**Why flow-based?**
-- Research and development is about **throughput** (completing valuable work over time), not **latency** (hitting arbitrary timestamps)
-- Deadlines only matter when external (paper submissions, conferences, releases)
-- Work flows based on readiness and priority, not calendar dates
-- Focus on "What can I work on now?" not "What did I schedule for 2pm?"
+```typescript
+// Flow views
+flowReady()      // Unblocked ready tasks, sorted by priority then deadline
+flowBlocked()    // Tasks with unmet dependencies
+flowCritical()   // Approaching deadlines (≤30 days) + stalled (>7 days) + high-priority
+flowImpact(id)   // What tasks unblock if given task completes
+flowContext()     // Distribution of work contexts across active slots
+flowCheckCycle() // Detect circular dependencies
+```
 
-**Task representation:**
+**Task representation** (stored as `task-NNN.md` with YAML frontmatter):
 ```yaml
 ---
 id: task-042
 title: "Implement tensor concatenation with einsum notation"
 project: ocannl
-status: in-progress        # blocked | ready | in-progress | done | abandoned
-priority: A                # A (critical) | B (important) | C (nice-to-have)
-deadline: 2026-05-15       # ONLY for hard external deadlines
+status: in-progress
+priority: A
+deadline: 2026-05-15
 dependencies:
   blocks: [task-043, task-044]
-  blocked_by: []           # Empty = ready to start
-effort: large              # small | medium | large
-context: einsum            # For minimizing context switches
-slot: 1                    # Currently assigned slot (or null)
+  blocked_by: []
+effort: large
+context: einsum
+slot: 1
 adapter: agent-duo
 created: 2026-01-29
 started: 2026-01-29
 completed: null
-github_issue: 127
+elaborated: false
 ---
 
 # Context
 Roadmap item: Support `^` operator for tensor concatenation...
-
-# Current State
-- [x] Parse `^` in einsum expressions
-- [ ] Implement projection inference  ← currently here
-- [ ] Add tests for edge cases
-
-# Blockers
-None - ready to continue
-
-# Notes
-2026-01-31: Discussed binding precedence, decided on...
 ```
 
-### Flow Views (Not Calendar Agenda)
+**Task aggregation** (`src/tasks/sync.ts`):
+- Fetches GitHub issues (via `gh`) for configured projects
+- Scans watched files for `- [ ]` checkboxes and `TODO:` lines
+- Generates deterministic IDs (`gh-<repo>-<number>`, `watch-<path>-<fingerprint>`)
+- Converts to individual task files, preserving existing user edits
+- `tasks merge` — merge duplicate/related tasks
+- `tasks duplicates` — fingerprint titles to find potential duplicates
 
-Instead of org-mode's calendar-based agenda, ludics provides **flow views**:
+### Session Discovery
 
-```bash
-# What can I work on right now?
-ludics flow ready
-# → Priority-sorted list of tasks where blocked_by is empty
-
-# What's blocking progress?
-ludics flow blocked
-# → Dependency graph of blocked tasks and their blockers
-
-# What needs urgent attention?
-ludics flow critical
-# → Approaching deadlines + stalled work + high-priority ready tasks
-
-# What happens if I finish this?
-ludics flow impact task-042
-# → Shows downstream tasks that would unblock
-
-# Am I context-switching too much?
-ludics flow context
-# → Shows context distribution across active slots
-```
-
-**Flow analysis (shell implementation):**
-```bash
-#!/bin/bash
-# ludics flow ready — suggest next task
-
-TASKS_DIR="$STATE_PATH/tasks"
-
-# Extract all task frontmatter as JSON
-yq -s '.' "$TASKS_DIR"/*.md > /tmp/tasks.json
-
-# Build dependency pairs for tsort (to check for cycles)
-jq -r '.[] | select(.dependencies.blocked_by) |
-  .dependencies.blocked_by[] as $dep | "\($dep) \(.id)"' \
-  /tmp/tasks.json | tsort > /dev/null 2>&1 || echo "Warning: cycle detected"
-
-# Filter to ready tasks (blocked_by empty, status=ready)
-jq '[.[] | select(
-  (.dependencies.blocked_by | length) == 0 and
-  .status == "ready"
-)]' /tmp/tasks.json > /tmp/ready.json
-
-# Priority 1: Urgent (deadline within 30 days)
-jq --arg today "$(date +%Y-%m-%d)" '[.[] | select(
-  .deadline != null and
-  (.deadline | strptime("%Y-%m-%d") | mktime) - ($today | strptime("%Y-%m-%d") | mktime) < 2592000
-)] | sort_by(.priority, .deadline) | first' /tmp/ready.json
-
-# Priority 2-4: By priority, then by impact (tasks blocked), then by context match
-jq 'sort_by(.priority) | first' /tmp/ready.json
-```
-
-### Three-Tier Notification System
-
-ludics uses **ntfy.sh** with three reserved topics:
+ludics includes a multi-stage pipeline (`src/sessions/`) that discovers running agent sessions across the system:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ <user>-agents (PRIVATE - Reserved)                  │
-│ Detailed worker execution, internal state           │
-├─────────────────────────────────────────────────────┤
-│ • Slot 1: agent-duo phase → work                    │
-│ • Slot 3: build failed - type errors                │
-│ • Slot 2: merge conflict needs resolution           │
-│ • Slot 1: PR draft ready, waiting for review        │
-│                                                     │
-│ Audience: You only                                  │
-│ Volume: High (event-driven)                         │
-│ Detail: Technical, debugging-level                  │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│ <user>-pai (PRIVATE - Reserved)                     │
-│ Strategic coordination, private planning            │
-├─────────────────────────────────────────────────────┤
-│ • Morning briefing: 2 high-priority tasks ready     │
-│ • POPL paper deadline in 2 days!                    │
-│ • task-042 completed → 3 tasks unblocked            │
-│ • Detected: task-089 stalled for 10 days            │
-│                                                     │
-│ Audience: You only                                  │
-│ Volume: Medium (periodic + alerts)                  │
-│ Detail: Strategic, decision-focused                 │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│ <user>-public (PUBLIC - Read-only Reserved)         │
-│ Project milestones, availability, collaboration     │
-├─────────────────────────────────────────────────────┤
-│ • OCANNL v2.1 released with einsum improvements     │
-│ • New blog post: "Tensor Concat Internals"          │
-│ • Talk accepted: ML Workshop 2026                   │
-│ • Deep focus: working on POPL paper this week       │
-│                                                     │
-│ Audience: Anyone (colleagues, collaborators, public)│
-│ Volume: Low (curated milestones)                    │
-│ Detail: High-level, externally relevant             │
-│ Access: READ ONLY (only you can publish)            │
-└─────────────────────────────────────────────────────┘
+Discover → Enrich → Deduplicate → Classify
 ```
 
-**Why read-only public?**
-- ntfy is for push notifications (ephemeral), not bidirectional communication
-- Human feedback should go through proper channels (email, GitHub Issues/Discussions)
-- Prevents notification pollution (unbounded public input defeats the purpose)
-- Keeps your notification stream under control (the whole point of ludics)
+1. **Discovery** — scan multiple sources in parallel:
+   - `discover-claude.ts` — parse Claude Code runtime state
+   - `discover-codex.ts` — parse Codex CLI state
+   - `discover-tmux.ts` — enumerate tmux sessions
+   - `discover-ttyd.ts` — find ttyd web terminal instances
 
-**ntfy.sh topic security:**
-The `<user>-*` topic names shown here assume **reserved topics** via an ntfy.sh subscription. Without a subscription, ntfy.sh topics are globally namespaced — anyone who guesses the name can subscribe. Options for users without subscriptions:
-- Use random suffixes (e.g., `lukstafi-pai-a7x9k2`)
-- Self-host ntfy (simple Docker deployment)
-- Use alternative notification providers
+2. **Enrichment** (`enrich.ts`) — cross-reference with `.peer-sync/` orchestration data
+
+3. **Deduplication** (`dedup.ts`) — merge duplicate sessions from multiple sources
+
+4. **Classification** (`classify.ts`) — map discovered sessions to slot working directories
+
+Output: `MergedSession` objects with agents, IDs, last activity, stale flag, assigned slot.
 
 ### Adapters
 
-ludics doesn't run agents — it coordinates whatever you're using:
+ludics doesn't run agents — it coordinates whatever you're using. Adapters are TypeScript modules implementing a common interface:
+
+```typescript
+interface Adapter {
+  readState(ctx: AdapterContext): MaybePromise<string | null>;
+  start(ctx: AdapterContext): MaybePromise<string>;
+  stop(ctx: AdapterContext): MaybePromise<string>;
+}
+
+interface AdapterContext {
+  slot: number;
+  mode: string;
+  session: string;
+  taskId: string;
+  process: string;
+  harnessDir: string;
+  stateRepoDir: string;
+}
+```
+
+**Implemented adapters** (`src/adapters/`):
 
 | Adapter | What it manages | State source |
 |---------|-----------------|--------------|
 | `agent-duo` | Two agents + orchestrator | `.peer-sync/` |
-| `agent-solo` | Coder + reviewer | `.peer-sync/` |
-| `claude-code` | Single Claude Code session | tmux/terminal |
-| `claude-ai` | Browser conversation | URL bookmark |
-| `manual` | Human, no agent | Just notes |
+| `agent-solo` | Single agent orchestration | `.peer-sync/` |
+| `agent-claude` | Claude Code (SSH-based, tmux) | `.peer-sync/` + tmux |
+| `agent-codex` | Codex (SSH-based, tmux) | `.peer-sync/` + tmux |
+| `claude-ai` | Browser Claude conversation | URL bookmark |
+| `chatgpt-com` | Browser ChatGPT conversation | URL bookmark |
+| `manual` | Human, no agent | Status file + notes |
+| `tmux` | Standalone tmux session | tmux |
+| `bookmark` | Web bookmark collector | — |
 
-Adapters are simple Bash scripts that:
-1. Read state from their source
-2. Translate to ludics's slot format
-3. Optionally expose actions (start, stop, status)
+**Shared utilities** (`src/adapters/base.ts`):
+- State file I/O (key=value format, atomic writes)
+- Status file format (pipe-delimited: `status|epoch|message`)
+- Git worktree detection and branch reading
+- MarkdownBuilder utility for structured state reports
 
-### Orchestration: Queue-Based Communication
+**Registry pattern** (`src/adapters/index.ts`): Central dispatch maps adapter names to implementations.
 
-ludics uses a **queue-based mechanism** for robust communication between the automation layer and Claude Code sessions, avoiding the brittleness of raw `tmux send-keys`.
+### Notifications
 
-**The Problem with send-keys:**
-- `tmux send-keys -t ludics-mag "/ludics-briefing"; tmux send-keys -t ludics-mag C-m` assumes Claude is at a prompt
-- If Claude is mid-turn, the command gets injected into its response
-- No acknowledgment that the command was received
-- Overwhelming when queueing multiple requests
+ludics uses **ntfy.sh** with three configurable topics:
 
-**Queue-based approach:**
+| Topic | Direction | Purpose |
+|-------|-----------|---------|
+| `outgoing` | Mag → user | Strategic briefings, high-priority alerts |
+| `incoming` | user → Mag | Messages from phone |
+| `agents` | system → user | Operational agent updates |
 
-```
-Automation Layer                      Mag (Claude Code)
-     │                                      │
-     │ 1. Writes request                    │
-     ├──────────────────────────────────────>
-     │    to queue file                     │
-     │    (mag/queue.jsonl)               │
-     │                                      │
-     │                                      │ 2. Stop hook fires
-     │                                      │    when Claude ready
-     │                                      │
-     │                                      │ 3. Reads queue
-     │ 4. Reads result                      │    Processes requests
-     <──────────────────────────────────────┤    Writes results
-     │    (mag/results/)                  │
-```
+Implementation (`src/notify.ts`): curl to `https://ntfy.sh/{topic}` with auth token. Notifications are logged to `journal/notifications.jsonl`.
 
-**Implementation:**
+### Federation
 
-Automation writes requests to the queue file:
+For multi-machine setups (e.g., laptop + always-on Mac Mini), ludics includes a federation system (`src/federation.ts`, ~276 lines):
 
-```bash
-echo '{"action": "briefing", "timestamp": "2026-02-01T08:00:00Z"}' >> \
-  "$STATE_PATH/mag/queue.jsonl"
-```
-
-Mag's stop hook (`ludics-on-stop`) delegates to `ludics mag queue-pop`, which reads and processes queued requests:
-
-```bash
-#!/bin/bash
-# Stop hook (installed by ludics init --hooks)
-# Delegates to the CLI so action mapping lives in one place
-exec ludics mag queue-pop
-```
-
-`mag_queue_pop()` in `lib/mag.sh` pops the first request from the queue, maps its action to a skill command (e.g. `briefing` → `/ludics-briefing`), and outputs Stop hook JSON (`{"decision": "block", "reason": "/ludics-briefing"}`) that tells Claude Code to continue with that skill command.
-
-**Benefits:**
-- ✅ **Robust**: Works regardless of Claude's state
-- ✅ **Asynchronous**: Automation doesn't block waiting
-- ✅ **Queueable**: Multiple requests can accumulate
-- ✅ **Traceable**: Queue file is git-backed, auditable
-- ✅ **Acknowledgment**: Results written to known location
-
-**Hook configuration:**
-The stop hook fires every time Claude finishes a turn and returns control to the user. This is the natural moment to check for queued work.
+- **Seniority-based leader election**: First online node (by config order) becomes Mag leader
+- **Heartbeat mechanism**: Each node publishes `federation/heartbeats/{node}.json` with timestamp and Mag status
+- **Stale timeout**: 900 seconds (configurable via `LUDICS_HEARTBEAT_TIMEOUT`)
+- **Leader file**: `federation/leader.json` tracks current leader, election timestamp, term counter
+- **Coordination**: Only the leader node runs Mag
+- **Network support**: Tailscale hostname detection (`src/network.ts`)
 
 ### Triggers
 
-Events that fire automation:
+Events that fire automation (implemented in `src/triggers.ts`, ~400 lines):
 
 | Trigger | Mechanism | Example action |
 |---------|-----------|----------------|
-| Morning | launchd `StartCalendarInterval` | Invoke Mag for briefing |
-| Periodic | launchd `StartInterval` | Health check, flow analysis |
-| File change | launchd `WatchPaths` | Sync tasks, health check, etc. |
-| Manual | CLI command | User-initiated |
+| Startup | launchd `RunAtLoad` / systemd `WantedBy` | `mag start` |
+| Sync | launchd `StartInterval` / systemd timer | `tasks sync` |
+| Morning | launchd `StartCalendarInterval` | `mag briefing` |
+| Health | launchd `StartInterval` | `mag health-check` |
+| Watch | launchd `WatchPaths` / inotify | `tasks sync` |
 
-**Watch rules**: The `triggers:watch` config is a list of rules, each with `paths` (files to monitor) and `action` (command to run on change). Rules with `action: tasks sync` also have their paths scanned for unchecked checkboxes (`- [ ]`) and `TODO:` lines. Each rule gets its own launchd plist / systemd path unit.
+**Cross-platform**: Generates launchd plists (macOS) or systemd service/timer units (Linux). Plist generation includes custom `EnvironmentVariables` (PATH includes `~/.bun/bin`).
 
-**Idempotency and deduplication**: All triggers are safe to re-fire. `tasks sync` regenerates `tasks.yaml` from scratch each run (deterministic IDs like `gh-<repo>-<number>` and `watch-<sanitized-path>-<fingerprint>` ensure no duplicates, where fingerprint is an 8-char md5 hex of normalized task text), then automatically runs `tasks convert` which skips existing task files to preserve user edits.
+**Idempotency**: All triggers are safe to re-fire. `tasks sync` regenerates from scratch each run (deterministic IDs ensure no duplicates), then skips existing task files to preserve user edits.
 
-## Implementation: Pure Bash + CLI Tools
+## Configuration
 
-ludics uses **Bash for coordination** with standard **CLI tools for logic**:
+ludics uses a **two-tier configuration system**:
 
-```
-Bash (coordination + logic):
-├─ bin/ludics              CLI entry, arg parsing, dispatch
-├─ lib/triggers.sh           launchd integration
-├─ lib/slots.sh              tmux/adapter orchestration
-├─ lib/flow.sh               Task filtering, ready queue (uses yq/jq/tsort)
-├─ adapters/*.sh             Read .peer-sync/, git, tmux
-└─ Simple glue, process orchestration
+### Pointer config (`~/.config/ludics/config.yaml`)
 
-CLI tools (deterministic operations):
-├─ yq                        Parse YAML frontmatter from task files
-├─ jq                        Filter, sort, transform JSON
-├─ tsort                     Topological sort, cycle detection
-├─ graphviz (dot)            Dependency graph visualization
-└─ Standard Unix (date, sort, etc.)
+Points to the state repo:
+```yaml
+state_repo: lukstafi/self-improve
+state_path: harness
 ```
 
-**Why pure Bash + CLI tools?**
-- ✅ No compilation step (edit and run immediately)
-- ✅ Minimal dependencies (yq, jq, tsort are lightweight)
-- ✅ Transparent (just read the script)
-- ✅ Native language of Unix automation (tmux, git, launchd, curl)
-- ✅ Perfect for glue code (pipes, redirects, subshells)
-- ✅ `tsort` is proven correct (standard Unix utility since 1979)
+### Full config (in state repo, e.g., `~/self-improve/harness/config.yaml`)
 
-**Example integration:**
-```bash
-# Bash wrapper (bin/ludics)
-case "$1" in
-    flow)
-        case "$2" in
-            ready)
-                # Use yq + jq for filtering
-                yq -s '.' "$STATE_PATH/tasks/"*.md | \
-                  jq '[.[] | select(.status == "ready" and (.dependencies.blocked_by | length) == 0)]
-                      | sort_by(.priority)
-                      | .[] | "\(.id) (\(.priority)) \(.title)"' -r
-                ;;
-            check-cycle)
-                # Use tsort to detect cycles
-                yq -s '.' "$STATE_PATH/tasks/"*.md | \
-                  jq -r '.[] | select(.dependencies.blocked_by) |
-                    .dependencies.blocked_by[] as $dep | "\($dep) \(.id)"' | \
-                  tsort > /dev/null 2>&1 || { echo "Cycle detected"; exit 1; }
-                ;;
-        esac
-        ;;
-    briefing)
-        # Queue request for Mag (processed by stop hook)
-        echo '{"action": "briefing", "timestamp": "'"$(date -Iseconds)"'"}' >> \
-          "$STATE_PATH/mag/queue.jsonl"
-        # Wait for result file
-        wait_for_file "$STATE_PATH/briefing.md"
-        cat "$STATE_PATH/briefing.md"
-        notify-pai "$(head -5 $STATE_PATH/briefing.md)" 3 "Briefing"
-        ;;
-esac
+```yaml
+slots:
+  count: 6
+
+projects:
+  - name: ocannl
+    repo: lukstafi/ocannl
+    issues: true
+    priority: true
+
+  - name: ppx-minidebug
+    repo: lukstafi/ppx_minidebug
+    issues: true
+
+adapters:
+  agent-duo:
+    enabled: true
+  claude-code:
+    enabled: true
+
+mag:
+  enabled: true
+  ttyd_port: 7679
+  autonomy_level:
+    analyze_issues: auto
+    elaborate_tasks: auto
+    preempt_slots: auto
+
+notifications:
+  provider: ntfy.sh
+  topics:
+    outgoing: lukstafi-from-Mag
+    incoming: lukstafi-to-Mag
+    agents: lukstafi-agents
+  token: sk_ntfy_...
+
+dashboard:
+  port: 7678
+
+network:
+  mode: tailscale
+  hostname: machine.example.com
+  nodes:
+    - name: primary
+      tailscale_hostname: primary.tail123456.ts.net
+
+triggers:
+  startup:
+    enabled: true
+    action: mag start
+  sync:
+    enabled: true
+    interval: 3600
+    action: tasks sync
+  morning:
+    enabled: true
+    hour: 8
+    minute: 0
+    action: mag briefing
+  watch:
+    - paths:
+        - ~/repos/ocannl/README.md
+      action: tasks sync
 ```
 
 ## Directory Structure
@@ -631,28 +476,95 @@ esac
 
 ```
 ludics/
-├── README.md
-├── CLAUDE.md                      # Instructions for AI agents
-├── docs/
-│   ├── ARCHITECTURE.md            # This file
-│   └── ADAPTERS.md
+├── CLAUDE.md                         # Instructions for AI agents
+├── CHANGELOG.md                      # Release notes
+├── package.json                      # Bun project config (yaml dependency)
+├── tsconfig.json                     # TypeScript config
 ├── bin/
-│   └── ludics                   # Main CLI (Bash)
-├── lib/
-│   ├── slots.sh                   # Slot management
-│   ├── tasks.sh                   # Task aggregation
-│   ├── flow.sh                    # Flow engine (yq, jq, tsort)
-│   ├── triggers.sh                # Trigger setup
-│   └── notify.sh                  # ntfy.sh integration
-├── adapters/
-│   ├── agent-duo.sh
-│   ├── agent-solo.sh
-│   ├── claude-code.sh
-│   └── claude-ai.sh
-└── templates/
-    ├── config.reference.yaml
-    ├── slots.example.md
-    └── launchd/                   # LaunchAgent plist templates
+│   └── ludics                        # Compiled standalone binary (~60MB)
+├── src/                              # TypeScript source (~22 modules, ~9K lines)
+│   ├── index.ts                      # CLI entry point & command dispatcher
+│   ├── config.ts                     # Two-tier config loading (YAML)
+│   ├── types.ts                      # Shared type definitions
+│   ├── state.ts                      # Git-backed state (commit/pull/push)
+│   ├── flow.ts                       # Flow engine (ready/blocked/critical/impact)
+│   ├── mag.ts                        # Mag lifecycle & queue management
+│   ├── notify.ts                     # ntfy.sh integration
+│   ├── journal.ts                    # JSONL activity log
+│   ├── queue.ts                      # Async request queue for Mag
+│   ├── triggers.ts                   # launchd/systemd trigger generation
+│   ├── dashboard.ts                  # Dashboard data generation
+│   ├── dashboard-server.ts           # HTTP server for dashboard
+│   ├── network.ts                    # Hostname/URL helpers (Tailscale)
+│   ├── federation.ts                 # Multi-machine leader election
+│   ├── init.ts                       # Setup pipeline
+│   ├── quote.ts                      # Random quotes
+│   ├── slots/
+│   │   ├── index.ts                  # Slot CLI + lifecycle (~515 lines)
+│   │   ├── markdown.ts               # Parse/write slots.md
+│   │   ├── paths.ts                  # Extract slot paths
+│   │   ├── preempt.ts                # Stash/restore for preemption
+│   │   └── types.ts
+│   ├── tasks/
+│   │   ├── index.ts                  # Task CLI + operations (~372 lines)
+│   │   ├── sync.ts                   # Aggregation from GitHub + READMEs
+│   │   ├── markdown.ts               # Frontmatter parsing
+│   │   └── types.ts
+│   ├── adapters/
+│   │   ├── index.ts                  # Adapter registry (dispatch by name)
+│   │   ├── types.ts                  # Adapter interface
+│   │   ├── base.ts                   # Shared utilities (state I/O, git)
+│   │   ├── agent-duo.ts              # agent-duo orchestration
+│   │   ├── agent-solo.ts             # Single agent orchestration
+│   │   ├── agent-claude.ts           # Claude Code (SSH, tmux)
+│   │   ├── agent-codex.ts            # Codex (SSH, tmux)
+│   │   ├── agent-session.ts          # Shared agent session logic
+│   │   ├── orchestrated-adapter.ts   # Base for orchestrated adapters
+│   │   ├── peer-sync.ts              # .peer-sync/ file reading
+│   │   ├── claude-ai.ts              # Browser Claude
+│   │   ├── chatgpt-com.ts            # Browser ChatGPT
+│   │   ├── manual.ts                 # Human work tracking
+│   │   ├── tmux.ts                   # Standalone tmux sessions
+│   │   ├── bookmark.ts               # Web bookmark collector
+│   │   └── markdown.ts               # MarkdownBuilder utility
+│   └── sessions/
+│       ├── index.ts                  # Discovery pipeline orchestration
+│       ├── discover-claude.ts        # Claude Code session discovery
+│       ├── discover-codex.ts         # Codex session discovery
+│       ├── discover-tmux.ts          # tmux session enumeration
+│       ├── discover-ttyd.ts          # ttyd instance discovery
+│       ├── enrich.ts                 # Cross-reference with .peer-sync/
+│       ├── dedup.ts                  # Merge duplicate sessions
+│       ├── classify.ts               # Map sessions to slots
+│       ├── report.ts                 # Markdown/JSON report generation
+│       └── read-lines.ts             # Line reading utility
+├── skills/                           # Mag skills (12 Markdown files)
+│   ├── ludics-briefing.md
+│   ├── ludics-suggest.md
+│   ├── ludics-elaborate.md
+│   ├── ludics-analyze-issue.md
+│   ├── ludics-health-check.md
+│   ├── ludics-learn.md
+│   ├── ludics-sync-learnings.md
+│   ├── ludics-feedback-digest.md
+│   ├── ludics-read-inbox.md
+│   ├── ludics-preempt.md
+│   ├── ludics-techdebt.md
+│   └── ludics-new-quote.md
+├── templates/
+│   ├── config.reference.yaml         # Example config
+│   ├── slots.example.md
+│   ├── Girard_quotes.txt             # Quote source
+│   ├── harness/                      # Initial harness layout
+│   ├── hooks/                        # Stop hook templates
+│   ├── mag/                          # Mag initial state templates
+│   ├── dashboard/                    # HTML/CSS/JS for web dashboard
+│   ├── launchd/                      # LaunchAgent plist templates
+│   └── systemd/                      # systemd unit templates
+├── tests/                            # Test suite
+└── docs/
+    ├── ARCHITECTURE.md               # This file
+    └── ...
 ```
 
 ### Private repo (user's choice, e.g., `self-improve`)
@@ -660,217 +572,140 @@ ludics/
 ```
 your-private-repo/
 └── harness/
-    ├── config.yaml                # Projects, Mag settings, notification topics
-    ├── slots.md                   # Current slot states (6 slots, always)
-    ├── agenda.md                  # Generated flow view (not calendar)
-    ├── tasks/                     # Task files (git-backed, unmarked)
+    ├── config.yaml                # Full configuration
+    ├── slots.md                   # Current slot states
+    ├── tasks.yaml                 # Unified task index (generated)
+    ├── tasks/                     # Individual task files (git-backed)
     │   ├── task-001.md
     │   ├── task-002.md
     │   └── ...
-    ├── graph.dot                  # Generated dependency graph
     ├── journal/                   # Daily logs
     │   ├── 2026-01-31.md
-    │   └── notifications.jsonl    # Notification history (for dashboard)
-    └── mag/                     # Mag's persistent state
-        ├── context.md             # Current understanding
-        ├── queue.jsonl            # Request queue (async communication)
-        ├── results/               # Request result files
-        ├── inbox.md               # Async messages from humans
-        ├── past-messages.md       # Archived messages
-        └── memory/                # Long-term patterns
-            └── user-preferences.md
+    │   └── notifications.jsonl    # Notification history
+    ├── mag/                       # Mag's persistent state
+    │   ├── context.md             # Current understanding
+    │   ├── queue.jsonl            # Request queue
+    │   ├── results/               # Request result files
+    │   ├── inbox.md               # Async messages from humans
+    │   ├── session.state          # Persistent Mag state
+    │   ├── session.status         # Current status (ready|waiting|error)
+    │   ├── briefing-context.md    # Pre-computed briefing context
+    │   └── memory/                # Long-term patterns
+    │       └── user-preferences.md
+    ├── federation/                # Multi-machine coordination
+    │   ├── leader.json            # Current leader
+    │   └── heartbeats/            # Per-node heartbeat files
+    └── dashboard/                 # Generated dashboard data
+        └── data/
+            └── slots.json
 ```
 
-**Task file lifecycle**: All tasks in `harness/tasks/` are stored as unmarked files with no distinction between their origin. A task created by `ludics convert` (from a GitHub issue or README TODO) looks identical to one elaborated by Mag or created manually. The Mag processes tasks based on their content (status, priority, dependencies), not their provenance. This simplifies the flow engine and avoids artificial categorization.
+## Web Dashboard
 
-## State Format
+ludics provides a web dashboard for at-a-glance status monitoring (`src/dashboard.ts`, ~254 lines + `dashboard-server.ts`).
 
-### slots.md
+**Data generation:**
+- `generateSlots()` → JSON with slot status, task content (Markdown), preemption info
+- `generateReady()` → ready tasks sorted by priority/deadline
+- `generateProjects()` → project statistics
 
-```markdown
-# Slots
+**Serving:** Node.js-compatible HTTP server on configurable port (default 7678).
 
-## Slot 1
+**Dashboard layout (slot tiles + sidebar):**
 
-**Process:** OCANNL tensor concatenation
-**Task:** task-042
-**Mode:** agent-duo
-**Session:** concat-einsum
-**Started:** 2026-01-29T14:00Z
-
-**Terminals:**
-- Orchestrator: http://localhost:7680
-- Claude: http://localhost:7681
-- Codex: http://localhost:7682
-
-**Runtime:**
-- Phase: work (round 2)
-- Working on: projections inference for `^` operator
-- Open question: binding precedence of `^` vs `,`
-
-**Git:**
-- Base: ~/repos/ocannl/
-- Worktrees: ~/ocannl-concat-einsum-claude/, ~/ocannl-concat-einsum-codex/
-
----
-
-## Slot 2
-
-**Process:** (empty)
-
----
-
-## Slot 3
-
-**Process:** ppx-minidebug 3.0 release
-**Task:** task-089
-**Mode:** claude-code
-**Started:** 2026-01-29T10:00Z
-
-**Terminals:**
-- Claude Code: tmux session `minidebug`
-
-**Runtime:**
-- Finalizing CHANGES.md
-- Ready for opam publish
-
-**Git:**
-- Branch: release-3.0
-
----
-
-## Slot 4-6
-
-(empty)
+```
+┌──────────────┬──────────────┬──────────────┬────────────────┐
+│   Slot 1     │   Slot 2     │   Slot 3     │  Ready Queue   │
+│  ■ Active    │  □ Empty     │  ■ Active    │  1. task-101   │
+│  task-042    │              │  task-089    │  2. task-067   │
+│  agent-duo   │              │  claude-code │                │
+├──────────────┼──────────────┼──────────────┤  Project Stats │
+│   Slot 4     │   Slot 5     │   Slot 6     │                │
+│  □ Empty     │  □ Empty     │  □ Empty     │  Notifications │
+└──────────────┴──────────────┴──────────────┴────────────────┘
 ```
 
-### config.yaml
+**Features:**
+- Slot tiles with task Markdown content, scrollable details
+- Project status indicators (priority projects highlighted)
+- Dynamic details panel on tile click
+- Responsive layout filling the viewport
+- Read-only — all control via CLI
 
-```yaml
-# ludics configuration
-
-state_repo: lukstafi/self-improve
-state_path: harness
-
-# Slots are hardcoded to 6 (not configurable)
-# This is a forcing function, not a limitation
-
-projects:
-  - name: ocannl
-    repo: lukstafi/ocannl
-    issues: true
-
-  - name: ppx-minidebug
-    repo: lukstafi/ppx_minidebug
-    issues: true
-
-  - name: agent-duo
-    repo: lukstafi/agent-duo
-    issues: true
-
-  - name: personal
-    repo: lukstafi/self-improve
-    issues: true  # Chores, reminders
-
-adapters:
-  agent-duo:
-    enabled: true
-  claude-code:
-    enabled: true
-  claude-ai:
-    enabled: true
-
-mag:
-  enabled: true
-  backend: tmux-ttyd           # Similar setup to agent-duo
-  session: ludics-mag
-  ttyd_port: 7679              # Web terminal access (default, ttyd starts automatically)
-
-  # Delegation uses Claude Code's native Task tool
-  # Skills can specify subagent model (haiku, sonnet) as needed
-  # No external API configuration required
-
-  autonomy_level:
-    analyze_issues: auto        # Auto creates task files
-    elaborate_tasks: auto        # Auto writes detailed specs
-    infer_dependencies: auto     # Auto adds blocks/blocked-by
-    suggest_priorities: suggest  # Suggests, doesn't set
-    assign_to_slots: manual      # Requires approval
-    start_sessions: manual       # Requires approval
-
-  schedule:
-    briefing: "08:00"
-    health_check: "every 4h"
-    analyze_repos: "on_change"   # Via watch rules
-
-notifications:
-  provider: ntfy
-  topics:
-    outgoing: lukstafi-from-Mag  # Mag → user (strategic, push to phone)
-    incoming: lukstafi-to-Mag   # user → Mag (messages from phone)
-    agents: lukstafi-agents     # system → user (operational)
-
-  priorities:
-    briefing: 3
-    health_check: 3
-    deadline_7days: 4
-    deadline_3days: 5
-    stall_detected: 4
-    critical_alert: 5
-
-  public_filter:
-    # What gets auto-published to lukstafi-public
-    auto_publish:
-      - release_completed
-      - paper_accepted
-      - talk_accepted
-
-    # Never publish automatically
-    never_publish:
-      - debugging_info
-      - private_deadlines
-      - internal_tasks
-      - slot_states
-
-triggers:
-  startup:
-    enabled: true
-    action: mag briefing
-  sync:
-    interval: 3600  # seconds
-    action: tasks sync
-  watch:
-    - paths:
-        - ~/repos/ocannl/README.md
-      action: tasks sync
-```
+**CLI commands:**
+- `ludics dashboard generate` — generate JSON data
+- `ludics dashboard serve [port]` — serve dashboard
+- `ludics dashboard install` — copy assets to state repo
 
 ## CLI Interface
 
 ```bash
+# Slot management
+ludics slots                   # Show all slots
+ludics slots refresh           # Refresh slot state from adapters
+ludics slot <n>                # Show slot n
+ludics slot <n> assign <task|desc> [-a adapter] [-s session] [-p path]
+ludics slot <n> clear [done|abandoned]
+ludics slot <n> start          # Start agent session (adapter)
+ludics slot <n> stop           # Stop agent session
+ludics slot <n> note "text"    # Add runtime note
+ludics slot <n> preempt <task-id> [-a adapter] [-s session] [-p path]
+ludics slot <n> restore        # Restore previously preempted work
+
 # Task management
 ludics tasks sync              # Aggregate tasks and convert to task files
-ludics tasks list              # Show all tasks
+ludics tasks list              # Show unified task list
 ludics tasks show <id>         # Show task details
+ludics tasks convert           # Convert tasks.yaml to individual task files
+ludics tasks create <title>    # Create a new task manually
+ludics tasks files             # List individual task files
+ludics tasks needs-elaboration # List tasks needing elaboration
+ludics tasks queue-elaborations # Queue elaboration for unprocessed ready tasks
+ludics tasks check <id>        # Check if task needs elaboration
+ludics tasks merge <tgt> <src> # Merge source task(s) into target
+ludics tasks duplicates        # Find potential duplicate tasks
 
 # Flow views (not calendar-based)
 ludics flow ready              # Priority-sorted ready tasks
 ludics flow blocked            # What's blocked and why
 ludics flow critical           # Deadlines + stalled + high-priority
 ludics flow impact <id>        # What this task unblocks
-ludics flow context            # Context distribution
+ludics flow context            # Context distribution across slots
+ludics flow check-cycle        # Check for dependency cycles
 
-# Slot management (always 6 slots)
-ludics slots                   # Show all slots
-ludics slots refresh           # Refresh slot state from adapters
-ludics slot <n>                # Show slot n (1-6)
-ludics slot <n> assign <task|desc> [-a adapter] [-s session]
-                                 # Assign task to slot
-ludics slot <n> clear [done|abandoned]
-                                 # Clear slot (optionally mark task done/abandoned)
-ludics slot <n> start          # Start agent session (uses adapter)
-ludics slot <n> stop           # Stop agent session
-ludics slot <n> note "text"    # Add to runtime notes
+# Mag interaction
+ludics mag start [--no-ttyd]   # Start Mag tmux session
+ludics mag stop                # Stop Mag tmux session
+ludics mag status              # Show Mag status
+ludics mag attach              # Attach to Mag tmux session
+ludics mag logs [n]            # Show recent Mag activity
+ludics mag doctor              # Health check for Mag setup
+ludics mag briefing            # Request morning briefing
+ludics mag suggest             # Get task suggestions
+ludics mag analyze <issue>     # Analyze GitHub issue
+ludics mag elaborate <id>      # Elaborate task into detailed spec
+ludics mag health-check        # Check for stalled work, deadlines
+ludics mag message "text"      # Send async message to Mag
+ludics mag inbox               # Show pending messages
+ludics mag queue               # Show pending queue requests
+ludics mag context             # Pre-compute briefing context file
+
+# Session discovery
+ludics sessions [--json]       # Discover and classify all agent sessions
+ludics sessions report [--json] # Generate sessions report for Mag
+ludics sessions refresh [--json] # Re-run discovery and update report
+ludics sessions show [filter]  # Show detailed session info
+
+# Notifications
+ludics notify outgoing <msg>   # Send strategic notification
+ludics notify agents <msg>     # Send operational notification
+ludics notify subscribe        # Subscribe to incoming messages (long-running)
+ludics notify recent [n]       # Show recent notifications
+
+# Dashboard
+ludics dashboard generate      # Generate JSON data for dashboard
+ludics dashboard serve [port]  # Serve dashboard (default: 7678)
+ludics dashboard install       # Install dashboard to state repo
 
 # State synchronization
 ludics sync                    # Full sync (pull + push)
@@ -882,511 +717,58 @@ ludics journal                 # Show today's journal entries
 ludics journal recent [n]      # Show last n entries
 ludics journal list [days]     # List journal files from last n days
 
-# Mag interaction
-ludics mag briefing          # Generate strategic briefing
-ludics mag suggest           # Get task suggestions
-ludics mag analyze <issue>   # Analyze GitHub issue
-ludics mag elaborate <id>    # Elaborate task into detailed spec
-ludics mag health-check      # Scan for stalled work, deadlines
+# Federation (multi-machine)
+ludics federation status       # Show federation status
+ludics federation tick         # Publish heartbeat + run leader election
+ludics federation elect        # Run leader election only
+ludics federation heartbeat    # Publish heartbeat only
 
-# Status
-ludics status                  # Overview of slots + flow state
+# Network
+ludics network status          # Show network configuration
+
+# Setup & diagnostics
+ludics init [--no-hooks] [--no-dashboard] [--no-triggers]
+ludics triggers install        # Install launchd/systemd triggers
+ludics triggers status         # Show trigger status
+ludics triggers uninstall      # Remove all triggers
+ludics doctor                  # Check system health and dependencies
+ludics status                  # Overview of slots + tasks
 ludics briefing                # Morning briefing (invokes Mag)
-
-# Setup
-ludics init                    # Initialize config
-ludics triggers install        # Install launchd triggers
-```
-
-## Web Dashboard
-
-ludics provides a simple web dashboard for at-a-glance status monitoring. The dashboard is a static HTML page served via a lightweight web server, refreshed via JavaScript polling or SSE.
-
-**Dashboard layout (3x2 grid):**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ludics Dashboard                       │
-├──────────────┬──────────────┬──────────────┬────────────────┤
-│              │              │              │                │
-│   Slot 1     │   Slot 2     │   Slot 3     │  Ready Queue   │
-│              │              │              │                │
-│  ■ Active    │  □ Empty     │  ■ Active    │  1. task-101   │
-│  task-042    │              │  task-089    │  2. task-067   │
-│  agent-duo   │              │  claude-code │  3. task-128   │
-│  work        │              │  finalizing  │  4. task-043   │
-│  [terminals] │              │  [terminal]  │  5. task-091   │
-│              │              │              │                │
-├──────────────┼──────────────┼──────────────┤  [view all]    │
-│              │              │              │                │
-│   Slot 4     │   Slot 5     │   Slot 6     ├────────────────┤
-│              │              │              │                │
-│  □ Empty     │  □ Empty     │  □ Empty     │  Recent        │
-│              │              │              │  Notifications │
-│              │              │              │                │
-│              │              │              │  • Slot 1: PR  │
-│              │              │              │    ready       │
-│              │              │              │  • Briefing    │
-│              │              │              │    generated   │
-│              │              │              │  • task-098    │
-│              │              │              │    completed   │
-│              │              │              │                │
-├──────────────┴──────────────┴──────────────┤  [view all]    │
-│                                             │                │
-│  Mag: Claude Code (Opus 4.5)              ├────────────────┤
-│  Status: ● Running                          │                │
-│  Last activity: 2 minutes ago               │  Quick Links   │
-│  [Open ttyd terminal] [View context]        │                │
-│                                             │  • Flow Ready  │
-│                                             │  • Tasks       │
-│                                             │  • Journal     │
-│                                             │                │
-└─────────────────────────────────────────────┴────────────────┘
-```
-
-**Features:**
-
-- **Slot status tiles**: Shows active tasks, adapter type, current phase
-  - Click tile → full slot details
-  - Click "terminals" → links to ttyd sessions (for agent-duo)
-  - Visual indicator: filled square (active), empty square (idle)
-
-- **Ready queue**: Top 5 tasks sorted by priority
-  - Click task → full task details
-  - "View all" → full flow ready list
-
-- **Recent notifications**: Last 10 from outgoing and agents topics
-  - Real-time updates via polling or SSE
-  - Click → full notification log
-
-- **Mag status**: Uptime, last activity, link to ttyd terminal
-  - Direct access to Mag's Claude Code session
-  - Context file preview
-
-**Implementation:**
-
-```bash
-# Serve dashboard (simple Python server)
-cd "$STATE_PATH/dashboard"
-python3 -m http.server 8080
-
-# Dashboard reads from git-backed state
-# - slots.md → slot status
-# - tasks/*.md → ready queue (via yq + jq)
-# - journal/notifications.jsonl → recent notifications
-
-# Auto-refresh every 10 seconds (JavaScript)
-setInterval(fetchSlotStatus, 10000);
-```
-
-**Deployment:**
-- **Local**: `http://localhost:8080` on development laptop
-- **Remote**: Nginx reverse proxy on always-on machine
-  - Requires authentication (basic auth or tailscale)
-  - Access from phone/tablet for quick checks
-
-**Why a dashboard?**
-- ✅ **At-a-glance status**: See all slots without running CLI commands
-- ✅ **Mobile-friendly**: Check status from phone
-- ✅ **Visual context**: See utilization (2/6 slots active = room for more parallelism)
-- ✅ **Quick access**: One-click to ttyd terminals, task details
-- ✅ **Complements CLI**: Not a replacement, but useful for monitoring
-
-The dashboard is **read-only** — all control happens via CLI. This keeps the implementation simple and avoids the complexity of web-based controls.
-
-## Terminal Grid View
-
-A focused view for monitoring all slot terminals simultaneously, complementing the dashboard's status overview.
-
-**Layout:**
-
-```
-┌─────────────────┬─────────────────┬─────────────────┐
-│ Slot 1          │ Slot 2          │ Slot 3          │
-│ [orch][claude]  │ [claude]        │ (empty)         │
-│ ┌─────────────┐ │ ┌─────────────┐ │                 │
-│ │             │ │ │             │ │   No session    │
-│ │   <iframe>  │ │ │   <iframe>  │ │                 │
-│ │   ttyd      │ │ │   ttyd      │ │                 │
-│ └─────────────┘ │ └─────────────┘ │                 │
-├─────────────────┼─────────────────┼─────────────────┤
-│ Slot 4          │ Slot 5          │ Slot 6          │
-│ [orch][codex]   │ (empty)         │ [claude]        │
-│ ┌─────────────┐ │                 │ ┌─────────────┐ │
-│ │             │ │   No session    │ │             │ │
-│ │   <iframe>  │ │                 │ │   <iframe>  │ │
-│ │   ttyd      │ │                 │ │   ttyd      │ │
-│ └─────────────┘ │                 │ └─────────────┘ │
-└─────────────────┴─────────────────┴─────────────────┘
-```
-
-**Features:**
-
-- **3x2 grid of terminal tiles**: Each tile displays one slot's ttyd session
-- **Tabbed terminals**: Slots with multiple terminals (e.g., agent-duo) show tabs
-  - `orchestrator` — the orchestrating tmux session
-  - `claude` — Claude Code agent terminal
-  - `codex` — Codex agent terminal
-- **Dynamic tab generation**: Tabs populated from slot's `terminals` object in JSON
-- **Empty slot handling**: Placeholder shown when no active session
-
-**Tab Behavior:**
-
-```javascript
-// Each slot tile reads terminals from slots.json
-{
-  "number": 1,
-  "task": "task-042",
-  "terminals": {
-    "orchestrator": "http://localhost:7690",
-    "claude": "http://localhost:7691",
-    "codex": "http://localhost:7692"
-  }
-}
-
-// Clicking tab switches iframe src
-tabButton.onclick = () => {
-  iframe.src = tabButton.dataset.url;
-  setActiveTab(tabButton);
-};
-```
-
-**Implementation:**
-
-- **Separate page**: `terminals.html` alongside `index.html`
-- **Shared data**: Both views read from same `data/slots.json`
-- **Navigation**: Toggle between dashboard and terminal grid views
-- **Responsive**: Adapts to 2x3 or 1x6 on smaller screens
-
-**Enhancements (optional):**
-
-- **Keyboard shortcuts**: `1-6` to focus slot, `Ctrl+1/2/3` to switch tabs
-- **Tab activity indicators**: Show which terminals have recent output
-- **Persist tab selection**: Remember active tab per slot in localStorage
-- **Full-screen mode**: Double-click tile to expand single terminal
-
-**Why a terminal grid?**
-
-- ✅ **Simultaneous monitoring**: Watch all agent sessions at once
-- ✅ **Quick context switching**: Tabs avoid opening many browser windows
-- ✅ **Embedded access**: No need to leave the dashboard for terminal interaction
-- ✅ **Complements dashboard**: Dashboard for status, terminal grid for live sessions
-
-## Deployment Options
-
-### Option 1: Laptop (Simple Start)
-
-**Good for:**
-- Initial prototyping
-- Works when laptop is awake
-- Simple setup
-
-**Limitations:**
-- Briefing only happens if laptop awake at 8am
-- No continuous monitoring when lid closed
-- No background analysis while you sleep
-
-**Setup:**
-```bash
-# Mag runs in tmux with ttyd web access (starts ttyd by default)
-ludics mag start
-# Or without ttyd: ludics mag start --no-ttyd
-
-# launchd triggers (when laptop awake)
-ludics triggers install
-```
-
-### Option 2: Dedicated Always-On Machine (Full Autonomy)
-
-**Good for:**
-- True 24/7 operation
-- Morning briefing works even if laptop asleep
-- Continuous repo monitoring
-- Background health checks
-
-**Options:**
-- Mac Mini (can run macOS, launchd, tmux natively)
-- Linux server (home server, VPS, NUC)
-- Raspberry Pi (if Claude Code supports ARM)
-
-**Architecture:**
-```
-Mac Mini (always-on):
-  • Mag (Claude Code in tmux)
-  • Automation layer (launchd triggers)
-  • Git sync (pulls/pushes to self-improve)
-  • Notifications sent to phone
-
-Your Laptop (work machine):
-  • ludics CLI (reads git state)
-  • Worker slots (agent-duo, claude-code)
-  • Can SSH to Mac Mini to check Mag
-```
-
-**State flow:**
-1. Mac Mini's Mag analyzes repos at 7am → writes to git
-2. Mac Mini pushes to GitHub
-3. Your laptop pulls when you start work → sees Mag's analysis
-4. You work in slots on laptop → updates slots.md
-5. Laptop pushes to git → Mac Mini syncs and monitors
-
-## Integration with agent-duo
-
-The `agent-duo` adapter reads from `.peer-sync/`:
-
-```bash
-# adapters/agent-duo.sh
-
-read_session_state() {
-    local project_dir="$1"
-    local session_name="$2"
-
-    local sync_dir="$project_dir/.peer-sync"
-
-    # Read ports from session state
-    local ports_file="$sync_dir/ports.json"
-    local orch_port=$(jq -r '.orchestrator' "$ports_file")
-    local claude_port=$(jq -r '.claude' "$ports_file")
-    local codex_port=$(jq -r '.codex' "$ports_file")
-
-    # Read current phase
-    local state_file="$sync_dir/state.json"
-    local phase=$(jq -r '.phase' "$state_file")
-
-    # Translate to slot format
-    echo "**Terminals:**"
-    echo "- Orchestrator: http://localhost:$orch_port"
-    echo "- Claude: http://localhost:$claude_port"
-    echo "- Codex: http://localhost:$codex_port"
-    echo ""
-    echo "**Runtime:**"
-    echo "- Phase: $phase"
-}
-
-# Notify on phase changes
-watch_phase_changes() {
-    local prev_phase=""
-    while true; do
-        phase=$(jq -r '.phase' "$sync_dir/state.json")
-        if [ "$phase" != "$prev_phase" ]; then
-            notify-agent "$slot" "Phase changed: $prev_phase → $phase" 3
-            prev_phase="$phase"
-        fi
-        sleep 5
-    done
-}
+ludics quote                   # Print a random quote
 ```
 
 ## Design Principles
 
-1. **Autonomy babysitting automation** — AI makes decisions, deterministic scripts execute reliably
-
+1. **Autonomous minds, deterministic rails** — AI makes decisions, deterministic code executes reliably
 2. **Flow-based, not time-based** — Throughput over latency, dependencies over deadlines
-
 3. **Thin coordination layer** — ludics coordinates, doesn't replace existing tools
-
-4. **Adapter pattern** — Support any orchestrator via simple scripts
-
-5. **Bidirectional communication** — Outgoing notifications to phone, incoming messages from phone via ntfy.sh
-
-6. **Git-backed persistence** — Everything version controlled, survives agent crashes
-
-7. **Hardcoded constraints as forcing functions** — 6 slots create pressure to parallelize
-
-8. **Pure Bash implementation** — Bash for glue, standard CLI tools (yq, jq, tsort) for algorithms
-
-9. **One lifelong Mag** — Builds memory, consistent decisions, sees cross-project connections
-
-10. **Notifications are outputs, not inputs** — ntfy for push alerts, email/GitHub for human communication
+4. **Adapter pattern** — Support any agent system via a common TypeScript interface
+5. **Git-backed persistence** — Everything version controlled, survives agent crashes
+6. **Hardcoded constraints as forcing functions** — Fixed slots create pressure to parallelize
+7. **One lifelong Mag** — Builds memory, consistent decisions, sees cross-project connections
+8. **TypeScript + Bun** — Type-safe, fast startup, single binary, shell commands where needed
+9. **Federation for scale** — Seniority-based leader election for multi-machine Mag coordination
+10. **Notifications are outputs, not inputs** — ntfy for push alerts, proper channels for human communication
 
 ## Failure Modes and Recovery
 
-The automation layer is deterministic but not infallible. Here's how ludics handles failures:
-
 | Failure | Detection | Recovery |
 |---------|-----------|----------|
-| Mag crashes mid-analysis | tmux session exits, launchd notices | Restart Mag; git state is last-committed |
+| Mag crashes | tmux session exits, health check | Restart Mag; git state is last-committed |
 | Git sync conflict | `git pull` fails | Notify user; manual resolution required |
-| launchd trigger doesn't fire | Health check detects stale state | User runs `ludics triggers check` |
+| Trigger doesn't fire | Health check detects stale state | `ludics triggers status` to diagnose |
 | ntfy.sh unreachable | curl returns error | Log locally; retry on next trigger |
-| Claude API down | Task tool fails | Mag retries or skips delegation, logs warning |
-| Task file corrupted | yq parse fails | Notify user; task excluded from flow until fixed |
+| Claude API down | Task tool fails | Mag retries or skips, logs warning |
+| Task file corrupted | YAML parse fails | Skip file; notify user |
+| Federation: leader down | Heartbeat timeout (900s) | Next node by seniority becomes leader |
 
 **Design for recovery:**
 - All state changes go through git → crash-safe, auditable
-- Mag writes atomically (temp file → rename)
 - Adapters are stateless readers (can restart anytime)
 - Triggers are idempotent (safe to re-run)
+- Preemption uses stash files (recoverable if process crashes)
 
 **What requires manual intervention:**
 - Git merge conflicts (by design — human resolves semantic conflicts)
-- Slot assignment (configurable: manual vs. auto with approval)
-- Starting agent sessions (configurable: manual vs. auto with approval)
-
-## Typical Day in the Life
-
-```
-07:00 - Automation syncs repos (if on always-on machine)
-  launchd watch rules detect file changes
-  Bash: tasks sync → fetch issues, scan watched files for TODOs, convert to task files
-
-07:05 - Mag analyzes new issues
-  Automation: tmux send-keys -t ludics-mag "/analyze new-issues.json"
-  Mag (Opus): reads issues with context, understands implications
-  Mag: Task → Haiku extracts dependencies as JSON
-  Mag: creates task-143.md with context, acceptance criteria, code pointers
-  Mag: git commit, push
-
-08:00 - Morning briefing
-  launchd: triggers briefing
-  Automation: tmux send-keys -t ludics-mag "/ludics-briefing"
-  Mag (Opus): reads slots.md, tasks/, understands context
-  Bash: yq + jq compute ready queue, priorities
-  Mag: writes briefing.md with strategic suggestions
-  Automation: ntfy.sh/lukstafi-pai priority 3 "Briefing ready"
-  You: read on phone when you wake up
-
-09:00 - Start work (on laptop)
-  You: ludics flow ready
-  Bash: yq + jq filter ready tasks, sort by priority
-  Output: task-101 (A, deadline 7 days), task-067 (A)...
-
-  You: ludics slot 1 assign task-101
-  Bash: updates slots.md, git commit, push
-
-  You: ludics slot 1 start
-  Bash: calls adapters/agent-duo.sh start 1
-  agent-duo starts, writes to .peer-sync/
-  Bash: ntfy.sh/lukstafi-agents "Slot 1: agent-duo started"
-
-12:00 - Periodic health check
-  launchd: triggers every 4h
-  Automation: tmux send-keys -t ludics-mag "/ludics-health-check"
-  Mag: scans tasks in-progress
-  Mag: detects task-089 stalled (14 days, no updates)
-  Mag: ntfy.sh/lukstafi-pai priority 4 "task-089 stalled 14 days"
-
-14:30 - Slot completes PR
-  agent-duo: phase → pr-ready
-  Bash: detects phase change (polling .peer-sync/)
-  Bash: ntfy.sh/lukstafi-agents priority 4 "Slot 1: PR ready"
-
-15:00 - You merge PR, task completes
-  You: ludics slot 1 clear
-  Bash: updates slots.md, task-101.md (status: done)
-  Bash: git commit, push
-
-  Mag (next check): sees task-101 done
-  Bash: jq recomputes ready queue, identifies newly unblocked tasks
-  Mag (Opus): writes notification with context and strategic insight
-  Mag: ntfy.sh/lukstafi-pai "task-101 done → 2 tasks unblocked, suggests 102 first"
-
-  Mag: checks if task-101 tagged "release"
-  Mag: yes! Auto-publish to lukstafi-public
-  Mag: ntfy.sh/lukstafi-public priority 4 "OCANNL v2.1 released"
-
-Evening - You check flow state
-  You: ludics briefing
-  Mag: generates end-of-day summary
-  Displays: 1 task completed, 2 newly ready, 4 slots idle, 1 deadline in 6 days
-```
-
-This architecture creates a **self-sustaining AI infrastructure** that amplifies your research productivity while maintaining human control through configurable autonomy levels and approval gates.
-
-## Ancillary Features
-
-These features are useful additions but not central to ludics's core mission of orchestrating AI agents and managing flow-based tasks. They can be implemented incrementally as needed.
-
-### `/ludics-techdebt` Skill
-
-End-of-day or end-of-week technical debt review:
-
-```
-/ludics-techdebt
-
-Mag:
-1. Task → Haiku: scan recent commits across watched projects for code smells
-2. Identify:
-   - Duplicated code blocks (>80% similarity)
-   - TODO/FIXME comments added recently
-   - Unused imports or dead code
-   - Copy-pasted patterns that could be consolidated
-3. For each finding:
-   - Show locations
-   - Estimate maintenance cost (low/medium/high)
-   - Suggest consolidation approach
-4. Create low-priority task files for significant cleanup opportunities
-5. Optionally notify via ntfy with summary
-```
-
-This keeps technical debt visible without interrupting active work.
-
-
-### CI Failure Adapter
-
-Integrates GitHub Actions (or other CI) failures into Mag's workflow:
-
-```bash
-# adapters/github-actions.sh
-
-poll_ci_failures() {
-    local repo="$1"
-    local seen_file="$STATE_PATH/ci-failures-seen.txt"
-
-    # Fetch recent failed runs
-    gh run list --repo "$repo" --status failure --limit 10 --json databaseId,conclusion,headBranch,createdAt \
-      | jq -r '.[] | "\(.databaseId)\t\(.headBranch)\t\(.createdAt)"' > /tmp/failures.txt
-
-    # Filter to unseen failures (deduplication)
-    while IFS=$'\t' read -r run_id branch created; do
-        if ! grep -q "^$run_id$" "$seen_file" 2>/dev/null; then
-            # New failure - fetch logs and queue for Mag
-            gh run view "$run_id" --repo "$repo" --log-failed > "/tmp/failure-$run_id.log"
-
-            # Queue analysis request
-            echo "{\"action\": \"analyze-ci-failure\", \"repo\": \"$repo\", \"run_id\": \"$run_id\", \"branch\": \"$branch\"}" \
-              >> "$STATE_PATH/mag/queue.jsonl"
-
-            # Mark as seen
-            echo "$run_id" >> "$seen_file"
-        fi
-    done < /tmp/failures.txt
-}
-```
-
-**Deduplication**: The adapter maintains `ci-failures-seen.txt` to avoid re-processing the same failure. Entries can be pruned periodically (e.g., remove entries older than 7 days).
-
-**Mag handling**: When Mag processes an `analyze-ci-failure` request, it reads the failure log, identifies the likely cause, and either:
-- Creates a task file if it's a new issue
-- Adds a note to an existing task if it's related to active work
-- Notifies via ntfy if it's blocking a deadline
-
-### Read-Only Slot Mode
-
-Some slots should be dedicated to analysis without mutation:
-
-```markdown
-## Slot 6
-
-**Process:** Analysis / exploration
-**Mode:** read-only
-**Purpose:** Log analysis, metrics queries, code exploration
-
-**Restrictions:**
-- No git commits
-- No file writes outside scratchpad
-- No PR creation
-
-**Use cases:**
-- Investigating production logs
-- Running BigQuery/database queries
-- Exploring unfamiliar codebases
-- Reviewing competitor implementations
-```
-
-**Implementation**: The adapter for read-only slots would:
-1. Set `CLAUDE_READ_ONLY=true` environment variable (if supported)
-2. Use a hooks configuration that blocks write operations
-3. Or simply document as a convention (no enforcement)
-
-**Why useful**: Prevents accidental mutations during exploratory work. Creates a clear "safe space" for investigation without worrying about side effects. Matches the "analysis worktree" pattern from Claude Code team workflows.
+- Slot assignment (configurable: manual vs. auto)
+- Starting agent sessions (configurable: manual vs. auto)
