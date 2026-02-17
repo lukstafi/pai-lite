@@ -11,5 +11,5 @@ const adapter = createAgentSessionAdapter({
   sessionPrefixes: ["codex-", "agent-codex-"],
 });
 
-export const { readState, start, stop } = adapter;
+export const { readState, start, stop, lastActivity } = adapter;
 export default adapter satisfies Adapter;

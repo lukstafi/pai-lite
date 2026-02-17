@@ -6,7 +6,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import { tmuxAvailable, tmuxHasSession, tmuxPaneCwd } from "./tmux.ts";
-import { readStatusFile, formatAgentStatus, timeAgo, isGitWorktree, getMainRepoFromWorktree, getGitBranch, readSingleFile, resolveProjectDir } from "./base.ts";
+import { readStatusFile, formatAgentStatus, timeAgo, isGitWorktree, getMainRepoFromWorktree, getGitBranch, readSingleFile, resolveProjectDir, latestMtime } from "./base.ts";
 import { readAgentSessionFile, findSessionByPrefixOrTask } from "./peer-sync.ts";
 import { getUrl } from "../network.ts";
 import { MarkdownBuilder } from "./markdown.ts";
@@ -138,5 +138,20 @@ export function createAgentSessionAdapter(cfg: AgentSessionConfig): Adapter {
     return result.stdout.toString().trim() || `${cfg.command} session stopped for ${task}`;
   }
 
-  return { readState, start, stop };
+  function lastActivity(ctx: AdapterContext): string | null {
+    const projectDir = resolveProjectDir(ctx.session);
+    const sessionFile = findSessionByPrefixOrTask(projectDir, ctx.taskId, cfg.sessionPrefixes);
+    const sessionInfo = sessionFile ? readAgentSessionFile(sessionFile) : null;
+
+    const paths: string[] = [];
+    // Check the session file itself
+    if (sessionFile) paths.push(sessionFile);
+    // Check agent status file in workdir
+    if (sessionInfo?.workdir) {
+      paths.push(join(sessionInfo.workdir, ".peer-sync", cfg.statusFileName));
+    }
+    return latestMtime(paths);
+  }
+
+  return { readState, start, stop, lastActivity };
 }

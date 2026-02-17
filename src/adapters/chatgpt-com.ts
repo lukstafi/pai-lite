@@ -1,6 +1,6 @@
 // ChatGPT bookmark tracker — delegates to shared bookmark module
 
-import { bookmarkReadState, bookmarkStart, bookmarkStop, type BookmarkConfig } from "./bookmark.ts";
+import { bookmarkReadState, bookmarkStart, bookmarkStop, bookmarkLastActivity, type BookmarkConfig } from "./bookmark.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
 
 const config: BookmarkConfig = {
@@ -13,5 +13,6 @@ const config: BookmarkConfig = {
 export const readState = (ctx: AdapterContext) => bookmarkReadState(config, ctx);
 export const start = (ctx: AdapterContext) => bookmarkStart(config, ctx);
 export const stop = (ctx: AdapterContext) => bookmarkStop(config, ctx);
+export const lastActivity = (ctx: AdapterContext) => bookmarkLastActivity(config, ctx);
 
-export default { readState, start, stop } satisfies Adapter;
+export default { readState, start, stop, lastActivity } satisfies Adapter;

@@ -10,6 +10,7 @@ import {
   updateStateKey,
   readSingleFile,
   isoTimestamp,
+  latestMtime,
 } from "./base.ts";
 import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
@@ -92,4 +93,8 @@ export function stop(ctx: AdapterContext): string {
   return `Manual tracking completed for slot ${ctx.slot}`;
 }
 
-export default { readState, start, stop } satisfies Adapter;
+export function lastActivity(ctx: AdapterContext): string | null {
+  return latestMtime([slotFile(ctx), statusFile(ctx)]);
+}
+
+export default { readState, start, stop, lastActivity } satisfies Adapter;

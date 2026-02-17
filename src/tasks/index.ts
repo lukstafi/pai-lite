@@ -84,6 +84,8 @@ deadline: null
 dependencies:
   blocks: []
   blocked_by: []
+  relates_to: []
+  subtask_of: null
 effort: medium
 context: ${project}
 slot: null
@@ -91,6 +93,7 @@ adapter: null
 created: ${today}
 started: null
 completed: null
+modified: null
 ---
 
 # ${title}
@@ -172,6 +175,8 @@ ${s.extra ? s.extra + "\n" : ""}deadline: null
 dependencies:
   blocks: ${s.blocks}
   blocked_by: ${s.blocked_by}
+  relates_to: []
+  subtask_of: null
 effort: ${s.effort}
 context: ${s.context}
 slot: null
@@ -179,6 +184,7 @@ adapter: null
 created: ${today}
 started: null
 completed: null
+modified: null
 ---
 
 # ${s.title}

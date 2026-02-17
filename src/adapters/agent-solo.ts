@@ -21,5 +21,5 @@ const adapter = createOrchestratedAdapter({
   cliModeFlag: "--mode solo",
 });
 
-export const { readState, start, stop } = adapter;
+export const { readState, start, stop, lastActivity } = adapter;
 export default adapter satisfies Adapter;

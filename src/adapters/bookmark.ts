@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
-import { ensureAdapterStateDir, readStateFile, writeStateFile, isoTimestamp } from "./base.ts";
+import { ensureAdapterStateDir, readStateFile, writeStateFile, isoTimestamp, latestMtime } from "./base.ts";
 import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext } from "./types.ts";
 
@@ -149,6 +149,20 @@ export function bookmarkStart(config: BookmarkConfig, ctx: AdapterContext): stri
   }
 
   return `Added ${config.adapterName} conversation: ${label}\nOpen in browser: ${url}`;
+}
+
+/** Return last activity timestamp for a bookmark-based adapter. */
+export function bookmarkLastActivity(config: BookmarkConfig, ctx: AdapterContext): string | null {
+  const bmPath = bookmarksFilePath(config, ctx);
+  const entries = parseBookmarks(bmPath);
+  // Check metadata file mtimes for tracked conversations
+  const paths: string[] = [];
+  for (const entry of entries) {
+    const convId = extractConvId(config, entry.url);
+    if (convId) paths.push(metadataFilePath(config, ctx, convId));
+  }
+  if (paths.length === 0) paths.push(bmPath);
+  return latestMtime(paths);
 }
 
 /** Stop tracking a bookmark-based conversation. */

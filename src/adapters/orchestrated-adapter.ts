@@ -12,7 +12,7 @@ import {
   readPorts,
   readWorktrees,
 } from "./peer-sync.ts";
-import { readStatusFile, formatAgentStatus, readSingleFile, resolveProjectDir } from "./base.ts";
+import { readStatusFile, formatAgentStatus, readSingleFile, resolveProjectDir, latestMtime } from "./base.ts";
 import { getUrl } from "../network.ts";
 import { MarkdownBuilder } from "./markdown.ts";
 import type { AdapterContext, Adapter } from "./types.ts";
@@ -189,5 +189,23 @@ export function createOrchestratedAdapter(cfg: OrchestratedConfig): Adapter {
     return parts.join("\n");
   }
 
-  return { readState, start, stop };
+  function lastActivity(ctx: AdapterContext): string | null {
+    const projectDir = resolveProjectDir(ctx.session, true);
+    const sessions = listSessions(projectDir);
+    const filtered = sessions.filter((s) => matchesMode(s.peerSyncPath, cfg.modeFilter));
+    if (filtered.length === 0) return null;
+
+    // Collect status file paths across all sessions
+    const paths: string[] = [];
+    for (const session of filtered) {
+      for (const sf of cfg.statusFiles) {
+        paths.push(join(session.peerSyncPath, sf.fileName));
+      }
+      // Also check phase file — updates on orchestrator state changes
+      paths.push(join(session.peerSyncPath, "phase"));
+    }
+    return latestMtime(paths);
+  }
+
+  return { readState, start, stop, lastActivity };
 }

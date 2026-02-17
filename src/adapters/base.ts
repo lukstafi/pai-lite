@@ -167,6 +167,20 @@ export function isoTimestamp(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/** Return ISO timestamp of the most recently modified file among the given paths. */
+export function latestMtime(paths: string[]): string | null {
+  let latest = 0;
+  for (const p of paths) {
+    if (!existsSync(p)) continue;
+    try {
+      const mt = statSync(p).mtimeMs;
+      if (mt > latest) latest = mt;
+    } catch { /* skip */ }
+  }
+  if (latest === 0) return null;
+  return new Date(latest).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 // ---------------------------------------------------------------------------
 // Project directory resolution
 // ---------------------------------------------------------------------------

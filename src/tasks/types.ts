@@ -10,6 +10,8 @@ export interface TaskFrontmatter {
   dependencies: {
     blocks: string[];
     blocked_by: string[];
+    relates_to: string[];
+    subtask_of: string | null;
   };
   effort: string; // small, medium, large
   context: string;
@@ -18,6 +20,7 @@ export interface TaskFrontmatter {
   created: string;
   started: string | null;
   completed: string | null;
+  modified: string | null;
   source: string; // github, watch, manual
   url?: string;
   github_issue?: number;

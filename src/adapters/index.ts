@@ -50,3 +50,9 @@ export async function readAdapterState(ctx: AdapterContext): Promise<string | nu
   if (!adapter) return null;
   return await adapter.readState(ctx);
 }
+
+export async function readAdapterLastActivity(ctx: AdapterContext): Promise<string | null> {
+  const adapter = adapters[ctx.mode];
+  if (!adapter) return null;
+  return await adapter.lastActivity(ctx);
+}

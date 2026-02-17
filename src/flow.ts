@@ -12,9 +12,10 @@ interface TaskData {
   priority: string;
   deadline: string | null;
   started: string | null;
+  modified: string | null;
   project: string;
   context: string;
-  dependencies: { blocks?: string[]; blocked_by?: string[] };
+  dependencies: { blocks?: string[]; blocked_by?: string[]; relates_to?: string[]; subtask_of?: string | null };
   _file: string;
 }
 
@@ -45,11 +46,14 @@ function collectTasks(): TaskData[] {
         priority: String(data.priority ?? "B"),
         deadline: data.deadline ? String(data.deadline) : null,
         started: data.started ? String(data.started) : null,
+        modified: data.modified ? String(data.modified) : null,
         project: String(data.project ?? ""),
         context: String(data.context ?? ""),
         dependencies: {
           blocks: Array.isArray(deps.blocks) ? (deps.blocks as string[]) : [],
           blocked_by: Array.isArray(deps.blocked_by) ? (deps.blocked_by as string[]) : [],
+          relates_to: Array.isArray(deps.relates_to) ? (deps.relates_to as string[]) : [],
+          subtask_of: deps.subtask_of ? String(deps.subtask_of) : null,
         },
         _file: filePath,
       });
@@ -192,14 +196,16 @@ export function flowCritical(): void {
     }
   }
 
-  // Stalled work (in-progress > 7 days)
+  // Stalled work (no activity > 7 days)
   console.log("");
-  console.log("=== Stalled Work (in-progress > 7 days) ===");
+  console.log("=== Stalled Work (no activity > 7 days) ===");
   const stalled = tasks
-    .filter((t) => t.status === "in-progress" && t.started)
+    .filter((t) => t.status === "in-progress" && (t.modified || t.started))
     .map((t) => {
-      const startedEpoch = new Date(t.started!).getTime() / 1000;
-      const daysStalled = Math.floor((nowEpoch - startedEpoch) / 86400);
+      // Use modified (last real activity) if available, fall back to started
+      const refDate = t.modified ?? t.started!;
+      const refEpoch = new Date(refDate).getTime() / 1000;
+      const daysStalled = Math.floor((nowEpoch - refEpoch) / 86400);
       return { ...t, daysStalled };
     })
     .filter((t) => t.daysStalled > 7)
@@ -267,6 +273,30 @@ export function flowImpact(taskId: string): void {
     for (const t of partialUnblocks) {
       const remaining = t.dependencies.blocked_by!.filter((d) => d !== taskId);
       console.log(`${t.id} - still blocked by: ${remaining.join(", ")}`);
+    }
+  }
+
+  // Related tasks
+  const related = tasks.filter(
+    (t) => t.dependencies.relates_to && t.dependencies.relates_to.includes(taskId),
+  );
+  if (related.length > 0) {
+    console.log("");
+    console.log("=== Related Tasks ===");
+    for (const t of related) {
+      console.log(`${t.id} - ${t.title}`);
+    }
+  }
+
+  // Subtasks
+  const subtasks = tasks.filter(
+    (t) => t.dependencies.subtask_of === taskId,
+  );
+  if (subtasks.length > 0) {
+    console.log("");
+    console.log("=== Subtasks ===");
+    for (const t of subtasks) {
+      console.log(`${t.id} (${t.status}) - ${t.title}`);
     }
   }
 }

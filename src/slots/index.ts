@@ -1,14 +1,15 @@
 // Slot operations — list, show, assign, clear, note, start, stop, refresh
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { harnessDir, slotsFilePath, slotsCount, stateRepoDir, loadConfigSync } from "../config.ts";
 import { parseSlotBlocks, getField, getTask, getMode, getSession, getProcess, getPath,
          emptyBlock, writeSlotFile, addNoteToBlock, mergeAdapterState } from "./markdown.ts";
 import { stateCommit } from "../state.ts";
 import { journalAppend } from "../journal.ts";
-import { runAdapterAction, readAdapterState } from "../adapters/index.ts";
+import { runAdapterAction, readAdapterState, readAdapterLastActivity } from "../adapters/index.ts";
 import type { AdapterContext } from "../adapters/index.ts";
+import { addFrontmatterField, updateDependencyArray, parseTaskFrontmatter } from "../tasks/markdown.ts";
 import { hasStash, readStash, writeStash, removeStash } from "./preempt.ts";
 import type { PreemptStash } from "./preempt.ts";
 
@@ -225,6 +226,11 @@ export function slotClear(slotNum: number, finalStatus: string = "ready"): void 
   if (taskId && taskId !== "null") {
     taskUpdateForSlotClear(taskId, finalStatus);
     journalAppend("slot", `Slot ${slotNum} cleared: task=${taskId} status=${finalStatus}`);
+
+    // Prune blocked_by → relates_to across all tasks when a task completes
+    if (finalStatus === "done") {
+      pruneBlockedBy(taskId);
+    }
   } else {
     journalAppend("slot", `Slot ${slotNum} cleared`);
   }
@@ -235,6 +241,44 @@ export function slotClear(slotNum: number, finalStatus: string = "ready"): void 
   if (finalStatus === "done" && hasStash(slotNum)) {
     console.error(`ludics: auto-restoring preempted work to slot ${slotNum}`);
     slotRestore(slotNum);
+  }
+}
+
+/**
+ * When a task completes, remove it from other tasks' blocked_by lists
+ * and move the reference to relates_to (preserving the relationship).
+ */
+function pruneBlockedBy(completedTaskId: string): void {
+  const tasksPath = join(harnessDir(), "tasks");
+  if (!existsSync(tasksPath)) return;
+
+  const files = readdirSync(tasksPath).filter((f: string) => f.endsWith(".md"));
+  for (const f of files) {
+    const filePath = join(tasksPath, f);
+    const content = readFileSync(filePath, "utf-8");
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) continue;
+
+    let fm;
+    try {
+      fm = parseTaskFrontmatter(content);
+    } catch { continue; }
+
+    const blockedBy = fm.dependencies?.blocked_by ?? [];
+    if (!blockedBy.includes(completedTaskId)) continue;
+
+    // Remove from blocked_by
+    const newBlockedBy = blockedBy.filter((id) => id !== completedTaskId);
+    updateDependencyArray(filePath, "blocked_by", newBlockedBy);
+
+    // Add to relates_to (if not already there and not in blocks)
+    const relatesTo = fm.dependencies?.relates_to ?? [];
+    const blocks = fm.dependencies?.blocks ?? [];
+    if (!relatesTo.includes(completedTaskId) && !blocks.includes(completedTaskId)) {
+      updateDependencyArray(filePath, "relates_to", [...relatesTo, completedTaskId]);
+    }
+
+    console.error(`ludics: ${fm.id}: moved ${completedTaskId} from blocked_by to relates_to`);
   }
 }
 
@@ -399,11 +443,21 @@ export async function slotsRefresh(): Promise<void> {
 
     const ctx = makeAdapterContext(i, block);
     const output = await readAdapterState(ctx);
-    if (!output) continue;
+    if (output) {
+      blocks.set(i, mergeAdapterState(block, output));
+      anyUpdated = true;
+      console.error(`ludics: refreshed slot ${i} (${mode})`);
+    }
 
-    blocks.set(i, mergeAdapterState(block, output));
-    anyUpdated = true;
-    console.error(`ludics: refreshed slot ${i} (${mode})`);
+    // Update task modified timestamp from adapter activity
+    const taskId = getTask(block).trim();
+    if (taskId && taskId !== "null") {
+      const activity = await readAdapterLastActivity(ctx);
+      if (activity) {
+        const tf = taskFilePath(taskId);
+        addFrontmatterField(tf, "modified", activity);
+      }
+    }
   }
 
   if (anyUpdated) {

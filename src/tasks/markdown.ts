@@ -10,6 +10,7 @@ export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> 
   if (!fmMatch) throw new Error("no frontmatter found");
 
   const data = YAML.parse(fmMatch[1]!) as Record<string, unknown>;
+  const deps = (data.dependencies as Record<string, unknown>) ?? {};
   return {
     id: String(data.id ?? ""),
     title: String(data.title ?? ""),
@@ -18,12 +19,10 @@ export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> 
     priority: String(data.priority ?? "B"),
     deadline: data.deadline ? String(data.deadline) : null,
     dependencies: {
-      blocks: Array.isArray((data.dependencies as Record<string, unknown>)?.blocks)
-        ? ((data.dependencies as Record<string, unknown>).blocks as string[])
-        : [],
-      blocked_by: Array.isArray((data.dependencies as Record<string, unknown>)?.blocked_by)
-        ? ((data.dependencies as Record<string, unknown>).blocked_by as string[])
-        : [],
+      blocks: Array.isArray(deps.blocks) ? (deps.blocks as string[]) : [],
+      blocked_by: Array.isArray(deps.blocked_by) ? (deps.blocked_by as string[]) : [],
+      relates_to: Array.isArray(deps.relates_to) ? (deps.relates_to as string[]) : [],
+      subtask_of: deps.subtask_of ? String(deps.subtask_of) : null,
     },
     effort: String(data.effort ?? "medium"),
     context: String(data.context ?? ""),
@@ -32,6 +31,7 @@ export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> 
     created: String(data.created ?? ""),
     started: data.started ? String(data.started) : null,
     completed: data.completed ? String(data.completed) : null,
+    modified: data.modified ? String(data.modified) : null,
     source: String(data.source ?? ""),
     url: data.url ? String(data.url) : undefined,
     github_issue: data.github_issue ? Number(data.github_issue) : undefined,
@@ -96,6 +96,61 @@ export function addFrontmatterField(filePath: string, field: string, value: stri
   writeFileSync(filePath, output.join("\n"));
 }
 
+/**
+ * Update an array subfield within the dependencies block of a task file.
+ * Handles both existing and missing subfields (inserts after last dependency line).
+ */
+export function updateDependencyArray(filePath: string, subfield: string, values: string[]): void {
+  if (!existsSync(filePath)) return;
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  let inFrontmatter = false;
+  let inDeps = false;
+  let found = false;
+  let lastDepsLineIdx = -1;
+  const output: string[] = [];
+  const formatted = `  ${subfield}: [${values.join(", ")}]`;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line === "---" && !inFrontmatter) {
+      inFrontmatter = true;
+      output.push(line);
+      continue;
+    }
+    if (line === "---" && inFrontmatter) {
+      // If we never found the subfield, insert it before closing ---
+      if (!found && lastDepsLineIdx >= 0) {
+        output.splice(lastDepsLineIdx + 1, 0, formatted);
+      }
+      inFrontmatter = false;
+      output.push(line);
+      continue;
+    }
+    if (inFrontmatter) {
+      if (line.startsWith("dependencies:")) {
+        inDeps = true;
+        lastDepsLineIdx = output.length;
+        output.push(line);
+        continue;
+      }
+      if (inDeps && line.match(/^\s{2}\w/)) {
+        lastDepsLineIdx = output.length;
+        if (line.trimStart().startsWith(`${subfield}:`)) {
+          output.push(formatted);
+          found = true;
+          continue;
+        }
+      } else if (inDeps && !line.match(/^\s/)) {
+        inDeps = false;
+      }
+    }
+    output.push(line);
+  }
+
+  writeFileSync(filePath, output.join("\n"));
+}
+
 export function writeTaskFile(
   dir: string,
   id: string,
@@ -136,6 +191,8 @@ deadline: null
 dependencies:
   blocks: []
   blocked_by: []
+  relates_to: []
+  subtask_of: null
 effort: medium
 context: ${project}
 slot: null
@@ -143,6 +200,7 @@ adapter: null
 created: ${today}
 started: null
 completed: null
+modified: null
 source: ${source}
 `;
 
