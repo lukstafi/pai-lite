@@ -2,7 +2,7 @@
 
 ## Context
 
-Rename the project from "pai-lite" to "ludics" and the coordinator role from "Mayor" to "Mag" everywhere. Motivation: "pai-lite" is generic and inaccurate as the project has grown beyond a lightweight personal AI tool. "Ludics" draws from both Girard's proof-theoretic framework (computation as interaction) and Hesse's "Glass Bead Game" (Glasperlenspiel) — the synthesis of disciplines into unified play. "Mag" (short for Magister Ludi, master of the game) replaces the "Mayor" role name, treated as a proper noun (i.e. name) rather than a title.
+Rename the project from "pai-lite" to "ludics" and the coordinator role from "Mayor" to "Mag" everywhere. Motivation: "pai-lite" is generic and inaccurate as the project has grown beyond a lightweight personal AI tool. "Ludics" draws from both Girard's proof-theoretic framework (computation as interaction) and Hesse's "Glass Bead Game" (Glasperlenspiel) — the synthesis of disciplines into unified play. "Mag" (short for Magister Ludi, master of the game) replaces the "Mayor" role name, treated as a proper noun (i.e.mm name) rather than a title.
 
 ## Acceptance Criteria
 
