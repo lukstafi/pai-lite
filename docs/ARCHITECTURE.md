@@ -264,6 +264,8 @@ deadline: 2026-05-15
 dependencies:
   blocks: [task-043, task-044]
   blocked_by: []
+  relates_to: [task-055]
+  subtask_of: task-040
 effort: large
 context: einsum
 slot: 1
@@ -271,12 +273,21 @@ adapter: agent-duo
 created: 2026-01-29
 started: 2026-01-29
 completed: null
+modified: 2026-02-15T10:30Z
 elaborated: false
 ---
 
 # Context
 Roadmap item: Support `^` operator for tensor concatenation...
 ```
+
+**Dependency fields:**
+- `blocks` — tasks that cannot start until this one completes (authoritative direction)
+- `blocked_by` — inverse of `blocks`; auto-pruned on completion (moved to `relates_to`)
+- `relates_to` — related tasks (informational, no blocking semantics); also receives pruned `blocked_by` entries
+- `subtask_of` — parent task ID (singular); groups subtasks in `flow impact`
+
+**`modified` field** — ISO timestamp of last real work activity (commits, agent status changes), updated by adapters during `slots refresh`. Used for stall detection instead of `started`.
 
 **Task aggregation** (`src/tasks/sync.ts`):
 - Fetches GitHub issues (via `gh`) for configured projects
@@ -352,17 +363,19 @@ interface AdapterContext {
 
 **Registry pattern** (`src/adapters/index.ts`): Central dispatch maps adapter names to implementations.
 
-### Notifications
+### Messaging (ntfy.sh)
 
-ludics uses **ntfy.sh** with three configurable topics:
+ludics uses **ntfy.sh** for bidirectional communication with three configurable topics:
 
 | Topic | Direction | Purpose |
 |-------|-----------|---------|
 | `outgoing` | Mag → user | Strategic briefings, high-priority alerts |
-| `incoming` | user → Mag | Messages from phone |
+| `incoming` | user → Mag | Messages from phone (commands, replies, task input) |
 | `agents` | system → user | Operational agent updates |
 
-Implementation (`src/notify.ts`): curl to `https://ntfy.sh/{topic}` with auth token. Notifications are logged to `journal/notifications.jsonl`.
+The `incoming` topic enables the user to converse with Mag from any device — respond to questions, approve elaborations, assign tasks, or send freeform instructions. Mag processes incoming messages via the `/ludics-read-inbox` skill.
+
+Implementation (`src/notify.ts`): curl to `https://ntfy.sh/{topic}` with auth token. `ludics notify subscribe` long-polls the incoming topic. Notifications are logged to `journal/notifications.jsonl`.
 
 ### Federation
 
@@ -748,7 +761,7 @@ ludics quote                   # Print a random quote
 7. **One lifelong Mag** — Builds memory, consistent decisions, sees cross-project connections
 8. **TypeScript + Bun** — Type-safe, fast startup, single binary, shell commands where needed
 9. **Federation for scale** — Seniority-based leader election for multi-machine Mag coordination
-10. **Notifications are outputs, not inputs** — ntfy for push alerts, proper channels for human communication
+10. **Bidirectional messaging via ntfy** — outgoing alerts push to user's phone; incoming topic lets user converse with Mag from any device
 
 ## Failure Modes and Recovery
 
