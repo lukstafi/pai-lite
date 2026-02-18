@@ -196,29 +196,6 @@ export function flowCritical(): void {
     }
   }
 
-  // Stalled work (no activity > 7 days)
-  console.log("");
-  console.log("=== Stalled Work (no activity > 7 days) ===");
-  const stalled = tasks
-    .filter((t) => t.status === "in-progress" && (t.modified || t.started))
-    .map((t) => {
-      // Use modified (last real activity) if available, fall back to started
-      const refDate = t.modified ?? t.started!;
-      const refEpoch = new Date(refDate).getTime() / 1000;
-      const daysStalled = Math.floor((nowEpoch - refEpoch) / 86400);
-      return { ...t, daysStalled };
-    })
-    .filter((t) => t.daysStalled > 7)
-    .sort((a, b) => b.daysStalled - a.daysStalled);
-
-  if (stalled.length === 0) {
-    console.log("(none)");
-  } else {
-    for (const t of stalled) {
-      console.log(`${t.id} - stalled ${t.daysStalled} days - ${t.title}`);
-    }
-  }
-
   // High-priority ready (A)
   console.log("");
   console.log("=== High-Priority Ready (priority A) ===");

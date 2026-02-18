@@ -32,7 +32,6 @@ This skill is invoked when:
 3. **Generate suggestions**:
    - Top 3 recommended tasks with reasoning
    - Alternative if primary is blocked
-   - Warning about any stalled work
 
 ## Output Format
 
@@ -52,7 +51,7 @@ This skill is invoked when:
    - [different tradeoff - e.g., smaller scope, approaching deadline]
 
 ### Consider Later
-- [Any stalled or problematic tasks that need decision]
+- [Any problematic tasks that need decision]
 ```
 
 ## Result JSON

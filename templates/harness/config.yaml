@@ -65,7 +65,6 @@ notifications:
     health_check: 3
     deadline_7days: 4
     deadline_3days: 5
-    stall_detected: 4
     critical_alert: 5
 
   public_filter:

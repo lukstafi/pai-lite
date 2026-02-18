@@ -95,7 +95,7 @@ Commands:
 
   flow ready                   Priority-sorted ready tasks
   flow blocked                 What's blocked and why
-  flow critical                Deadlines + stalled + high-priority
+  flow critical                Deadlines + high-priority
   flow impact <id>             What this task unblocks
   flow context                 Context distribution across slots
   flow check-cycle             Check for dependency cycles
@@ -112,7 +112,7 @@ Commands:
   mag elaborate <id>           Elaborate task into detailed spec
   mag draft-proposal <id>     Generate proposal document for task
   mag split-task <id>          Split multi-concern task into subtasks
-  mag health-check             Check for stalled work, deadlines
+  mag health-check             Check for deadlines, issues
   mag message "text"           Send async message to Mag
   mag inbox                    Show and consume pending messages
   mag queue                    Show pending queue requests

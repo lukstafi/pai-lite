@@ -216,7 +216,7 @@ ludics tasks files             # List individual task files
 ```bash
 ludics flow ready              # Priority-sorted ready tasks
 ludics flow blocked            # What's blocked and why
-ludics flow critical           # Deadlines + stalled + high-priority
+ludics flow critical           # Deadlines + high-priority
 ludics flow impact <id>        # What this task unblocks
 ludics flow context            # Context distribution across slots
 ludics flow check-cycle        # Check for dependency cycles
@@ -250,7 +250,7 @@ ludics mag briefing          # Request morning briefing
 ludics mag suggest           # Get task suggestions
 ludics mag analyze <issue>   # Analyze GitHub issue
 ludics mag elaborate <id>    # Elaborate task into detailed spec
-ludics mag health-check      # Check for stalled work, deadlines
+ludics mag health-check      # Check for deadlines, issues
 ludics mag queue             # Show pending requests
 ```
 

@@ -33,7 +33,7 @@ The context file contains these sections:
 - **Slots State**: Current slot assignments after adapter refresh
 - **Sessions Report**: All discovered agent sessions with classification
 - **Flow: Ready Queue**: Priority-sorted ready tasks
-- **Flow: Critical Items**: Deadlines, stalled work, high-priority ready
+- **Flow: Critical Items**: Deadlines, high-priority ready
 - **Tasks Needing Elaboration**: Task IDs that lack elaboration
 - **Recent Journal**: Last 20 journal entries
 
@@ -60,7 +60,7 @@ Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 
 4. **Analyze, merge, and split work**:
    - Identify high-priority ready tasks, approaching deadlines (7 days),
-     stalled work (in-progress > 7 days), slot utilization
+     slot utilization
    - Factor in inbox messages as high-priority context
    - Check for duplicate/overlapping tasks: merge any confirmed duplicates with `ludics tasks merge <target> <source...>`
      - `ludics tasks duplicates` can help but it only checks exact title match
@@ -80,7 +80,7 @@ Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 
    **Identify opportunities:**
    - Empty slots (candidates for filling)
-   - Stalled/completed slots (candidates for clearing)
+   - Completed slots (candidates for clearing)
    - Cross-reference with ready queue and unclassified sessions
 
    **Build assignment plan:**
@@ -120,7 +120,7 @@ Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 ## Slot Assignments
 - Slot 2: <- task-101 "Implement tensor concatenation" (A-priority, unblocks 2 tasks)
 - Slot 4: <- ocannl project (unclassified claude-code session on ~/repos/ocannl/)
-- Slot 5: cleared task-089 (stalled 12 days) <- task-067 "Update CHANGES.md" (release blocker)
+- Slot 5: cleared task-089 <- task-067 "Update CHANGES.md" (release blocker)
 - [If autonomy=suggest, include ready-to-run commands:]
   `ludics slot 2 assign task-101 -a agent-duo -p ~/repos/ocannl`
 
@@ -131,8 +131,6 @@ Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 
 ## Urgent Attention
 - **Deadline**: task-042 due in 3 days (POPL submission)
-- **Stalled**: task-089 has been in-progress for 12 days
-
 ## Today's Suggestion
 Start with task-101 because [reasoning]. If blocked, switch to task-067.
 

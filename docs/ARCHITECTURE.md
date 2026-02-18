@@ -37,7 +37,7 @@ ludics is implemented in **100% TypeScript**, compiled to a standalone binary vi
 │  Invoked by automation when AI judgment needed:            │
 │  • Analyze GitHub issues → create task files               │
 │  • Generate strategic briefings                            │
-│  • Detect stalled work                                     │
+│  • Detect approaching deadlines                            │
 │  • Suggest next tasks based on flow state                  │
 │                                                            │
 │  Uses native Claude Code capabilities:                     │
@@ -55,7 +55,7 @@ ludics is implemented in **100% TypeScript**, compiled to a standalone binary vi
 │  Flow Engine (TypeScript):                                 │
 │    • Maintains dependency graph (Kahn's algorithm)         │
 │    • Computes ready queue (priority + deadline sorting)    │
-│    • Detects deadline violations and stalled work          │
+│    • Detects deadline violations                           │
 │                                                            │
 │  Trigger System (launchd / systemd):                       │
 │    • 08:00 → invoke Mag for briefing                       │
@@ -106,7 +106,6 @@ The **Mag** is a persistent Claude Code instance running in a dedicated tmux ses
 **What Mag does (Claude Opus 4.5):**
 - Analyzes GitHub issues for actionability and dependencies
 - Generates morning briefings with strategic suggestions
-- Detects stalled work (tasks in-progress >7 days with no updates)
 - Suggests what to work on next based on priority, deadlines, and dependencies
 - Elaborates high-level tasks into detailed Markdown specifications
 - Publishes curated updates to notification channels
@@ -131,7 +130,7 @@ The **Mag** is a persistent Claude Code instance running in a dedicated tmux ses
 | `/ludics-suggest` | Task suggestions based on flow state |
 | `/ludics-elaborate` | Detailed spec for a task |
 | `/ludics-analyze-issue` | Parse GitHub issue → create task with dependencies |
-| `/ludics-health-check` | Detect stalled work, approaching deadlines |
+| `/ludics-health-check` | Detect approaching deadlines, issues |
 | `/ludics-learn` | Update institutional memory from corrections |
 | `/ludics-sync-learnings` | Consolidate learnings into structured memory |
 | `/ludics-feedback-digest` | Summarize user feedback |
@@ -246,7 +245,7 @@ All flow logic is native TypeScript — no external tools (yq, jq, tsort) needed
 // Flow views
 flowReady()      // Unblocked ready tasks, sorted by priority then deadline
 flowBlocked()    // Tasks with unmet dependencies
-flowCritical()   // Approaching deadlines (≤30 days) + stalled (>7 days) + high-priority
+flowCritical()   // Approaching deadlines (≤30 days) + high-priority
 flowImpact(id)   // What tasks unblock if given task completes
 flowContext()     // Distribution of work contexts across active slots
 flowCheckCycle() // Detect circular dependencies
@@ -287,7 +286,7 @@ Roadmap item: Support `^` operator for tensor concatenation...
 - `relates_to` — related tasks (informational, no blocking semantics); also receives pruned `blocked_by` entries
 - `subtask_of` — parent task ID (singular); groups subtasks in `flow impact`
 
-**`modified` field** — ISO timestamp of last real work activity (commits, agent status changes), updated by adapters during `slots refresh`. Used for stall detection instead of `started`.
+**`modified` field** — ISO timestamp of last real work activity (commits, agent status changes), updated by adapters during `slots refresh`.
 
 **Task aggregation** (`src/tasks/sync.ts`):
 - Fetches GitHub issues (via `gh`) for configured projects
@@ -683,7 +682,7 @@ ludics tasks duplicates        # Find potential duplicate tasks
 # Flow views (not calendar-based)
 ludics flow ready              # Priority-sorted ready tasks
 ludics flow blocked            # What's blocked and why
-ludics flow critical           # Deadlines + stalled + high-priority
+ludics flow critical           # Deadlines + high-priority
 ludics flow impact <id>        # What this task unblocks
 ludics flow context            # Context distribution across slots
 ludics flow check-cycle        # Check for dependency cycles
@@ -699,7 +698,7 @@ ludics mag briefing            # Request morning briefing
 ludics mag suggest             # Get task suggestions
 ludics mag analyze <issue>     # Analyze GitHub issue
 ludics mag elaborate <id>      # Elaborate task into detailed spec
-ludics mag health-check        # Check for stalled work, deadlines
+ludics mag health-check        # Check for deadlines, issues
 ludics mag message "text"      # Send async message to Mag
 ludics mag inbox               # Show pending messages
 ludics mag queue               # Show pending queue requests

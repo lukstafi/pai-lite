@@ -69,7 +69,6 @@ When generating a morning briefing:
 
 3. **Urgent items**
    - Deadlines within 7 days
-   - Stalled work (>7 days in-progress)
    - Blocked high-priority tasks
 
 4. **Suggestion**

@@ -1,6 +1,6 @@
 # /ludics-health-check - System Health Check
 
-Detect stalled work, approaching deadlines, and other issues requiring attention.
+Detect approaching deadlines and other issues requiring attention.
 
 ## Trigger
 
@@ -15,35 +15,30 @@ This skill is invoked when:
 
 ## Process
 
-1. **Check for stalled tasks**:
-   - Find tasks with `status: in-progress`
-   - Calculate time since `started` date
-   - Flag if > 7 days without updates
-
-2. **Check approaching deadlines**:
+1. **Check approaching deadlines**:
    - Find tasks with `deadline` field
    - Calculate days remaining
    - Flag if <= 7 days (warning) or <= 3 days (critical)
 
-3. **Check slot health**:
+2. **Check slot health**:
    - Read `slots.md`
    - Identify slots that have been active > 24h without status update
    - Run `ludics sessions report` and check for orphaned/unclassified sessions
      (sessions with no slot match in `sessions.md`)
 
-4. **Check queue health**:
+3. **Check queue health**:
    - Read `mag/queue.jsonl`
    - Flag if requests have been pending > 1h
 
-5. **Report task elaboration status**:
+4. **Report task elaboration status**:
    - Run `ludics tasks needs-elaboration` to count unprocessed tasks
    - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `tasks_sync()` -- no need to enqueue here
 
-6. **Generate report**:
+5. **Generate report**:
    - Categorize issues by severity
    - Include actionable recommendations
 
-7. **Send notifications** for critical issues:
+6. **Send notifications** for critical issues:
    ```bash
    ludics notify outgoing "Critical: task-042 deadline in 2 days" 5 "Health Check"
    ```
@@ -57,7 +52,6 @@ This skill is invoked when:
 
 ## Critical Issues
 - **DEADLINE**: task-042 "POPL submission" due in 2 days
-- **STALLED**: task-089 in-progress for 14 days
 
 ## Warnings
 - **DEADLINE**: task-101 due in 6 days
@@ -75,8 +69,7 @@ This skill is invoked when:
 
 ## Recommendations
 1. Prioritize task-042 - deadline is imminent
-2. Review task-089 - consider abandoning or breaking into smaller pieces
-3. Slot 3 may need attention - check tmux session
+2. Slot 3 may need attention - check tmux session
 ```
 
 ### Result JSON
@@ -98,8 +91,6 @@ This skill is invoked when:
 |-----------|-------|----------|
 | Deadline <= 3 days | outgoing | 5 (critical) |
 | Deadline <= 7 days | outgoing | 4 (high) |
-| Stalled > 14 days | outgoing | 4 (high) |
-| Stalled > 7 days | outgoing | 3 (normal) |
 | Queue stuck > 1h | agents | 4 (high) |
 
 ## Delegation Strategy
