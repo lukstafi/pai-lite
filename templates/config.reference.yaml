@@ -23,26 +23,34 @@ projects:
     issues: true          # Chores, reminders, etc.
 
 # Adapter settings
-# Available adapters: agent-duo, agent-pair-codex, agent-pair-claude,
-#                     claude-code, claude-ai,
-#                     chatgpt-com, codex, manual
+# Available adapters: agent-claude, agent-codex, agent-duo,
+#                     agent-pair-codex, agent-pair-claude, agent-pair,
+#                     claude-ai, chatgpt-com, manual
+# Legacy aliases: claude-code -> agent-claude, codex -> agent-codex
 adapters:
+  agent-claude:
+    enabled: true         # Claude Code CLI agent
+  agent-codex:
+    enabled: false        # Codex CLI agent
   agent-duo:
     enabled: true         # Dual agent system (Claude + Codex)
   agent-pair-codex:
     enabled: false        # Pair workflow (coder=Codex, reviewer=Claude)
   agent-pair-claude:
     enabled: false        # Pair workflow (coder=Claude, reviewer=Codex)
-  claude-code:
-    enabled: true         # Claude Code CLI
+  agent-pair:
+    enabled: false        # Alias for agent-pair-codex
   claude-ai:
     enabled: true         # Claude.ai web interface
   chatgpt-com:
     enabled: false        # ChatGPT.com web interface
-  codex:
-    enabled: false        # Codex / GPT-4 integration
   manual:
     enabled: false        # Manual human work tracking
+  # Legacy aliases (still recognized for existing slot files)
+  claude-code:
+    enabled: false        # Legacy alias for agent-claude
+  codex:
+    enabled: false        # Legacy alias for agent-codex
 
 # Mag: Autonomous coordinator (Claude Opus in Claude Code)
 # Provides strategic thinking while automation handles reliable execution
@@ -77,6 +85,7 @@ dashboard:
 # Three-tier notification system via ntfy.sh
 notifications:
   provider: ntfy              # Currently only ntfy.sh supported
+  token: ""                   # Bearer token for ntfy.sh authentication (optional)
 
   # Topic names (use random suffixes for privacy without ntfy subscription)
   topics:

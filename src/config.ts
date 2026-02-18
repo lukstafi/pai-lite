@@ -71,6 +71,68 @@ function resolveConfigPath(): string {
   return pointer;
 }
 
+// --- Config key validation against reference schema ---
+
+// Paths where child keys are user-defined, not from the reference schema
+const FREEFORM_CHILDREN = new Set([
+  "triggers",                // trigger names: startup, sync, etc.
+  "notifications.topics",
+  "notifications.priorities",
+]);
+
+let configValidated = false;
+
+function validateConfigKeys(
+  userObj: Record<string, unknown>,
+  refObj: Record<string, unknown>,
+  path: string,
+): void {
+  if (FREEFORM_CHILDREN.has(path)) return;
+  const refKeys = new Set(Object.keys(refObj));
+  for (const key of Object.keys(userObj)) {
+    const fullPath = path ? `${path}.${key}` : key;
+    if (!refKeys.has(key)) {
+      const normalized = key.replace(/-/g, "_");
+      if (refKeys.has(normalized)) {
+        console.error(`ludics: config warning: "${fullPath}" uses hyphens — did you mean "${path ? path + "." : ""}${normalized}"?`);
+      } else {
+        console.error(`ludics: config warning: unknown key "${fullPath}"`);
+      }
+      continue;
+    }
+    const userVal = userObj[key];
+    const refVal = refObj[key];
+    if (userVal && refVal && typeof userVal === "object" && typeof refVal === "object"
+        && !Array.isArray(userVal) && !Array.isArray(refVal)) {
+      validateConfigKeys(userVal as Record<string, unknown>, refVal as Record<string, unknown>, fullPath);
+    }
+  }
+}
+
+let referenceConfig: Record<string, unknown> | null | undefined;
+
+function loadReferenceConfig(): Record<string, unknown> | null {
+  if (referenceConfig !== undefined) return referenceConfig;
+  try {
+    // Try ludicsRoot first (works for compiled binary), then import.meta.dir (works for bun run dev)
+    let refPath = join(ludicsRoot(), "templates", "config.reference.yaml");
+    if (!existsSync(refPath)) {
+      refPath = join(import.meta.dir, "..", "templates", "config.reference.yaml");
+    }
+    if (!existsSync(refPath)) { referenceConfig = null; return null; }
+    referenceConfig = parseYamlFile(refPath);
+    return referenceConfig;
+  } catch {
+    referenceConfig = null;
+    return null;
+  }
+}
+
+function validateConfig(data: Record<string, unknown>): void {
+  const ref = loadReferenceConfig();
+  if (ref) validateConfigKeys(data, ref, "");
+}
+
 export function loadConfigSync(): LudicsFullConfig {
   const configPath = resolveConfigPath();
   if (!existsSync(configPath)) {
@@ -78,6 +140,10 @@ export function loadConfigSync(): LudicsFullConfig {
   }
 
   const data = parseYamlFile(configPath) as Record<string, unknown>;
+  if (!configValidated) {
+    validateConfig(data);
+    configValidated = true;
+  }
 
   const staleEnv = process.env.SESSIONS_STALE_THRESHOLD;
   const staleThresholdSeconds = staleEnv ? parseInt(staleEnv, 10) : DEFAULT_STALE_THRESHOLD;
