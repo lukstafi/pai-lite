@@ -297,6 +297,8 @@ Roadmap item: Support `^` operator for tensor concatenation...
 - `tasks merge` — merge duplicate/related tasks
 - `tasks duplicates` — fingerprint titles to find potential duplicates
 
+**Source of truth**: Individual `.md` task files in `tasks/` are the authoritative source. `tasks.yaml` is an auto-generated import manifest from `tasks sync`; processes (adapters, Mag, slots) read and update the `.md` files directly. All CLI commands (`list`, `show`, `files`, `flow`) read from `.md` files; `tasks.yaml` is only a fallback for tasks not yet converted.
+
 ### Session Discovery
 
 ludics includes a multi-stage pipeline (`src/sessions/`) that discovers running agent sessions across the system:
@@ -587,8 +589,8 @@ your-private-repo/
 └── harness/
     ├── config.yaml                # Full configuration
     ├── slots.md                   # Current slot states
-    ├── tasks.yaml                 # Unified task index (generated)
-    ├── tasks/                     # Individual task files (git-backed)
+    ├── tasks.yaml                 # Import manifest (auto-generated, not source of truth)
+    ├── tasks/                     # Individual task files — source of truth (git-backed)
     │   ├── task-001.md
     │   ├── task-002.md
     │   └── ...

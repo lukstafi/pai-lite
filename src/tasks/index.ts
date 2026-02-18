@@ -16,52 +16,56 @@ function tasksYamlPath(): string {
 }
 
 function tasksList(): void {
-  const file = tasksYamlPath();
-  if (!existsSync(file)) {
-    throw new Error(`tasks file not found: ${file} (run: ludics tasks sync)`);
+  const dir = tasksDir();
+  if (!existsSync(dir)) {
+    throw new Error(`tasks directory not found: ${dir} (run: ludics tasks sync)`);
   }
 
-  const content = readFileSync(file, "utf-8");
-  let currentId = "";
-  for (const line of content.split("\n")) {
-    const idMatch = line.match(/^\s*-\s*id:\s*(.+)$/);
-    if (idMatch) {
-      currentId = idMatch[1]!.replace(/"/g, "");
-      continue;
-    }
-    const titleMatch = line.match(/^\s*title:\s*"?(.+?)"?\s*$/);
-    if (titleMatch && currentId) {
-      console.log(`${currentId} - ${titleMatch[1]!.replace(/"$/, "")}`);
-      currentId = "";
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+  for (const f of files) {
+    try {
+      const content = readFileSync(join(dir, f), "utf-8");
+      const fm = parseTaskFrontmatter(content);
+      console.log(`${fm.id} - ${fm.title}`);
+    } catch {
+      // skip malformed files
     }
   }
 }
 
 function tasksShow(taskId: string): void {
+  // Task .md files are the source of truth
+  const mdFile = join(tasksDir(), `${taskId}.md`);
+  if (existsSync(mdFile)) {
+    console.log(readFileSync(mdFile, "utf-8"));
+    return;
+  }
+
+  // Fall back to tasks.yaml index for tasks not yet converted to .md
   const file = tasksYamlPath();
-  if (!existsSync(file)) {
-    throw new Error(`tasks file not found: ${file} (run: ludics tasks sync)`);
-  }
+  if (existsSync(file)) {
+    const content = readFileSync(file, "utf-8");
+    const lines = content.split("\n");
+    let inBlock = false;
+    let output: string[] = [];
 
-  const content = readFileSync(file, "utf-8");
-  const lines = content.split("\n");
-  let inBlock = false;
-  let output: string[] = [];
-
-  for (const line of lines) {
-    const idMatch = line.match(/^\s*-\s*id:\s*(.+)$/);
-    if (idMatch) {
-      const current = idMatch[1]!.replace(/"/g, "");
-      if (inBlock && current !== taskId) break;
-      inBlock = current === taskId;
+    for (const line of lines) {
+      const idMatch = line.match(/^\s*-\s*id:\s*(.+)$/);
+      if (idMatch) {
+        const current = idMatch[1]!.replace(/"/g, "");
+        if (inBlock && current !== taskId) break;
+        inBlock = current === taskId;
+      }
+      if (inBlock) output.push(line);
     }
-    if (inBlock) output.push(line);
+
+    if (output.length > 0) {
+      console.log(output.join("\n"));
+      return;
+    }
   }
 
-  if (output.length === 0) {
-    throw new Error(`task not found: ${taskId}`);
-  }
-  console.log(output.join("\n"));
+  throw new Error(`task not found: ${taskId}`);
 }
 
 function tasksCreate(
