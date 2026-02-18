@@ -1,0 +1,130 @@
+# /ludics-draft-proposal - Draft Proposal & Notify
+
+Write a concise proposal document (Why/What, not How) for a task assigned to a slot,
+then send a notification with action buttons so the user can launch or manage the session
+from their phone.
+
+## Trigger
+
+This skill is invoked when:
+- The user runs `ludics mag draft-proposal <task-id>`
+- Auto-queued during keepalive for tasks assigned to slots that are missing proposals
+  (when `start_sessions` autonomy is not `manual`)
+
+## Arguments
+
+- `<task_id>`: Task identifier (e.g., `task-042`)
+
+## Inputs
+
+- `$LUDICS_STATE_PATH`: Path to the harness directory (environment variable)
+- **Request ID**: Read from file `$LUDICS_STATE_PATH/mag/current-request-id` — use as `LUDICS_REQUEST_ID` in result JSON
+
+## Process
+
+1. **Read task file**:
+   ```bash
+   cat "$LUDICS_STATE_PATH/tasks/<task_id>.md"
+   ```
+   Extract: title, project, dependencies, context, any linked GitHub issue.
+
+2. **Resolve project path**:
+   - Read project config to find the repository path
+   - If task has a project field, look up in `~/.config/ludics/config.yaml` projects list
+   - Determine the local checkout path (e.g., `~/repos/<project>`)
+
+3. **Explore project codebase**:
+   - Read relevant source files mentioned in the task elaboration
+   - Understand existing patterns, architecture, related code
+   - Check for existing docs, README, ARCHITECTURE files
+
+4. **Bail out if multi-concern**:
+   - If the task covers multiple independent concerns (different modules, separable
+     features, could be merged to main independently), do NOT write a proposal.
+   - Instead, queue the split skill and stop:
+     ```bash
+     ludics mag split-task <task_id>
+     ```
+   - Report the bail-out in the result JSON with `"status": "split-needed"`.
+   - The split skill will create subtasks, queue elaboration for each, and they
+     will eventually get their own proposals when assigned to slots.
+
+5. **Determine docs directory**:
+   - Check if `docs/`, `doc/`, or project root has existing documentation
+   - Use `docs/` by default; create if needed
+
+6. **Write proposal** to `<project-root>/docs/<feature-name>.md`:
+
+   ```markdown
+   # <Title>
+
+   ## Motivation
+   Why this change is needed. Link to issue if applicable.
+
+   ## Current State
+   How things work now. Key files and code pointers.
+
+   ## Proposed Change
+   What should change. Acceptance criteria. Edge cases to consider.
+
+   ## Scope
+   What's in/out of scope. Dependencies on other tasks.
+   ```
+
+   **Key:** No implementation plan, no effort estimates, no micro-managed steps.
+   The Why/What focus. Coding agents handle the How via their own plan/clarify phases.
+
+7. **Commit and push**:
+   ```bash
+   cd <project-root>
+   git add docs/<feature>.md
+   git commit -m "proposal: <title>"
+   git push
+   ```
+
+8. **Update task frontmatter**: Set `proposal: docs/<feature>.md` in the task file.
+   Use the `addFrontmatterField` pattern — add before closing `---`.
+
+9. **Send notification**:
+   ```bash
+   ludics notify outgoing "Proposal ready for <task-id>: <title>"
+   ```
+   The `notifyProposal()` function (called internally) attaches the proposal file
+   and includes action buttons (agent-duo, pair-codex, pair-claude, I'll do it)
+   that POST to the incoming topic. The user taps a button on their phone,
+   the message arrives via the incoming subscriber as a direct queue injection,
+   and Mag interprets it as a user turn to execute the launch.
+
+10. **Best-effort desktop**: Try `code <path>` to open the proposal in VS Code.
+    Fail silently if unavailable.
+
+11. **Write result JSON**:
+    ```json
+    {
+      "id": "req-...",
+      "status": "completed",
+      "timestamp": "...",
+      "task_id": "<task-id>",
+      "proposal_path": "docs/<feature>.md",
+      "output": "Proposal written for <task-id>: <title>"
+    }
+    ```
+
+## Output Format
+
+The proposal document follows the template in step 6. Keep it concise — typically 1-2 pages.
+The goal is to give the user enough context to decide whether to launch an agent session,
+and which adapter to use.
+
+## Delegation Strategy
+
+- **CLI tools**: File navigation, code search, git operations
+- **Opus**: Write the proposal with judgment about scope, motivation, current state
+- **Task tool**: Explore the project codebase in parallel if needed
+
+## Error Handling
+
+- Task not found: Write result with status "error"
+- Project path not found: Note in result, write proposal to state repo instead
+- Already has proposal: Check if re-generation is wanted, or skip
+- Git push fails: Log warning, continue (proposal is still written locally)

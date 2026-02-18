@@ -29,7 +29,7 @@ If that also fails, escalate to the user.
 
 The context file contains these sections:
 - **Same-Day Status**: `new` (full briefing) or `amend` (light-touch update)
-- **Inbox Messages**: Pre-consumed messages (treat as high-priority context)
+- **Recent Incoming**: Recent incoming notifications (from notifications.jsonl)
 - **Slots State**: Current slot assignments after adapter refresh
 - **Sessions Report**: All discovered agent sessions with classification
 - **Flow: Ready Queue**: Priority-sorted ready tasks

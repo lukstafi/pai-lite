@@ -210,3 +210,13 @@ export function preemptAutonomy(): "auto" | "suggest" {
   const val = levels?.preempt_slots;
   return val === "auto" ? "auto" : "suggest";
 }
+
+export function startSessionsAutonomy(): "auto" | "suggest" | "manual" {
+  const config = loadConfigSync();
+  const mag = config.mag as Record<string, unknown> | undefined;
+  const levels = mag?.autonomy_level as Record<string, unknown> | undefined;
+  const val = levels?.start_sessions;
+  if (val === "auto") return "auto";
+  if (val === "suggest") return "suggest";
+  return "manual";
+}

@@ -15,9 +15,6 @@ This skill is invoked when:
 
 ## Process
 
-0. **Check inbox**: Run `ludics mag inbox` to see any pending messages.
-   Factor any messages into task suggestions and priority reasoning.
-
 1. **Analyze flow state**:
    ```bash
    ludics flow ready      # Get ready tasks

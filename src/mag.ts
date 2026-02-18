@@ -2,8 +2,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from "fs";
 import { join } from "path";
-import { harnessDir, loadConfigSync } from "./config.ts";
+import { harnessDir, loadConfigSync, startSessionsAutonomy, slotsFilePath } from "./config.ts";
 import { listStashes } from "./slots/preempt.ts";
+import { parseSlotBlocks, getTask, getProcess } from "./slots/markdown.ts";
 import { queueRequest, queuePop, queuePending } from "./queue.ts";
 import { getUrl } from "./network.ts";
 import { federationShouldRunMag } from "./federation.ts";
@@ -220,11 +221,22 @@ function queuePopSkill(): string | null {
       return "/ludics-sync-learnings";
     case "techdebt":
       return "/ludics-techdebt";
-    case "message":
-      return "/ludics-read-inbox";
+    case "message": {
+      const content = String(request.content ?? "");
+      if (!content) return "/ludics-read-inbox"; // fallback for legacy queue entries
+      return content; // send directly as user turn
+    }
     case "feedback-digest": {
       const repo = String(request.repo ?? "");
       return `/ludics-feedback-digest ${repo}`;
+    }
+    case "draft-proposal": {
+      const task = String(request.task ?? "");
+      return `/ludics-draft-proposal ${task}`;
+    }
+    case "split-task": {
+      const task = String(request.task ?? "");
+      return `/ludics-split-task ${task}`;
     }
     case "preempt": {
       const task = String(request.task ?? "");
@@ -354,6 +366,75 @@ ${journalOutput}
   console.error(`ludics: briefing context written to ${contextFile}`);
 }
 
+// --- Auto-queue proposals ---
+
+const PROPOSAL_THROTTLE_SECONDS = 1800; // 30 minutes between proposal queuing
+
+function proposalThrottleFile(): string {
+  return join(magStateDir(), "last-proposal-queue.epoch");
+}
+
+function proposalThrottled(): boolean {
+  const file = proposalThrottleFile();
+  if (!existsSync(file)) return false;
+  try {
+    const lastEpoch = parseInt(readFileSync(file, "utf-8").trim(), 10);
+    return (Math.floor(Date.now() / 1000) - lastEpoch) < PROPOSAL_THROTTLE_SECONDS;
+  } catch {
+    return false;
+  }
+}
+
+function maybeQueueProposals(): void {
+  if (startSessionsAutonomy() === "manual") return;
+  if (proposalThrottled()) return;
+
+  // Check if draft-proposal is already in queue
+  const qFile = join(harnessDir(), "mag", "queue.jsonl");
+  if (existsSync(qFile)) {
+    const qContent = readFileSync(qFile, "utf-8");
+    if (qContent.includes('"draft-proposal"')) return;
+  }
+
+  // Read slots to find tasks that are active but missing proposals
+  const sFile = slotsFilePath();
+  if (!existsSync(sFile)) return;
+
+  const blocks = parseSlotBlocks(readFileSync(sFile, "utf-8"));
+  const tasksDir = join(harnessDir(), "tasks");
+  if (!existsSync(tasksDir)) return;
+
+  const candidates: string[] = [];
+
+  for (const [, block] of blocks) {
+    if (candidates.length >= 2) break;
+    const process = getProcess(block).trim();
+    if (!process || process === "(empty)") continue;
+
+    const taskId = getTask(block).trim();
+    if (!taskId || taskId === "null") continue;
+
+    // Read task file — queue draft if it has no proposal yet
+    const taskFile = join(tasksDir, `${taskId}.md`);
+    if (!existsSync(taskFile)) continue;
+    const content = readFileSync(taskFile, "utf-8");
+    if (content.includes("\nproposal:")) continue;
+
+    candidates.push(taskId);
+  }
+
+  if (candidates.length === 0) return;
+
+  // Write throttle timestamp
+  mkdirSync(magStateDir(), { recursive: true });
+  writeFileSync(proposalThrottleFile(), String(Math.floor(Date.now() / 1000)));
+
+  for (const taskId of candidates) {
+    queueRequest("draft-proposal", `"task":"${taskId}"`);
+    console.error(`ludics: auto-queued draft-proposal for ${taskId}`);
+  }
+}
+
 // --- Mag CLI commands ---
 
 export function magStart(args: string[]): void {
@@ -382,6 +463,9 @@ export function magStart(args: string[]): void {
 
     // Publish terminal state to ntfy (dedup'd)
     publishTerminalState();
+
+    // Auto-queue proposals for elaborated leaf tasks
+    maybeQueueProposals();
 
     // Nudge if queue has items, but throttle to avoid spamming
     if (queuePending() && !nudgeThrottled()) {
@@ -747,18 +831,8 @@ export function magBriefing(wait: boolean = true, timeout: number = 300): void {
 }
 
 function magMessage(text: string): void {
-  const inboxFile = join(harnessDir(), "mag", "inbox.md");
-  mkdirSync(join(harnessDir(), "mag"), { recursive: true });
-
-  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  const entry = `\n## Message - ${timestamp}\n\n${text}\n`;
-
-  const existing = existsSync(inboxFile) ? readFileSync(inboxFile, "utf-8") : "# Mag Inbox\n";
-  writeFileSync(inboxFile, existing + entry);
-
-  // Queue a message action
-  queueRequest("message");
-  console.log("Message sent to Mag inbox");
+  queueRequest("message", `"content":${JSON.stringify(text)}`);
+  console.log("Message queued for Mag");
 }
 
 function magInbox(consume: boolean = false): void {
@@ -851,6 +925,20 @@ export async function runMag(args: string[]): Promise<void> {
     case "context":
       magContext();
       break;
+    case "draft-proposal": {
+      const taskId = args[1];
+      if (!taskId) throw new Error("task id required");
+      queueRequest("draft-proposal", `"task":"${taskId}"`);
+      console.log(`Queued draft-proposal request for ${taskId}`);
+      break;
+    }
+    case "split-task": {
+      const taskId = args[1];
+      if (!taskId) throw new Error("task id required");
+      queueRequest("split-task", `"task":"${taskId}"`);
+      console.log(`Queued split-task request for ${taskId}`);
+      break;
+    }
     case "feedback-digest": {
       const repo = args[1];
       if (!repo) throw new Error("repo required (e.g., owner/repo)");
@@ -875,6 +963,6 @@ export async function runMag(args: string[]): Promise<void> {
       break;
     }
     default:
-      throw new Error(`unknown mag command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, health-check, message, inbox, queue, queue-pop, context, feedback-digest)`);
+      throw new Error(`unknown mag command: ${sub} (use: start, stop, status, attach, logs, doctor, briefing, suggest, analyze, elaborate, draft-proposal, split-task, health-check, message, inbox, queue, queue-pop, context, feedback-digest)`);
   }
 }

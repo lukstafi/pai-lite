@@ -83,6 +83,58 @@ export function notifyAgents(message: string, priority: number = 3, title: strin
   notifySend(topic, message, priority, title, "gear");
 }
 
+export function notifyProposal(
+  taskId: string,
+  title: string,
+  summary: string,
+  filePath: string,
+): void {
+  const outTopic = getTopic("outgoing");
+  const inTopic = getTopic("incoming");
+  notifyLog("outgoing", `Proposal for ${taskId}: ${title}`, 3, "proposal");
+
+  if (!outTopic) {
+    console.error("ludics: outgoing topic not configured, logging locally only");
+    return;
+  }
+
+  const token = getToken();
+  const project = taskId.split("-").slice(0, -1).join("-") || "unknown";
+
+  // Build action buttons (ntfy Actions header)
+  const actions: string[] = [];
+  if (inTopic) {
+    const authHeader = token ? `, headers.Authorization=Bearer ${token}` : "";
+    actions.push(
+      `http, agent-duo, https://ntfy.sh/${inTopic}, body=Launch agent-duo for ${taskId} in project ${project}, method=POST${authHeader}`,
+      `http, pair-codex, https://ntfy.sh/${inTopic}, body=Launch agent-pair-codex for ${taskId} in project ${project}, method=POST${authHeader}`,
+      `http, pair-claude, https://ntfy.sh/${inTopic}, body=Launch agent-pair-claude for ${taskId} in project ${project}, method=POST${authHeader}`,
+      `http, I'll do it, https://ntfy.sh/${inTopic}, body=User will handle ${taskId} manually, method=POST${authHeader}`,
+    );
+  }
+
+  // Build curl command with file attachment
+  const curlArgs = [
+    "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+    "-T", filePath,
+    "-H", `Title: Proposal: ${title}`,
+    "-H", `Priority: 3`,
+    "-H", `Tags: memo,${taskId}`,
+    "-H", `Filename: proposal.md`,
+  ];
+  if (token) curlArgs.push("-H", `Authorization: Bearer ${token}`);
+  if (actions.length > 0) curlArgs.push("-H", `Actions: ${actions.join("; ")}`);
+  curlArgs.push(`https://ntfy.sh/${outTopic}`);
+
+  const result = Bun.spawnSync(curlArgs, { stdout: "pipe", stderr: "pipe" });
+  const httpCode = result.stdout.toString().trim();
+  if (httpCode !== "200") {
+    console.error(`ludics: ntfy.sh proposal notification failed (HTTP ${httpCode}), logged locally`);
+    // Fallback: send summary as plain text
+    notifySend(outTopic, `Proposal for ${taskId}: ${summary}`, 3, `Proposal: ${title}`, "memo");
+  }
+}
+
 export function notifyRecent(count: number = 10): void {
   const logFile = notificationLogFile();
   if (!existsSync(logFile)) {
@@ -193,9 +245,9 @@ export async function subscribeIncoming(): Promise<void> {
             if (data.event === "message" && data.message) {
               console.log(`ludics: received message [${data.id}]: ${data.message.slice(0, 80)}`);
 
-              // Append to inbox and queue for Mag
-              appendToInbox(data.message, data.title);
-              queueRequest("message");
+              // Direct queue injection — message content goes into the queue entry
+              const escaped = JSON.stringify(data.message);
+              queueRequest("message", `"content":${escaped}`);
 
               // Log to journal
               notifyLog("incoming", data.message, 3, data.title || "ntfy incoming");

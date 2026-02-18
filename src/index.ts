@@ -110,6 +110,8 @@ Commands:
   mag suggest                  Get task suggestions
   mag analyze <issue>          Analyze GitHub issue
   mag elaborate <id>           Elaborate task into detailed spec
+  mag draft-proposal <id>     Generate proposal document for task
+  mag split-task <id>          Split multi-concern task into subtasks
   mag health-check             Check for stalled work, deadlines
   mag message "text"           Send async message to Mag
   mag inbox                    Show and consume pending messages
