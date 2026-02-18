@@ -74,9 +74,26 @@ This skill is invoked when:
    - Do not create local task files for these — `ludics tasks sync` will convert
      the GitHub issues to tasks automatically
 
-7. **Propose CLAUDE.md updates** (if broad patterns detected):
-   - Output suggestions for codebase-wide instructions
-   - Do not auto-update CLAUDE.md
+7. **Stage CLAUDE.md proposals** (if broad patterns detected):
+   - Append entries to `$LUDICS_STATE_PATH/AGENTS_STAGING.md`
+   - Create the file if it doesn't exist:
+     ```markdown
+     # Agent Learnings (Staging)
+
+     This file collects agent-discovered learnings for later curation into CLAUDE.md.
+     ```
+   - Each entry uses HTML comment markers for structure:
+     ```markdown
+     <!-- Entry: sync-learnings | YYYY-MM-DD -->
+     ### <short title>
+
+     <what was learned and proposed CLAUDE.md change>
+
+     **Target**: <which project's CLAUDE.md this applies to>
+
+     <!-- End entry -->
+     ```
+   - Do not modify CLAUDE.md directly — the human curates from staging
 
 ## Output Format
 
@@ -103,8 +120,8 @@ This skill is invoked when:
 ## Archived
 - Moved N processed corrections to corrections-archive.md
 
-## Suggested CLAUDE.md Updates
-[If broad patterns detected, suggest additions - do not auto-update]
+## Staged CLAUDE.md Proposals
+- N entries appended to AGENTS_STAGING.md
 ```
 
 ### Result JSON
