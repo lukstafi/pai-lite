@@ -26,7 +26,7 @@ This skill is invoked when:
 2. **Identify code smells**:
    - TODO/FIXME comments added recently
    - Duplicated code blocks (>80% similarity)
-   - Unused imports or dead code
+   - Dead code (unreachable paths, unused functions)
    - Copy-pasted patterns that could be consolidated
    - Long functions (>100 lines) added
 
@@ -40,9 +40,56 @@ This skill is invoked when:
    - Include file locations
    - Suggest consolidation approaches
 
-5. **Optionally create task files**:
-   - For high-cost items, create C-priority tasks
-   - Include in next week's ready queue
+5. **Decide per item: GitHub issue, comment on existing issue, or local task**:
+
+   - **File a new GitHub issue** when the item is a new concern that deserves its own
+     visibility — bugs, architectural problems, missing features, significant duplication
+     patterns, design decisions worth discussing. Issues filed to watched repos will be
+     pulled back as tasks automatically by `ludics tasks sync`.
+   - **Comment on an existing issue** when the item is a refinement of work already tracked —
+     fits into a pre-existing issue, belongs to an already-tracked development path, or is
+     an incremental improvement on work-in-progress. Add the finding as a comment rather
+     than creating noise with a new issue. If the item is independently actionable, also
+     create a local task file with `subtask_of: <issue-task-id>` (if it's a piece of that
+     issue's work) or `relates_to: <issue-task-id>` (if it's adjacent).
+   - **Create a local task file** (C-priority) only for items that don't belong in any issue
+     tracker — quick cleanups that can just be done when a slot is free.
+
+   For GitHub issues:
+   - Use the project's repo from the config
+   - Ensure the label exists:
+     ```bash
+     gh label create techdebt -R <repo> --description "Technical debt identified by Mag" --color "e4e669" 2>/dev/null || true
+     ```
+   - Fetch existing open issues to deduplicate:
+     ```bash
+     gh issue list -R <repo> --label techdebt --state open --json number,title,body --limit 100
+     ```
+   - For each item, compare against existing issues:
+     - **New**: No existing issue covers this → create issue
+     - **Overlaps**: Existing issue covers related ground → add comment with new data
+     - **Duplicate**: Already captured → skip
+   - Create issues:
+     ```bash
+     gh issue create -R <repo> --title "<short description>" --label techdebt --body "<body>"
+     ```
+     Issue body format:
+     ```markdown
+     ## Description
+     <what's wrong and where>
+
+     ## Files
+     <file paths with line ranges>
+
+     ## Suggestion
+     <how to fix>
+
+     ## Severity
+     <High/Medium with rationale>
+
+     ---
+     *Filed by ludics-techdebt*
+     ```
 
 ## Output Format
 
@@ -91,7 +138,10 @@ This skill is invoked when:
   "high": N,
   "medium": N,
   "low": N,
-  "tasks_created": [...]
+  "tasks_created": [...],
+  "issues_created": N,
+  "issues_updated": N,
+  "issues_skipped": N
 }
 ```
 
@@ -106,4 +156,9 @@ This skill is invoked when:
 If high-priority items found:
 ```bash
 ludics notify outgoing "Tech debt review: 3 high-priority items found" 3 "Weekly Review"
+```
+
+If issues were filed:
+```bash
+ludics notify outgoing "Filed N techdebt issues (M repos)" 3 "Tech Debt"
 ```

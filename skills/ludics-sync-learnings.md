@@ -40,7 +40,41 @@ This skill is invoked when:
    - Move entries to `corrections-archive.md`
    - Keep corrections.md for recent items only
 
-6. **Propose CLAUDE.md updates** (if broad patterns detected):
+6. **File GitHub issues for harness bugs/improvements**:
+   - When corrections reveal a pattern about the ludics harness itself (race conditions,
+     missing error handling, architectural issues, missing features), file an issue
+   - Ensure the label exists:
+     ```bash
+     gh label create harness-improvement -R lukstafi/ludics --description "Improvement identified from operational learnings" --color "a2eeef" 2>/dev/null || true
+     ```
+   - Deduplicate against existing open issues:
+     ```bash
+     gh issue list -R lukstafi/ludics --label harness-improvement --state open --json number,title,body --limit 100
+     ```
+   - Create issues for new patterns:
+     ```bash
+     gh issue create -R lukstafi/ludics --title "<pattern summary>" --label harness-improvement --body "<body>"
+     ```
+     Issue body format:
+     ```markdown
+     ## Pattern
+     <what was observed across multiple corrections>
+
+     ## Evidence
+     - <correction 1 summary> (<date>)
+     - <correction 2 summary> (<date>)
+
+     ## Suggested Fix
+     <actionable suggestion based on accumulated evidence>
+
+     ---
+     *Filed by ludics-sync-learnings from N corrections*
+     ```
+   - Add comments to existing issues if new corrections add evidence
+   - Do not create local task files for these — `ludics tasks sync` will convert
+     the GitHub issues to tasks automatically
+
+7. **Propose CLAUDE.md updates** (if broad patterns detected):
    - Output suggestions for codebase-wide instructions
    - Do not auto-update CLAUDE.md
 
@@ -86,7 +120,9 @@ This skill is invoked when:
     "workflows.md": N,
     "projects/[project].md": N
   },
-  "archived": N
+  "archived": N,
+  "issues_created": N,
+  "issues_updated": N
 }
 ```
 
