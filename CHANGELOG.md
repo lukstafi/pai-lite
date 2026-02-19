@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.3.0 — 2026-02-19
+
+Checkpoint release. Full rewrite from Bash to TypeScript, project rename, and a wave of Mag autonomy features. Not a stability milestone — a snapshot of fast-moving work.
+
+### Breaking changes
+
+- **TypeScript rewrite** — The entire codebase is now TypeScript on Bun, compiled to a standalone binary via `bun build --compile`. All legacy `lib/*.sh` scripts are deleted. The CLI interface is unchanged but internals are completely new.
+- **Project rename** — "pai-lite" is now "Ludics"; "Mayor" is now "Mag". Config paths, launchd plists, systemd units, and template directories all reflect the new names.
+
+### New features
+
+- **Priority project preemption** — Slots support stash/restore: a high-priority project can preempt an occupied slot, and the previous work is restored when done.
+- **Proactive Mag** — Direct queue injection for incoming messages (bypasses inbox file), feedback-digest action for agent-duo workflow, and auto-queued draft proposals for slot tasks missing them on keepalive.
+- **Draft proposals and split-task** — New `ludics-draft-proposal` skill generates Why/What documents for tasks and notifies via ntfy with mobile action buttons. Multi-concern tasks bail out to `ludics-split-task`, which decomposes and reassigns the parent's slot to the first subtask. CLI: `mag draft-proposal`, `mag split-task`.
+- **CLAUDE.md proposal staging** — Agent corrections and CLAUDE.md improvement proposals are appended to `AGENTS_STAGING.md` in the state repo (with per-entry project markers) instead of being lost in ephemeral sync reports. Human curates from staging.
+- **Bidirectional ntfy.sh** — Incoming message subscriber enables two-way communication (not just outbound notifications).
+- **Task .md as source of truth** — `tasks list` and `tasks show` read directly from Markdown files instead of the YAML intermediary.
+- **Enriched task metadata** — `modified` timestamp, `relates_to`/`subtask_of` relationships, automatic `blocked_by` pruning of resolved deps.
+- **Config schema validation** — Config keys are validated against a reference schema to catch typos early.
+- **Dashboard improvements** — Viewport-filling slot grid, project status overview, scrollable task markdown content in slot tiles.
+- **Mag terminal state publishing** — Keepalive publishes Mag terminal state to ntfy for remote visibility.
+- **Mag keepalive speedup** — Interval reduced to 1 minute with throttled nudges to avoid noise.
+- **Inbox archive-on-consume** — Inbox messages are archived when read, not left in place.
+- **Mag files GitHub issues** — Mag can autonomously file GitHub issues for harness bugs and tech debt.
+- **Adapter plumbing** — `uses_browser` and `adapter_args` fields; solo adapter migrated to pair adapters; agent-duo `modeFilter`.
+- **`ludics quote`** — Girard quotes collection, because why not.
+
+### Fixes
+
+- Fixed missing `LUDICS_*` env vars for Mag skill sessions.
+- Fixed repeated preemption queuing race condition.
+- Fixed `slot_get_field` awk regex and stale session index fallback.
+- Skip merged/done/abandoned tasks in needs-elaboration check.
+- Reworked Claude Code session discovery: JSONL-primary with index as metadata cache.
+
+### Removals
+
+- **Stalled work detection removed** from `flow critical` and skills — was producing more noise than signal.
+- **Legacy Bash scripts deleted** — all `lib/*.sh` files removed after TypeScript migration.
+
+---
+
 ## v0.2.0 — 2026-02-11
 
 Second release. Focus on robustness, better Mag workflows, and task management improvements.
