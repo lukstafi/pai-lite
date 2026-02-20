@@ -106,12 +106,45 @@ interface ReadyTask {
   deadline: string | null;
 }
 
-function generateReady(): ReadyTask[] {
+interface DashboardTask {
+  id: string;
+  title: string;
+  project: string;
+  status: string;
+  priority: string;
+  context: string;
+  deadline: string | null;
+  url: string | null;
+  dependencies: {
+    blocks: string[];
+    blocked_by: string[];
+    subtask_of: string | null;
+  };
+}
+
+interface TasksTreeNode {
+  kind: "project" | "task";
+  id: string;
+  title: string;
+  link: string | null;
+  priority: string | null;
+  status: string | null;
+  children: TasksTreeNode[];
+}
+
+function priorityValue(priority: string): number {
+  if (priority === "A") return 1;
+  if (priority === "B") return 2;
+  if (priority === "C") return 3;
+  return 9;
+}
+
+function readDashboardTasks(): DashboardTask[] {
   const tasksDir = join(harnessDir(), "tasks");
   if (!existsSync(tasksDir)) return [];
 
   const files = readdirSync(tasksDir).filter((f: string) => f.endsWith(".md"));
-  const tasks: ReadyTask[] = [];
+  const tasks: DashboardTask[] = [];
 
   for (const f of files) {
     const content = readFileSync(join(tasksDir, f), "utf-8");
@@ -121,32 +154,165 @@ function generateReady(): ReadyTask[] {
     try {
       const data = YAML.parse(fmMatch[1]!) as Record<string, unknown>;
       const deps = (data.dependencies as Record<string, unknown>) ?? {};
-      const blockedBy = Array.isArray(deps.blocked_by) ? deps.blocked_by : [];
-
-      if (data.status === "ready" && blockedBy.length === 0) {
-        tasks.push({
-          id: String(data.id ?? ""),
-          title: String(data.title ?? ""),
-          priority: String(data.priority ?? "B"),
-          project: String(data.project ?? ""),
-          context: String(data.context ?? ""),
-          deadline: data.deadline ? String(data.deadline) : null,
-        });
-      }
+      const id = String(data.id ?? "");
+      if (!id) continue;
+      tasks.push({
+        id,
+        title: String(data.title ?? ""),
+        status: String(data.status ?? "ready"),
+        priority: String(data.priority ?? "B"),
+        project: String(data.project ?? ""),
+        context: String(data.context ?? ""),
+        deadline: data.deadline ? String(data.deadline) : null,
+        url: data.url ? String(data.url) : null,
+        dependencies: {
+          blocks: Array.isArray(deps.blocks) ? (deps.blocks as string[]) : [],
+          blocked_by: Array.isArray(deps.blocked_by) ? (deps.blocked_by as string[]) : [],
+          subtask_of: deps.subtask_of ? String(deps.subtask_of) : null,
+        },
+      });
     } catch {
       // skip
     }
   }
 
-  // Sort by priority then deadline
-  const pv = (p: string) => (p === "A" ? 1 : p === "B" ? 2 : p === "C" ? 3 : 9);
-  tasks.sort((a, b) => {
-    const pd = pv(a.priority) - pv(b.priority);
+  return tasks;
+}
+
+function generateReady(tasks: DashboardTask[]): ReadyTask[] {
+  const ready: ReadyTask[] = tasks
+    .filter((task) => task.status === "ready" && task.dependencies.blocked_by.length === 0)
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      priority: task.priority,
+      project: task.project,
+      context: task.context,
+      deadline: task.deadline,
+    }));
+
+  ready.sort((a, b) => {
+    const pd = priorityValue(a.priority) - priorityValue(b.priority);
     if (pd !== 0) return pd;
     return (a.deadline ?? "9999-99-99").localeCompare(b.deadline ?? "9999-99-99");
   });
 
-  return tasks;
+  return ready;
+}
+
+function generateTasksTree(tasks: DashboardTask[]): TasksTreeNode[] {
+  if (tasks.length === 0) return [];
+
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const childrenByTask = new Map<string, Set<string>>();
+  const parentsByTask = new Map<string, Set<string>>();
+  const projectByTask = new Map<string, string>();
+
+  function taskProject(task: DashboardTask): string {
+    const project = task.project.trim();
+    return project ? project : "(no project)";
+  }
+
+  function addEdge(parentId: string, childId: string): void {
+    if (parentId === childId) return;
+    if (!taskById.has(parentId) || !taskById.has(childId)) return;
+    const children = childrenByTask.get(parentId) ?? new Set<string>();
+    children.add(childId);
+    childrenByTask.set(parentId, children);
+
+    const parents = parentsByTask.get(childId) ?? new Set<string>();
+    parents.add(parentId);
+    parentsByTask.set(childId, parents);
+  }
+
+  for (const task of tasks) {
+    projectByTask.set(task.id, taskProject(task));
+  }
+
+  for (const task of tasks) {
+    if (task.dependencies.subtask_of) addEdge(task.dependencies.subtask_of, task.id);
+    for (const childId of task.dependencies.blocks) addEdge(task.id, childId);
+    for (const parentId of task.dependencies.blocked_by) addEdge(parentId, task.id);
+  }
+
+  function compareTaskIds(aId: string, bId: string): number {
+    const a = taskById.get(aId);
+    const b = taskById.get(bId);
+    if (!a || !b) return aId.localeCompare(bId);
+    const prioDiff = priorityValue(a.priority) - priorityValue(b.priority);
+    if (prioDiff !== 0) return prioDiff;
+    const titleDiff = a.title.localeCompare(b.title);
+    if (titleDiff !== 0) return titleDiff;
+    return a.id.localeCompare(b.id);
+  }
+
+  function buildTaskNode(taskId: string, path: Set<string>, depth: number): TasksTreeNode {
+    const task = taskById.get(taskId);
+    if (!task) {
+      return {
+        kind: "task",
+        id: taskId,
+        title: taskId,
+        link: null,
+        priority: null,
+        status: null,
+        children: [],
+      };
+    }
+
+    const nextPath = new Set(path);
+    nextPath.add(taskId);
+    const childIds = Array.from(childrenByTask.get(taskId) ?? [])
+      .filter((childId) => !nextPath.has(childId))
+      .sort(compareTaskIds);
+    const children = depth >= 64
+      ? []
+      : childIds.map((childId) => buildTaskNode(childId, nextPath, depth + 1));
+
+    return {
+      kind: "task",
+      id: task.id,
+      title: task.title || task.id,
+      link: task.url ?? `/task-files/${encodeURIComponent(task.id)}.md`,
+      priority: task.priority,
+      status: task.status,
+      children,
+    };
+  }
+
+  const tasksByProject = new Map<string, string[]>();
+  for (const task of tasks) {
+    const project = projectByTask.get(task.id) ?? "(no project)";
+    const ids = tasksByProject.get(project) ?? [];
+    ids.push(task.id);
+    tasksByProject.set(project, ids);
+  }
+
+  const projectNames = Array.from(tasksByProject.keys()).sort((a, b) => a.localeCompare(b));
+  const forest: TasksTreeNode[] = [];
+
+  for (const project of projectNames) {
+    const ids = tasksByProject.get(project) ?? [];
+    let rootIds = ids.filter((id) => {
+      const parents = Array.from(parentsByTask.get(id) ?? []);
+      return !parents.some((parentId) => (projectByTask.get(parentId) ?? "(no project)") === project);
+    });
+
+    if (rootIds.length === 0) rootIds = ids;
+    rootIds.sort(compareTaskIds);
+
+    forest.push({
+      kind: "project",
+      id: `project:${project}`,
+      title: project,
+      link: null,
+      priority: null,
+      status: null,
+      children: rootIds.map((id) => buildTaskNode(id, new Set<string>(), 0)),
+    });
+  }
+
+  return forest;
 }
 
 // --- Generate notifications.json ---
@@ -240,14 +406,18 @@ function generateBriefing(): Record<string, unknown> {
 export function dashboardGenerate(): void {
   const dataDir = dashboardDataDir();
   mkdirSync(dataDir, { recursive: true });
+  const tasks = readDashboardTasks();
 
   console.error("ludics: generating dashboard data...");
 
   writeFileSync(join(dataDir, "slots.json"), JSON.stringify(generateSlots(), null, 2));
   console.error("  slots.json");
 
-  writeFileSync(join(dataDir, "ready.json"), JSON.stringify(generateReady(), null, 2));
+  writeFileSync(join(dataDir, "ready.json"), JSON.stringify(generateReady(tasks), null, 2));
   console.error("  ready.json");
+
+  writeFileSync(join(dataDir, "tasks-tree.json"), JSON.stringify(generateTasksTree(tasks), null, 2));
+  console.error("  tasks-tree.json");
 
   writeFileSync(join(dataDir, "notifications.json"), JSON.stringify(generateNotifications(), null, 2));
   console.error("  notifications.json");
