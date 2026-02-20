@@ -114,7 +114,11 @@ interface DashboardTask {
   priority: string;
   context: string;
   deadline: string | null;
+  completed: string | null;
+  isCompleted: boolean;
   url: string | null;
+  hasProposal: boolean;
+  proposalPath: string | null;
   dependencies: {
     blocks: string[];
     blocked_by: string[];
@@ -127,8 +131,11 @@ interface TasksTreeNode {
   id: string;
   title: string;
   link: string | null;
+  proposalLink: string | null;
   priority: string | null;
   status: string | null;
+  hasProposal: boolean;
+  highlighted: boolean;
   children: TasksTreeNode[];
 }
 
@@ -137,6 +144,24 @@ function priorityValue(priority: string): number {
   if (priority === "B") return 2;
   if (priority === "C") return 3;
   return 9;
+}
+
+function hasNonNullProposal(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized !== "" && normalized !== "null";
+  }
+  return true;
+}
+
+function isNonNullValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized !== "" && normalized !== "null";
+  }
+  return true;
 }
 
 function readDashboardTasks(): DashboardTask[] {
@@ -164,7 +189,11 @@ function readDashboardTasks(): DashboardTask[] {
         project: String(data.project ?? ""),
         context: String(data.context ?? ""),
         deadline: data.deadline ? String(data.deadline) : null,
+        completed: isNonNullValue(data.completed) ? String(data.completed) : null,
+        isCompleted: isNonNullValue(data.completed),
         url: data.url ? String(data.url) : null,
+        hasProposal: hasNonNullProposal(data.proposal),
+        proposalPath: isNonNullValue(data.proposal) ? String(data.proposal).trim() : null,
         dependencies: {
           blocks: Array.isArray(deps.blocks) ? (deps.blocks as string[]) : [],
           blocked_by: Array.isArray(deps.blocked_by) ? (deps.blocked_by as string[]) : [],
@@ -246,18 +275,29 @@ function generateTasksTree(tasks: DashboardTask[]): TasksTreeNode[] {
     return a.id.localeCompare(b.id);
   }
 
-  function buildTaskNode(taskId: string, path: Set<string>, depth: number): TasksTreeNode {
-    const task = taskById.get(taskId);
-    if (!task) {
+  function buildTaskNode(
+    taskId: string,
+    path: Set<string>,
+    depth: number,
+  ): { node: TasksTreeNode; subtreeHasActiveProposal: boolean } {
+    function fallbackNode(id: string): TasksTreeNode {
       return {
         kind: "task",
-        id: taskId,
-        title: taskId,
+        id,
+        title: id,
         link: null,
+        proposalLink: null,
         priority: null,
         status: null,
+        hasProposal: false,
+        highlighted: false,
         children: [],
       };
+    }
+
+    const task = taskById.get(taskId);
+    if (!task) {
+      return { node: fallbackNode(taskId), subtreeHasActiveProposal: false };
     }
 
     const nextPath = new Set(path);
@@ -265,18 +305,31 @@ function generateTasksTree(tasks: DashboardTask[]): TasksTreeNode[] {
     const childIds = Array.from(childrenByTask.get(taskId) ?? [])
       .filter((childId) => !nextPath.has(childId))
       .sort(compareTaskIds);
-    const children = depth >= 64
+    const childResults = depth >= 64
       ? []
       : childIds.map((childId) => buildTaskNode(childId, nextPath, depth + 1));
+    const children = childResults.map((child) => child.node);
+    const descendantHasActiveProposal = childResults.some((child) => child.subtreeHasActiveProposal);
+    const hasActiveProposal = task.hasProposal && !task.isCompleted;
+    const subtreeHasActiveProposal = hasActiveProposal || descendantHasActiveProposal;
+    const highlighted = !task.isCompleted && subtreeHasActiveProposal;
+    const taskFileLink = `/task-files/${encodeURIComponent(task.id)}.md`;
+    const proposalLink = task.proposalPath ? `/proposal-files/${encodeURIComponent(task.id)}.md` : null;
 
     return {
-      kind: "task",
-      id: task.id,
-      title: task.title || task.id,
-      link: task.url ?? `/task-files/${encodeURIComponent(task.id)}.md`,
-      priority: task.priority,
-      status: task.status,
-      children,
+      node: {
+        kind: "task",
+        id: task.id,
+        title: task.title || task.id,
+        link: taskFileLink,
+        proposalLink,
+        priority: task.priority,
+        status: task.status,
+        hasProposal: hasActiveProposal,
+        highlighted,
+        children,
+      },
+      subtreeHasActiveProposal,
     };
   }
 
@@ -301,15 +354,20 @@ function generateTasksTree(tasks: DashboardTask[]): TasksTreeNode[] {
     if (rootIds.length === 0) rootIds = ids;
     rootIds.sort(compareTaskIds);
 
-    forest.push({
+    const childResults = rootIds.map((id) => buildTaskNode(id, new Set<string>(), 0));
+    const projectNode: TasksTreeNode = {
       kind: "project",
       id: `project:${project}`,
       title: project,
       link: null,
+      proposalLink: null,
       priority: null,
       status: null,
-      children: rootIds.map((id) => buildTaskNode(id, new Set<string>(), 0)),
-    });
+      hasProposal: false,
+      highlighted: childResults.some((child) => child.subtreeHasActiveProposal),
+      children: childResults.map((child) => child.node),
+    };
+    forest.push(projectNode);
   }
 
   return forest;

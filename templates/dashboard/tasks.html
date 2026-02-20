@@ -42,6 +42,10 @@
             overflow: hidden;
         }
 
+        .tree-node.highlighted {
+            border-color: var(--accent);
+        }
+
         .tree-node > summary {
             cursor: pointer;
             list-style: none;
@@ -73,6 +77,15 @@
 
         .tree-node.task > summary {
             background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .tree-node.highlighted > summary {
+            background-color: rgba(233, 69, 96, 0.08);
+        }
+
+        .tree-node.has-proposal > summary {
+            background-color: rgba(233, 69, 96, 0.2);
+            color: #fff;
         }
 
         .node-body {
@@ -208,6 +221,8 @@
             const nodeKey = `${parentKey}/${node.kind || 'task'}:${node.id || '(no-id)'}:${index}`;
             const details = document.createElement('details');
             details.className = `tree-node ${node.kind || 'task'}`;
+            if (node.highlighted) details.classList.add('highlighted');
+            if (node.hasProposal) details.classList.add('has-proposal');
             details.dataset.nodeKey = nodeKey;
             if (openNodeKeys.has(nodeKey) || (!hasRendered && depth === 0)) details.open = true;
 
@@ -222,12 +237,21 @@
                 const row = document.createElement('p');
                 row.className = 'task-link-row';
 
-                const link = document.createElement('a');
-                link.textContent = node.id || '(no id)';
-                link.href = node.link || '#';
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                row.appendChild(link);
+                const taskLink = document.createElement('a');
+                taskLink.textContent = node.id || '(no id)';
+                taskLink.href = node.link || '#';
+                taskLink.target = '_blank';
+                taskLink.rel = 'noopener noreferrer';
+                row.appendChild(taskLink);
+
+                if (node.proposalLink) {
+                    const proposalLink = document.createElement('a');
+                    proposalLink.textContent = 'proposal';
+                    proposalLink.href = node.proposalLink;
+                    proposalLink.target = '_blank';
+                    proposalLink.rel = 'noopener noreferrer';
+                    row.appendChild(proposalLink);
+                }
 
                 if (node.priority) {
                     const priority = document.createElement('span');
@@ -241,6 +265,13 @@
                     status.className = 'task-badge';
                     status.textContent = node.status;
                     row.appendChild(status);
+                }
+
+                if (node.hasProposal) {
+                    const proposal = document.createElement('span');
+                    proposal.className = 'task-badge';
+                    proposal.textContent = 'proposal';
+                    row.appendChild(proposal);
                 }
 
                 body.appendChild(row);

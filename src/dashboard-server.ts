@@ -5,7 +5,9 @@
 
 import { existsSync, readFileSync, statSync } from "fs";
 import { resolve, extname } from "path";
+import YAML from "yaml";
 import { dashboardGenerate } from "./dashboard.ts";
+import { loadConfigSync } from "./config.ts";
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
@@ -26,7 +28,88 @@ export function startDashboardServer(
   // Normalize to absolute path with trailing separator for safe startsWith checks
   const resolvedRoot = resolve(dashboardDir) + "/";
   const tasksRoot = resolve(dashboardDir, "..", "tasks") + "/";
+  const homeRoot = resolve(process.env.HOME ?? "~") + "/";
   let lastGenerated = 0;
+
+  function isSafeRegularFile(path: string): boolean {
+    return path.startsWith(homeRoot) && existsSync(path) && !statSync(path).isDirectory();
+  }
+
+  function parseTaskFrontmatter(taskFilePath: string): { project: string; proposal: string | null } | null {
+    try {
+      const content = readFileSync(taskFilePath, "utf-8");
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (!fmMatch) return null;
+      const data = (YAML.parse(fmMatch[1]!) ?? {}) as Record<string, unknown>;
+      const rawProject = String(data.project ?? "").trim();
+      const rawProposal = String(data.proposal ?? "").trim();
+      const proposal = rawProposal && rawProposal.toLowerCase() !== "null" ? rawProposal : null;
+      return { project: rawProject, proposal };
+    } catch {
+      return null;
+    }
+  }
+
+  function candidateProjectDirs(project: string): string[] {
+    const dirs = new Set<string>();
+    const trimmed = project.trim();
+    if (trimmed) {
+      dirs.add(trimmed);
+      dirs.add(trimmed.toLowerCase());
+    }
+
+    try {
+      const config = loadConfigSync();
+      const projects = config.projects ?? [];
+      for (const p of projects) {
+        const repoTail = String(p.repo ?? "").split("/").pop() ?? "";
+        const name = String(p.name ?? "");
+        if (
+          trimmed &&
+          trimmed.toLowerCase() !== name.toLowerCase() &&
+          trimmed.toLowerCase() !== repoTail.toLowerCase()
+        ) {
+          continue;
+        }
+        if (repoTail) dirs.add(repoTail);
+      }
+    } catch {
+      // ignore
+    }
+
+    return Array.from(dirs);
+  }
+
+  function resolveProposalFile(taskId: string): string | null {
+    const taskFilePath = resolve(tasksRoot, `${taskId}.md`);
+    if (!taskFilePath.startsWith(tasksRoot) || !existsSync(taskFilePath) || statSync(taskFilePath).isDirectory()) {
+      return null;
+    }
+
+    const parsed = parseTaskFrontmatter(taskFilePath);
+    if (!parsed || !parsed.proposal) return null;
+
+    const normalizedProposal = parsed.proposal.startsWith("~/")
+      ? resolve(process.env.HOME ?? "~", parsed.proposal.slice(2))
+      : parsed.proposal;
+
+    if (normalizedProposal.startsWith("/")) {
+      const abs = resolve(normalizedProposal);
+      return isSafeRegularFile(abs) ? abs : null;
+    }
+
+    const candidates: string[] = [];
+    for (const dir of candidateProjectDirs(parsed.project)) {
+      candidates.push(resolve(process.env.HOME ?? "~", dir, normalizedProposal));
+    }
+    candidates.push(resolve(process.env.HOME ?? "~", normalizedProposal));
+
+    for (const candidate of candidates) {
+      if (isSafeRegularFile(candidate)) return candidate;
+    }
+
+    return null;
+  }
 
   function maybeRegenerate(): void {
     const now = Math.floor(Date.now() / 1000);
@@ -72,6 +155,25 @@ export function startDashboardServer(
         const body = readFileSync(taskFilePath);
         return new Response(body, {
           headers: { "Content-Type": MIME_TYPES[".md"]! },
+        });
+      }
+
+      if (pathname.startsWith("/proposal-files/")) {
+        const proposalPath = pathname.slice("/proposal-files/".length);
+        const proposalMatch = proposalPath.match(/^([A-Za-z0-9._-]+)\.md$/);
+        if (!proposalMatch) {
+          return new Response("Bad Request", { status: 400 });
+        }
+
+        const proposalFilePath = resolveProposalFile(proposalMatch[1]!);
+        if (!proposalFilePath) {
+          return new Response("Not Found", { status: 404 });
+        }
+
+        const body = readFileSync(proposalFilePath);
+        const ext = extname(proposalFilePath);
+        return new Response(body, {
+          headers: { "Content-Type": MIME_TYPES[ext] ?? MIME_TYPES[".md"]! },
         });
       }
 
