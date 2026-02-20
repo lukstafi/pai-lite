@@ -30,18 +30,32 @@ This skill is invoked when:
    - Read `mag/queue.jsonl`
    - Flag if requests have been pending > 1h
 
-4. **Report task elaboration status**:
+4. **Detect deltas since previous health check**:
+   - Prefer git diff in state repo for scope awareness:
+     `git -C "$LUDICS_STATE_PATH" diff --name-only HEAD~1..HEAD -- tasks/ slots.md sessions.md mag/queue.jsonl journal/notifications.jsonl 2>/dev/null || true`
+   - Build stable issue keys for all findings (examples:
+     `deadline:<task-id>`, `slot-stale:<slot>`, `queue-stuck:<request-id>`)
+   - Read previous snapshot from `$LUDICS_STATE_PATH/mag/health-last.json` if it exists
+   - Mark each finding as `new`, `ongoing`, or `resolved`
+
+5. **Report task elaboration status**:
    - Run `ludics tasks needs-elaboration` to count unprocessed tasks
    - Note: Elaboration queueing is handled automatically by `tasks_queue_elaborations()` in `tasks_sync()` -- no need to enqueue here
 
-5. **Generate report**:
+6. **Generate report**:
    - Categorize issues by severity
+   - Explicitly call out `new` and `resolved` findings since last check
    - Include actionable recommendations
 
-6. **Send notifications** for critical issues:
+7. **Send notifications** for critical issues:
+   - Notify only on `new` critical issues or severity escalation (`warning` -> `critical`)
    ```bash
    ludics notify outgoing "Critical: task-042 deadline in 2 days" 5 "Health Check"
    ```
+
+8. **Persist snapshot**:
+   - Write current finding keys/severities/timestamp to
+     `$LUDICS_STATE_PATH/mag/health-last.json`
 
 ## Output Format
 

@@ -46,6 +46,19 @@ export function parseTaskFrontmatter(content: string): Partial<TaskFrontmatter> 
     source: String(data.source ?? ""),
     url: data.url ? String(data.url) : undefined,
     github_issue: data.github_issue ? Number(data.github_issue) : undefined,
+    github_title: data.github_title ? String(data.github_title) : undefined,
+    github_repo: data.github_repo ? String(data.github_repo) : undefined,
+    github_labels: data.github_labels ? String(data.github_labels) : undefined,
+    github_state: data.github_state ? String(data.github_state) : undefined,
+    github_state_reason: data.github_state !== undefined && data.github_state_reason === null
+      ? null
+      : (data.github_state_reason ? String(data.github_state_reason) : undefined),
+    github_updated_at: data.github_updated_at !== undefined && data.github_updated_at === null
+      ? null
+      : (data.github_updated_at ? String(data.github_updated_at) : undefined),
+    github_closed_at: data.github_closed_at !== undefined && data.github_closed_at === null
+      ? null
+      : (data.github_closed_at ? String(data.github_closed_at) : undefined),
     elaborated: data.elaborated ? String(data.elaborated) : undefined,
     merged_into: data.merged_into ? String(data.merged_into) : undefined,
     merged_from: Array.isArray(data.merged_from) ? (data.merged_from as string[]) : undefined,

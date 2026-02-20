@@ -293,6 +293,7 @@ Roadmap item: Support `^` operator for tensor concatenation...
 - Scans watched files for `- [ ]` checkboxes and `TODO:` lines
 - Generates deterministic IDs (`gh-<repo>-<number>`, `watch-<path>-<fingerprint>`)
 - Converts to individual task files, preserving existing user edits
+- Refreshes metadata for existing GitHub-backed task files (including closed state, while preserving local title edits)
 - `tasks merge` — merge duplicate/related tasks
 - `tasks duplicates` — fingerprint titles to find potential duplicates
 
@@ -667,10 +668,11 @@ ludics slot <n> preempt <task-id> [-a adapter] [-s session] [-p path]
 ludics slot <n> restore        # Restore previously preempted work
 
 # Task management
-ludics tasks sync              # Aggregate tasks and convert to task files
+ludics tasks sync              # Aggregate tasks, convert files, refresh existing GitHub task metadata
 ludics tasks list              # Show unified task list
 ludics tasks show <id>         # Show task details
 ludics tasks convert           # Convert tasks.yaml to individual task files
+ludics tasks update            # Refresh GitHub metadata for existing tasks (preserves local title edits)
 ludics tasks create <title>    # Create a new task manually
 ludics tasks files             # List individual task files
 ludics tasks needs-elaboration # List tasks needing elaboration

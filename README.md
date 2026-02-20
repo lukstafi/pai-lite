@@ -114,7 +114,7 @@ triggers:
 ludics tasks sync
 ```
 
-This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, then automatically converts them to individual `.md` task files in `harness/tasks/` with YAML frontmatter for priority, dependencies, status, etc. The flow engine reads these task files.
+This aggregates tasks from GitHub issues and README TODOs into `tasks.yaml`, automatically converts them to individual `.md` task files in `harness/tasks/`, and refreshes metadata for existing GitHub-backed tasks (including closed state). The flow engine reads these task files.
 
 ### Step 4: Verify triggers
 
@@ -215,10 +215,11 @@ notifications:
 ### Task management
 
 ```bash
-ludics tasks sync              # Aggregate tasks and convert to task files
+ludics tasks sync              # Aggregate tasks, convert files, refresh existing GitHub task metadata
 ludics tasks list              # Show unified task list
 ludics tasks show <id>         # Show task details
 ludics tasks convert           # Convert tasks.yaml to task files (also run by sync)
+ludics tasks update            # Refresh GitHub metadata for existing tasks (preserves local title edits)
 ludics tasks create <title>    # Create a new task manually
 ludics tasks files             # List individual task files
 ```

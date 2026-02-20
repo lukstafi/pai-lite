@@ -25,6 +25,13 @@ export interface TaskFrontmatter {
   source: string; // github, watch, manual
   url?: string;
   github_issue?: number;
+  github_title?: string;
+  github_repo?: string;
+  github_labels?: string;
+  github_state?: string;
+  github_state_reason?: string | null;
+  github_updated_at?: string | null;
+  github_closed_at?: string | null;
   elaborated?: string;
   merged_into?: string;
   merged_from?: string[];

@@ -45,7 +45,12 @@ Also read `$LUDICS_STATE_PATH/tasks/*.md` for full task details.
 
 2. **Check same-day status**: Look at the `## Same-Day Status` section.
    - If `Status: amend`: do a light-touch update only:
-     - Skim the context for changes since the last briefing
+     - Compute what actually changed since the last briefing before writing:
+       - Prefer git diff in state repo:
+         `git -C "$LUDICS_STATE_PATH" diff --name-only HEAD~1..HEAD -- tasks/ slots.md sessions.md mag/queue.jsonl journal/notifications.jsonl 2>/dev/null || true`
+       - If git diff is unavailable/noisy, fall back to context deltas:
+         compare `briefing-context.md` sections against existing `briefing.md`
+     - Update only sections touched by those deltas
      - Update affected sections of `$LUDICS_STATE_PATH/briefing.md` only
      - Run a lightweight slot reassignment (only newly-empty slots
        or newly-ready high-priority tasks)
@@ -154,6 +159,7 @@ Current context focus: [einsum/ocannl] - switching to [other] would incur contex
 ## Delegation Strategy
 
 - **Pre-computed data** in `briefing-context.md` (no CLI commands needed for data gathering)
+- **Git diff** (`tasks/`, `slots.md`, `sessions.md`, queue/notifications) for precise amend-mode change detection
 - **Task tool** to invoke `/ludics-elaborate` for unprocessed tasks (parallel)
 - **CLI tools** for slot operations (`ludics slot N assign`, `ludics slot N clear`)
 - **Direct analysis** for strategic reasoning, slot assignment trade-offs, suggestions

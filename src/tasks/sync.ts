@@ -5,7 +5,7 @@ import { join, dirname } from "path";
 import { loadConfigSync, harnessDir, priorityProjects, preemptAutonomy, slotsCount } from "../config.ts";
 import { slotsFilePath } from "../config.ts";
 import { parseSlotBlocks, getProcess, getTask } from "../slots/markdown.ts";
-import { writeTaskFile, updateFrontmatterField } from "./markdown.ts";
+import { writeTaskFile, updateFrontmatterField, addFrontmatterField, parseTaskFrontmatter } from "./markdown.ts";
 
 function yamlEscape(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -37,6 +37,13 @@ interface GhIssue {
   title: string;
   url: string;
   labels: { name: string }[];
+}
+
+interface GhIssueState extends GhIssue {
+  state: string;
+  stateReason?: string | null;
+  closedAt?: string | null;
+  updatedAt?: string | null;
 }
 
 async function fetchGitHubIssues(repo: string): Promise<GhIssue[]> {
@@ -96,6 +103,9 @@ export async function tasksSync(): Promise<void> {
 
   // Auto-convert to individual task files
   await tasksConvert();
+
+  // Refresh metadata and closed/open state for existing GitHub-backed task files
+  await tasksUpdate();
 
   // Queue elaboration for new ready tasks
   tasksQueueElaborations();
@@ -184,6 +194,379 @@ export async function tasksConvert(): Promise<void> {
 
   flushCurrent();
   console.log(`Created ${count} task files in ${tasksDir}`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function formatYamlScalar(value: string | number | boolean | null): string {
+  if (value === null) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return String(value);
+  return `"${yamlEscape(value)}"`;
+}
+
+function setFrontmatterScalar(filePath: string, field: string, value: string | number | boolean | null): boolean {
+  const content = readFileSync(filePath, "utf-8");
+  const rendered = formatYamlScalar(value);
+  const desiredLine = `${field}: ${rendered}`;
+  const pattern = new RegExp(`^${escapeRegExp(field)}:\\s*.*$`, "m");
+  const existingLine = content.match(pattern)?.[0];
+  if (existingLine === desiredLine) return false;
+  if (existingLine) {
+    updateFrontmatterField(filePath, field, rendered);
+  } else {
+    addFrontmatterField(filePath, field, rendered);
+  }
+  return true;
+}
+
+function parseRepoFromGitHubUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "github.com") return null;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts.length < 2) return null;
+    return `${parts[0]}/${parts[1]}`;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeState(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeStateReason(value: string | null | undefined): string {
+  return normalizeState(value).replace(/-/g, "_");
+}
+
+function closedStatusFromIssue(issue: GhIssueState): "done" | "abandoned" | null {
+  const state = normalizeState(issue.state);
+  if (state !== "closed") return null;
+  const reason = normalizeStateReason(issue.stateReason);
+  if (reason === "not_planned") return "abandoned";
+  return "done";
+}
+
+function parseIssueNumberFromTaskId(taskId: string): number | null {
+  const m = taskId.match(/-(\d+)$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fetchGitHubIssuesAll(repo: string): Map<number, GhIssueState> {
+  const result = Bun.spawnSync(
+    [
+      "gh", "issue", "list",
+      "-R", repo,
+      "--state", "all",
+      "--limit", "1000",
+      "--json", "number,title,url,labels,state,stateReason,closedAt,updatedAt",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+
+  if (result.exitCode !== 0) {
+    console.error(`ludics: failed to fetch issue metadata from ${repo}: ${result.stderr.toString().trim()}`);
+    return new Map<number, GhIssueState>();
+  }
+
+  let issues: GhIssueState[] = [];
+  try {
+    issues = JSON.parse(result.stdout.toString()) as GhIssueState[];
+  } catch {
+    console.error(`ludics: failed to parse issue metadata from ${repo}`);
+    return new Map<number, GhIssueState>();
+  }
+
+  if (issues.length >= 1000) {
+    console.error(`ludics: warning: ${repo} returned 1000 issues; results may be truncated`);
+  }
+
+  const map = new Map<number, GhIssueState>();
+  for (const issue of issues) {
+    map.set(issue.number, issue);
+  }
+  return map;
+}
+
+interface LocalTaskRecord {
+  id: string;
+  filePath: string;
+  source: string;
+  title: string;
+  githubTitle?: string;
+  status: string;
+  url?: string;
+  project: string;
+  githubIssue?: number;
+  mergedInto?: string;
+  mergedFrom: string[];
+  neighbors: Set<string>;
+}
+
+function buildDuplicateComponents(records: Map<string, LocalTaskRecord>): {
+  componentByTask: Map<string, string>;
+  membersByComponent: Map<string, string[]>;
+} {
+  const componentByTask = new Map<string, string>();
+  const membersByComponent = new Map<string, string[]>();
+
+  for (const startId of records.keys()) {
+    if (componentByTask.has(startId)) continue;
+    const stack = [startId];
+    const members: string[] = [];
+    componentByTask.set(startId, startId);
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      members.push(current);
+      const rec = records.get(current);
+      if (!rec) continue;
+      for (const next of rec.neighbors) {
+        if (!records.has(next)) continue;
+        if (componentByTask.has(next)) continue;
+        componentByTask.set(next, startId);
+        stack.push(next);
+      }
+    }
+
+    membersByComponent.set(startId, members);
+  }
+
+  return { componentByTask, membersByComponent };
+}
+
+function inferRepoForTask(
+  record: LocalTaskRecord,
+  reposBySlug: Map<string, string[]>,
+): string | null {
+  const parsed = parseRepoFromGitHubUrl(record.url);
+  if (parsed) return parsed;
+  if (!record.project) return null;
+  const candidates = reposBySlug.get(record.project) ?? [];
+  if (candidates.length === 1) return candidates[0]!;
+  return null;
+}
+
+function inferIssueNumber(record: LocalTaskRecord): number | null {
+  if (typeof record.githubIssue === "number" && Number.isFinite(record.githubIssue)) {
+    return record.githubIssue;
+  }
+  return parseIssueNumberFromTaskId(record.id);
+}
+
+function latestIso(values: Array<string | null | undefined>): string | null {
+  let latest: string | null = null;
+  for (const value of values) {
+    if (!value) continue;
+    if (!latest || value > latest) latest = value;
+  }
+  return latest;
+}
+
+export async function tasksUpdate(): Promise<void> {
+  const harness = harnessDir();
+  const tasksDir = join(harness, "tasks");
+  if (!existsSync(tasksDir)) {
+    throw new Error(`tasks directory not found: ${tasksDir} (run: ludics tasks sync)`);
+  }
+
+  const files = readdirSync(tasksDir).filter((f: string) => f.endsWith(".md"));
+  const records = new Map<string, LocalTaskRecord>();
+  for (const file of files) {
+    const filePath = join(tasksDir, file);
+    const content = readFileSync(filePath, "utf-8");
+    let fm;
+    try {
+      fm = parseTaskFrontmatter(content);
+    } catch {
+      continue;
+    }
+    if (!fm.id) continue;
+    records.set(fm.id, {
+      id: fm.id,
+      filePath,
+      source: String(fm.source ?? ""),
+      title: String(fm.title ?? ""),
+      githubTitle: fm.github_title,
+      status: String(fm.status ?? "ready"),
+      url: fm.url,
+      project: String(fm.project ?? ""),
+      githubIssue: fm.github_issue,
+      mergedInto: fm.merged_into,
+      mergedFrom: fm.merged_from ?? [],
+      neighbors: new Set<string>(),
+    });
+  }
+
+  for (const rec of records.values()) {
+    if (rec.mergedInto && records.has(rec.mergedInto)) {
+      rec.neighbors.add(rec.mergedInto);
+      records.get(rec.mergedInto)!.neighbors.add(rec.id);
+    }
+    for (const linkedId of rec.mergedFrom) {
+      if (!records.has(linkedId)) continue;
+      rec.neighbors.add(linkedId);
+      records.get(linkedId)!.neighbors.add(rec.id);
+    }
+  }
+
+  const githubRecords = Array.from(records.values()).filter((rec) => rec.source === "github" || rec.id.startsWith("gh-"));
+  if (githubRecords.length === 0) {
+    console.log("No GitHub-backed task files found");
+    return;
+  }
+
+  const config = loadConfigSync();
+  const reposBySlug = new Map<string, string[]>();
+  for (const project of (config.projects ?? [])) {
+    const slug = project.repo.split("/").pop() ?? "";
+    if (!slug) continue;
+    const existing = reposBySlug.get(slug) ?? [];
+    existing.push(project.repo);
+    reposBySlug.set(slug, existing);
+  }
+
+  const issueNumbersByRepo = new Map<string, Set<number>>();
+  let unresolvedRepo = 0;
+  let unresolvedIssue = 0;
+  for (const rec of githubRecords) {
+    const repo = inferRepoForTask(rec, reposBySlug);
+    if (!repo) {
+      unresolvedRepo++;
+      console.error(`ludics: could not infer repo for ${rec.id}; skipping`);
+      continue;
+    }
+    const issueNumber = inferIssueNumber(rec);
+    if (!issueNumber) {
+      unresolvedIssue++;
+      console.error(`ludics: could not infer issue number for ${rec.id}; skipping`);
+      continue;
+    }
+    const bucket = issueNumbersByRepo.get(repo) ?? new Set<number>();
+    bucket.add(issueNumber);
+    issueNumbersByRepo.set(repo, bucket);
+  }
+
+  const issuesByRepo = new Map<string, Map<number, GhIssueState>>();
+  for (const repo of issueNumbersByRepo.keys()) {
+    issuesByRepo.set(repo, fetchGitHubIssuesAll(repo));
+  }
+
+  const { componentByTask, membersByComponent } = buildDuplicateComponents(records);
+  const closureIntents = new Map<string, Array<{ status: "done" | "abandoned"; closedAt: string | null }>>();
+
+  let metadataUpdates = 0;
+  let stateClosures = 0;
+  let titleSynced = 0;
+  let titlePreserved = 0;
+  let matchedIssues = 0;
+  let missingOnGitHub = 0;
+  const touchedTasks = new Set<string>();
+
+  for (const rec of githubRecords) {
+    const repo = inferRepoForTask(rec, reposBySlug);
+    const issueNumber = inferIssueNumber(rec);
+    if (!repo || !issueNumber) continue;
+
+    const issue = issuesByRepo.get(repo)?.get(issueNumber);
+    if (!issue) {
+      missingOnGitHub++;
+      console.error(`ludics: issue not found in ${repo}: #${issueNumber} (${rec.id})`);
+      continue;
+    }
+    matchedIssues++;
+
+    const labelsCsv = issue.labels.map((label) => label.name).join(",");
+    const state = normalizeState(issue.state);
+    const stateReason = normalizeStateReason(issue.stateReason);
+
+    const previousRemoteTitle = rec.githubTitle;
+    const localTitle = rec.title;
+    const remoteTitle = issue.title;
+    const canAutoSyncTitle =
+      typeof previousRemoteTitle === "string" &&
+      localTitle === previousRemoteTitle;
+
+    let titleChanged = false;
+    if (canAutoSyncTitle) {
+      titleChanged = setFrontmatterScalar(rec.filePath, "title", remoteTitle);
+      if (titleChanged) {
+        titleSynced++;
+        touchedTasks.add(rec.id);
+      }
+    } else if (localTitle !== remoteTitle) {
+      // Local title diverged from remote snapshot; preserve local intent.
+      titlePreserved++;
+    }
+
+    const updates = [
+      setFrontmatterScalar(rec.filePath, "github_title", remoteTitle),
+      setFrontmatterScalar(rec.filePath, "url", issue.url),
+      setFrontmatterScalar(rec.filePath, "github_repo", repo),
+      setFrontmatterScalar(rec.filePath, "github_issue", issue.number),
+      setFrontmatterScalar(rec.filePath, "github_labels", labelsCsv),
+      setFrontmatterScalar(rec.filePath, "github_state", state || "open"),
+      setFrontmatterScalar(rec.filePath, "github_state_reason", stateReason || null),
+      setFrontmatterScalar(rec.filePath, "github_updated_at", issue.updatedAt ?? null),
+      setFrontmatterScalar(rec.filePath, "github_closed_at", issue.closedAt ?? null),
+    ];
+
+    const metadataChanged = updates.filter(Boolean).length;
+    if (metadataChanged > 0) {
+      metadataUpdates += metadataChanged;
+      touchedTasks.add(rec.id);
+    }
+
+    const closedStatus = closedStatusFromIssue(issue);
+    if (!closedStatus) continue;
+    const componentId = componentByTask.get(rec.id) ?? rec.id;
+    const intents = closureIntents.get(componentId) ?? [];
+    intents.push({ status: closedStatus, closedAt: issue.closedAt ?? null });
+    closureIntents.set(componentId, intents);
+  }
+
+  for (const [componentId, intents] of closureIntents.entries()) {
+    const closureStatus: "done" | "abandoned" = intents.some((item) => item.status === "abandoned")
+      ? "abandoned"
+      : "done";
+    const completedAt = latestIso(intents.map((item) => item.closedAt))
+      ?? new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const members = membersByComponent.get(componentId) ?? [componentId];
+
+    for (const taskId of members) {
+      const rec = records.get(taskId);
+      if (!rec) continue;
+      if (rec.status === "merged") continue;
+
+      let changed = false;
+      if (!["done", "abandoned"].includes(rec.status)) {
+        if (setFrontmatterScalar(rec.filePath, "status", closureStatus)) {
+          stateClosures++;
+          changed = true;
+        }
+      }
+      if (setFrontmatterScalar(rec.filePath, "completed", completedAt)) {
+        changed = true;
+      }
+      if (changed) touchedTasks.add(taskId);
+    }
+  }
+
+  console.log(
+    `Updated ${touchedTasks.size} task(s): ${metadataUpdates} metadata field change(s), ${titleSynced} title sync(s), ${stateClosures} closed-state status change(s)`,
+  );
+  console.log(
+    `Preserved ${titlePreserved} local title override(s)`,
+  );
+  console.log(
+    `Matched ${matchedIssues}/${githubRecords.length} GitHub-backed task(s); unresolved repo=${unresolvedRepo}, unresolved issue=${unresolvedIssue}, missing on GitHub=${missingOnGitHub}`,
+  );
 }
 
 function tasksQueueElaborations(): void {

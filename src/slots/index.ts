@@ -93,7 +93,7 @@ function taskUpdateForSlotClear(taskId: string, finalStatus: string): void {
   taskUpdateFrontmatter(taskId, "status", finalStatus);
   taskUpdateFrontmatter(taskId, "slot", "null");
 
-  if (finalStatus === "done") {
+  if (finalStatus === "done" || finalStatus === "abandoned") {
     const completed = new Date().toISOString().replace(/\.\d{3}Z$/, "Z").replace(/:\d{2}Z$/, "Z");
     taskUpdateFrontmatter(taskId, "completed", completed);
   }

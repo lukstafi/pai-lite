@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 
 import { join } from "path";
 import { harnessDir } from "../config.ts";
 import { parseTaskFrontmatter, updateFrontmatterField, addFrontmatterField } from "./markdown.ts";
-import { tasksSync, tasksConvert, tasksNeedsElaborationList, tasksQueueElaborations, contentFingerprint } from "./sync.ts";
+import { tasksSync, tasksConvert, tasksUpdate, tasksNeedsElaborationList, tasksQueueElaborations, contentFingerprint } from "./sync.ts";
 import { stateCommit } from "../state.ts";
 
 function tasksDir(): string {
@@ -345,6 +345,9 @@ export async function runTasks(args: string[]): Promise<void> {
     case "convert":
       await tasksConvert();
       break;
+    case "update":
+      await tasksUpdate();
+      break;
     case "create": {
       const title = args[1];
       if (!title) throw new Error("title required");
@@ -399,7 +402,7 @@ export async function runTasks(args: string[]): Promise<void> {
       break;
     default:
       throw new Error(
-        `unknown tasks subcommand: ${sub} (use: sync, list, show, convert, create, files, samples, needs-elaboration, check, merge, duplicates)`,
+        `unknown tasks subcommand: ${sub} (use: sync, list, show, convert, update, create, files, samples, needs-elaboration, check, merge, duplicates)`,
       );
   }
 }

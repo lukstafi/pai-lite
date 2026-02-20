@@ -91,10 +91,11 @@ Commands:
                                Preempt slot for priority task (stashes current work)
   slot <n> restore             Restore previously preempted work to slot
 
-  tasks sync                   Aggregate tasks and convert to task files
+  tasks sync                   Aggregate tasks, convert to task files, and refresh existing GitHub task metadata
   tasks list                   Show unified task list
   tasks show <id>              Show task details
   tasks convert                Convert tasks.yaml to individual task files (also run by sync)
+  tasks update                 Refresh GitHub metadata for existing tasks (preserves local title edits)
   tasks create <title> [project] [priority] [--uses-browser]
                                Create a new task manually
   tasks files                  List individual task files
