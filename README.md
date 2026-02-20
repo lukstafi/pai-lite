@@ -132,6 +132,18 @@ To reinstall or update triggers separately:
 ludics triggers install
 ```
 
+To pause ongoing scheduled activity without deleting trigger files:
+
+```bash
+ludics stop
+```
+
+To fully remove all installed trigger units/plists:
+
+```bash
+ludics stop uninstall
+```
+
 ### Step 5: Get an overview
 
 ```bash
@@ -264,6 +276,8 @@ You don't need Mag to use ludics skills. Clone your harness repository and run C
 ludics status                  # Overview of slots + tasks
 ludics briefing                # Morning briefing
 ludics init                    # Full install/update: binary, skills, hooks, triggers
+ludics stop                    # Pause scheduled trigger activity
+ludics stop uninstall          # Uninstall trigger units/plists
 ludics triggers install        # Reinstall launchd/systemd triggers only
 ludics doctor                  # Check environment and dependencies
 ludics help                    # Show help
@@ -296,6 +310,12 @@ Configure in `config.yaml` under `triggers:` and `mag:`. Then run:
 
 ```bash
 ludics triggers install
+```
+
+Stop all scheduled trigger activity:
+
+```bash
+ludics stop
 ```
 
 ## Multi-machine setup

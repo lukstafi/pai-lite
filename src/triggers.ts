@@ -4,6 +4,17 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlink
 import { join } from "path";
 import { loadConfigSync, ludicsRoot } from "./config.ts";
 
+const KNOWN_LUDICS_TRIGGER_NAMES = [
+  "startup",
+  "sync",
+  "morning",
+  "health",
+  "federation",
+  "mag",
+  "dashboard",
+  "ntfy-subscribe",
+];
+
 function binPath(): string {
   // The binary is the compiled entry point
   return join(ludicsRoot(), "bin", "ludics");
@@ -83,6 +94,8 @@ function installPlist(label: string, content: string): void {
   const plist = join(agentsDir, `${label}.plist`);
 
   writeFileSync(plist, content);
+  const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+  Bun.spawnSync(["launchctl", "enable", `gui/${uid}/${label}`], { stdout: "pipe", stderr: "pipe" });
   Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
   Bun.spawnSync(["launchctl", "load", plist], { stdout: "pipe", stderr: "pipe" });
 }
@@ -384,15 +397,100 @@ function triggersInstallLinux(): void {
   }
 }
 
+// --- Pause/Disable ---
+
+function triggersPauseMacos(): void {
+  const agentsDir = join(process.env.HOME!, "Library/LaunchAgents");
+  const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+  let foundAny = false;
+
+  for (const name of KNOWN_LUDICS_TRIGGER_NAMES) {
+    const label = `com.ludics.${name}`;
+    const plist = join(agentsDir, `${label}.plist`);
+    if (!existsSync(plist)) continue;
+    foundAny = true;
+    Bun.spawnSync(["launchctl", "disable", `gui/${uid}/${label}`], { stdout: "pipe", stderr: "pipe" });
+    Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
+    console.log(`Paused launchd trigger: ${name}`);
+  }
+
+  if (existsSync(agentsDir)) {
+    for (const f of readdirSync(agentsDir)) {
+      if (!f.startsWith("com.ludics.watch-") || !f.endsWith(".plist")) continue;
+      foundAny = true;
+      const label = f.replace(".plist", "");
+      const name = label.replace("com.ludics.", "");
+      const plist = join(agentsDir, f);
+      Bun.spawnSync(["launchctl", "disable", `gui/${uid}/${label}`], { stdout: "pipe", stderr: "pipe" });
+      Bun.spawnSync(["launchctl", "unload", plist], { stdout: "pipe", stderr: "pipe" });
+      console.log(`Paused launchd trigger: ${name}`);
+    }
+  }
+
+  if (!foundAny) {
+    console.log("No ludics launchd triggers installed");
+    return;
+  }
+
+  console.log("Ludics launchd triggers paused");
+}
+
+function triggersPauseLinux(): void {
+  const systemdDir = join(process.env.HOME!, ".config/systemd/user");
+  let foundAny = false;
+
+  for (const name of KNOWN_LUDICS_TRIGGER_NAMES) {
+    const serviceFile = join(systemdDir, `ludics-${name}.service`);
+    const timerFile = join(systemdDir, `ludics-${name}.timer`);
+    const pathFile = join(systemdDir, `ludics-${name}.path`);
+    let hasAny = false;
+
+    if (existsSync(timerFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.timer`], { stdout: "pipe", stderr: "pipe" });
+      hasAny = true;
+    }
+    if (existsSync(pathFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.path`], { stdout: "pipe", stderr: "pipe" });
+      hasAny = true;
+    }
+    if (existsSync(serviceFile)) {
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `ludics-${name}.service`], { stdout: "pipe", stderr: "pipe" });
+      hasAny = true;
+    }
+
+    if (hasAny) {
+      foundAny = true;
+      console.log(`Paused systemd trigger: ${name}`);
+    }
+  }
+
+  if (existsSync(systemdDir)) {
+    for (const f of readdirSync(systemdDir)) {
+      if (!f.startsWith("ludics-watch-") || !f.endsWith(".service")) continue;
+      const unitName = f.replace(".service", "");
+      const pathFile = join(systemdDir, `${unitName}.path`);
+      if (existsSync(pathFile)) {
+        Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.path`], { stdout: "pipe", stderr: "pipe" });
+      }
+      Bun.spawnSync(["systemctl", "--user", "disable", "--now", `${unitName}.service`], { stdout: "pipe", stderr: "pipe" });
+      foundAny = true;
+      console.log(`Paused systemd trigger: ${unitName.replace("ludics-", "")}`);
+    }
+  }
+
+  if (!foundAny) {
+    console.log("No ludics systemd triggers installed");
+    return;
+  }
+
+  console.log("Ludics systemd triggers paused");
+}
+
 // --- Uninstall ---
 
 function triggersUninstallMacos(): void {
   const agentsDir = join(process.env.HOME!, "Library/LaunchAgents");
-  const labels = [
-    "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
-    "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
-    "com.ludics.dashboard", "com.ludics.ntfy-subscribe",
-  ];
+  const labels = KNOWN_LUDICS_TRIGGER_NAMES.map((name) => `com.ludics.${name}`);
 
   for (const label of labels) {
     const plist = join(agentsDir, `${label}.plist`);
@@ -445,7 +543,7 @@ function triggersUninstallMacos(): void {
 
 function triggersUninstallLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard", "ntfy-subscribe"];
+  const names = KNOWN_LUDICS_TRIGGER_NAMES;
 
   for (const name of names) {
     const serviceFile = join(systemdDir, `ludics-${name}.service`);
@@ -529,11 +627,7 @@ function triggersUninstallLinux(): void {
 
 function triggersStatusMacos(): void {
   const agentsDir = join(process.env.HOME!, "Library/LaunchAgents");
-  const labels = [
-    "com.ludics.startup", "com.ludics.sync", "com.ludics.morning",
-    "com.ludics.health", "com.ludics.federation", "com.ludics.mag",
-    "com.ludics.dashboard", "com.ludics.ntfy-subscribe",
-  ];
+  const labels = KNOWN_LUDICS_TRIGGER_NAMES.map((name) => `com.ludics.${name}`);
 
   console.log("ludics launchd triggers:");
   console.log("");
@@ -575,7 +669,7 @@ function triggersStatusMacos(): void {
 
 function triggersStatusLinux(): void {
   const systemdDir = join(process.env.HOME!, ".config/systemd/user");
-  const names = ["startup", "sync", "morning", "health", "federation", "mag", "dashboard", "ntfy-subscribe"];
+  const names = KNOWN_LUDICS_TRIGGER_NAMES;
 
   console.log("ludics systemd triggers:");
   console.log("");
@@ -658,6 +752,20 @@ export function triggersUninstall(): void {
   }
 }
 
+export function triggersPause(): void {
+  const platform = currentPlatform();
+  switch (platform) {
+    case "Darwin":
+      triggersPauseMacos();
+      break;
+    case "Linux":
+      triggersPauseLinux();
+      break;
+    default:
+      throw new Error(`unsupported OS for triggers: ${platform}`);
+  }
+}
+
 export function triggersStatus(): void {
   const platform = currentPlatform();
   switch (platform) {
@@ -679,6 +787,10 @@ export async function runTriggers(args: string[]): Promise<void> {
     case "install":
       triggersInstall();
       break;
+    case "pause":
+    case "disable":
+      triggersPause();
+      break;
     case "uninstall":
       triggersUninstall();
       break;
@@ -687,6 +799,6 @@ export async function runTriggers(args: string[]): Promise<void> {
       triggersStatus();
       break;
     default:
-      throw new Error(`unknown triggers command: ${sub} (use: install, uninstall, status)`);
+      throw new Error(`unknown triggers command: ${sub} (use: install, pause, uninstall, status)`);
   }
 }

@@ -13,7 +13,7 @@ import { runMag } from "./mag.ts";
 import { runDashboard } from "./dashboard.ts";
 import { runNetwork } from "./network.ts";
 import { runFederation } from "./federation.ts";
-import { runTriggers } from "./triggers.ts";
+import { runTriggers, triggersPause, triggersUninstall } from "./triggers.ts";
 import { runInit } from "./init.ts";
 import { slotsList } from "./slots/index.ts";
 import { flowReady, flowCritical } from "./flow.ts";
@@ -31,6 +31,18 @@ const MIGRATED_COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   network: runNetwork,
   federation: runFederation,
   triggers: runTriggers,
+  stop: async (args) => {
+    const sub = args[0] ?? "";
+    if (sub === "" || sub === "pause" || sub === "disable" || sub === "--pause") {
+      triggersPause();
+      return;
+    }
+    if (sub === "uninstall" || sub === "--uninstall") {
+      triggersUninstall();
+      return;
+    }
+    throw new Error(`unknown stop mode: ${sub} (use: pause, uninstall)`);
+  },
   init: runInit,
   quote: async () => runQuote(),
   sync: async () => stateFullSync(),
@@ -152,7 +164,9 @@ Commands:
   briefing                     Morning briefing
   init [--no-hooks] [--no-dashboard] [--no-triggers]
                                Initialize config, harness, hooks, dashboard, and triggers
+  stop [pause|uninstall]       Stop scheduled activity (default: pause)
   triggers install             Install launchd/systemd triggers
+  triggers pause               Pause/disable triggers without deleting unit files
   triggers status              Show trigger status
   triggers uninstall           Remove all triggers
   doctor                       Check system health and dependencies

@@ -742,7 +742,9 @@ ludics network status          # Show network configuration
 
 # Setup & diagnostics
 ludics init [--no-hooks] [--no-dashboard] [--no-triggers]
+ludics stop [pause|uninstall]  # Stop scheduled trigger activity
 ludics triggers install        # Install launchd/systemd triggers
+ludics triggers pause          # Pause triggers without deleting unit files
 ludics triggers status         # Show trigger status
 ludics triggers uninstall      # Remove all triggers
 ludics doctor                  # Check system health and dependencies
