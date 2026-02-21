@@ -5,7 +5,7 @@ import { join } from "path";
 import { harnessDir, loadConfigSync, startSessionsAutonomy, slotsFilePath } from "./config.ts";
 import { listStashes } from "./slots/preempt.ts";
 import { parseSlotBlocks, getTask, getProcess } from "./slots/markdown.ts";
-import { queueRequest, queuePop, queuePending } from "./queue.ts";
+import { queueRequest, queuePop, queuePending, queueHasPendingFeedbackDigest } from "./queue.ts";
 import { getUrl } from "./network.ts";
 import { federationShouldRunMag } from "./federation.ts";
 import { journalAppend } from "./journal.ts";
@@ -23,6 +23,7 @@ import {
 
 const MAG_SESSION_NAME = process.env.LUDICS_MAG_SESSION ?? "ludics-mag";
 const MAG_DEFAULT_PORT = process.env.LUDICS_MAG_PORT ?? "7679";
+const FEEDBACK_DIGEST_COOLDOWN_SECONDS = 120;
 
 function magStateDir(): string {
   return join(harnessDir(), "mag");
@@ -67,6 +68,47 @@ function nudgeThrottled(): boolean {
 function writeNudgeTimestamp(): void {
   mkdirSync(magStateDir(), { recursive: true });
   writeFileSync(nudgeTimestampFile(), String(Math.floor(Date.now() / 1000)));
+}
+
+function feedbackDigestStateFile(): string {
+  return join(magStateDir(), "feedback-digest-last-queued.json");
+}
+
+function readFeedbackDigestQueueState(): Record<string, number> {
+  const file = feedbackDigestStateFile();
+  if (!existsSync(file)) return {};
+
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf-8")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+
+    const state: Record<string, number> = {};
+    for (const [repo, epoch] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof epoch === "number" && Number.isFinite(epoch)) {
+        state[repo] = epoch;
+      }
+    }
+    return state;
+  } catch {
+    return {};
+  }
+}
+
+function feedbackDigestCooldownRemaining(repo: string): number {
+  const lastQueued = readFeedbackDigestQueueState()[repo];
+  if (typeof lastQueued !== "number") return 0;
+
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - lastQueued;
+  if (elapsed >= FEEDBACK_DIGEST_COOLDOWN_SECONDS) return 0;
+  return FEEDBACK_DIGEST_COOLDOWN_SECONDS - Math.max(0, elapsed);
+}
+
+function markFeedbackDigestQueued(repo: string): void {
+  const state = readFeedbackDigestQueueState();
+  state[repo] = Math.floor(Date.now() / 1000);
+  mkdirSync(magStateDir(), { recursive: true });
+  writeFileSync(feedbackDigestStateFile(), JSON.stringify(state));
 }
 
 function lastCaptureHashFile(): string {
@@ -942,7 +984,22 @@ export async function runMag(args: string[]): Promise<void> {
     case "feedback-digest": {
       const repo = args[1];
       if (!repo) throw new Error("repo required (e.g., owner/repo)");
+
+      if (queueHasPendingFeedbackDigest(repo)) {
+        console.log(`Skipped feedback-digest request for ${repo}: already pending in queue`);
+        break;
+      }
+
+      const remainingCooldown = feedbackDigestCooldownRemaining(repo);
+      if (remainingCooldown > 0) {
+        console.log(
+          `Skipped feedback-digest request for ${repo}: cooldown active (${remainingCooldown}s remaining)`
+        );
+        break;
+      }
+
       queueRequest("feedback-digest", `"repo":"${repo}"`);
+      markFeedbackDigestQueued(repo);
       console.log(`Queued feedback-digest request for ${repo}`);
       break;
     }

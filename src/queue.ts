@@ -50,6 +50,27 @@ export function queuePending(): boolean {
   return content.length > 0;
 }
 
+export function queueHasPendingFeedbackDigest(repo: string): boolean {
+  const file = queueFile();
+  if (!existsSync(file)) return false;
+
+  const content = readFileSync(file, "utf-8").trim();
+  if (!content) return false;
+
+  for (const line of content.split("\n")) {
+    try {
+      const request = JSON.parse(line) as Record<string, unknown>;
+      if (request.action === "feedback-digest" && String(request.repo ?? "") === repo) {
+        return true;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
+}
+
 export function queueShow(): void {
   const file = queueFile();
   if (!existsSync(file)) {
